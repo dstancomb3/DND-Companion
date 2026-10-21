@@ -1357,28 +1357,16 @@ async function getLiveMembers(code: string) {
   return dedupeMembersWithState(members, state);
 }
 
-function memberIdentity(member: {
-  characterName: string;
-  characterClass: string;
-  maxHp: number;
-  armorClass: number;
-}) {
-  return [
-    member.characterName.trim().toLowerCase(),
-    member.characterClass.trim().toLowerCase(),
-    String(member.maxHp),
-    String(member.armorClass),
-  ].join("|");
-}
-
-function dedupeMembersWithState<T extends { id: string; characterName: string; characterClass: string; maxHp: number; armorClass: number; updatedAt: Date }>(
+// A member ID is the identity boundary. Matching names or combat stats do not
+// prove that two players are the same character.
+export function dedupeMembersWithState<T extends { id: string; characterName: string; characterClass: string; maxHp: number; armorClass: number; updatedAt: Date }>(
   members: T[],
   state: PartyCombatState
 ): T[] {
   const grouped = new Map<string, T[]>();
 
   for (const member of members) {
-    const identity = memberIdentity(member);
+    const identity = member.id;
     const current = grouped.get(identity);
     if (current) current.push(member);
     else grouped.set(identity, [member]);
@@ -1544,33 +1532,6 @@ router.put("/party/sync", async (req, res) => {
       return;
     }
 
-    const existing = await db.select().from(partyMembers)
-      .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode)));
-
-    const memberData = {
-      id: memberId,
-      partyCode,
-      characterName: characterName ?? "Unknown",
-      characterClass: characterClass ?? "Unknown",
-      currentHp: currentHp ?? 0,
-      maxHp: maxHp ?? 1,
-      tempHp: tempHp ?? 0,
-      armorClass: armorClass ?? 10,
-      conditions: conditions ?? [],
-      updatedAt: new Date(),
-    };
-
-    if (existing.length === 0) {
-      await db.insert(partyMembers).values(memberData);
-    } else {
-      await db.update(partyMembers).set(memberData).where(
-        and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))
-      );
-    }
-
-    await db.update(partySessions).set({ lastActivityAt: new Date() })
-      .where(eq(partySessions.code, partyCode));
-
     const state = await getOrHydrateCombatState(partyCode);
     const incomingSnapshotUpdatedAt =
       typeof snapshotUpdatedAt === "number" && Number.isFinite(snapshotUpdatedAt)
@@ -1611,6 +1572,33 @@ router.put("/party/sync", async (req, res) => {
         return;
       }
     }
+
+    const existing = await db.select().from(partyMembers)
+      .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode)));
+
+    const memberData = {
+      id: memberId,
+      partyCode,
+      characterName: characterName ?? "Unknown",
+      characterClass: characterClass ?? "Unknown",
+      currentHp: currentHp ?? 0,
+      maxHp: maxHp ?? 1,
+      tempHp: tempHp ?? 0,
+      armorClass: armorClass ?? 10,
+      conditions: conditions ?? [],
+      updatedAt: new Date(),
+    };
+
+    if (existing.length === 0) {
+      await db.insert(partyMembers).values(memberData);
+    } else {
+      await db.update(partyMembers).set(memberData).where(
+        and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))
+      );
+    }
+
+    await db.update(partySessions).set({ lastActivityAt: new Date() })
+      .where(eq(partySessions.code, partyCode));
 
     state.memberStatsById[memberId] = {
       speed: typeof coreStats?.speed === "number" ? Math.floor(coreStats.speed) : 30,
