@@ -1,0 +1,176 @@
+Improve the level-up system in a resource-efficient way.
+
+Goal:
+Make level-up and progression much more reliable without building the entire full DND rules universe at once.
+
+Important constraint:
+Keep this implementation lightweight and modular. Do not attempt a giant rewrite or full all-at-once dataset build. Focus on building the correct architecture first, then support a limited initial scope cleanly.
+
+What I want:
+The app should stop relying on freeform AI reasoning as the source of truth for class progression.
+Instead, build a small deterministic progression engine inside the app.
+
+The AI can still be used for explanation, recommendations, and UX help, but the actual progression logic should come from structured in-app data and explicit validation rules.
+
+Phase 1 scope only:
+Support single-class characters only.
+Do not attempt multiclassing yet.
+Do not attempt all classes/subclasses/races at once.
+Start with a small supported rules scope and make it solid.
+
+Initial supported scope:
+- Monk class only
+- Way of the Open Hand subclass included and fully supported
+- Human and Githyanki race only
+- Basic feat / ASI choice handling only where needed for monk progression
+- Monk resource scaling
+- Monk feature unlocks by level
+- Way of the Open Hand feature unlocks by level
+- Race/species traits for Human and Githyanki only where they affect sheet setup, progression checks, actions, or spell availability
+
+This is specifically so I can use it with my current character Vethra Korr for my next session, so Open Hand support needs to actually work in the app, not just exist as a placeholder.
+
+Core requirement:
+When a character levels up, the app should determine:
+1. what is gained automatically
+2. what requires player choice
+3. what can optionally be replaced
+4. what actions/resources/spells must be regenerated after level-up
+
+Required architecture:
+Create a lightweight progression system with these concepts:
+
+1. Progression data
+Add structured progression definitions in app data for:
+- Monk
+- Way of the Open Hand
+- Human
+- Githyanki
+
+This data should describe level-by-level gains.
+
+Each level entry should be able to define:
+- automatic features
+- choice-based features
+- feat or ASI unlocks
+- subclass feature unlocks
+- resource increases
+- optional replacements if any
+- action-generating features
+- passive features
+
+Race/species data for Human and Githyanki should be structured separately from class progression so race logic is not mixed into class logic.
+
+2. Level-up audit engine
+When a character levels up, the engine should compare the current character state to the expected state for that class, subclass, race/species, and level.
+
+It should produce results in these categories:
+- automatic gains
+- required choices
+- optional replacements
+- derived updates
+
+3. Guided level-up flow
+The level-up UI should walk the player through unresolved choices before marking the level-up complete.
+
+Examples of required choices:
+- choose feat or ability score improvement
+- choose subclass if needed
+- choose any monk-specific selectable features if applicable
+
+4. Derived rebuild step
+After automatic gains and choices are resolved, the app should regenerate:
+- actions
+- resources
+- counters/maxima
+- passive features if needed
+
+Do not let the AI guess these from scratch.
+Use deterministic logic from the progression data.
+
+Behavior rules:
+- Do not treat progression as a freeform AI task
+- Do not create action cards from every feature
+- Only create action cards for real usable actions, bonus actions, reactions, attacks, or activatable abilities/spells
+- Passive features and unresolved choices should not appear in the Actions tab
+
+Examples for monk:
+- Martial Arts = passive feature, not generic action card
+- Unarmored Defense = passive feature
+- Deflect Missiles = reaction or special usable feature if your app supports that timing cleanly
+- Stunning Strike = reminder or activatable rider tied to hits, not a generic passive feature
+- Flurry of Blows = bonus action option / activatable feature
+- Step of the Wind = bonus action option / activatable feature
+- Patient Defense = bonus action option / activatable feature
+- Slow Fall = reaction / special mitigation feature if supported
+- Extra Attack = passive feature that affects action generation, not a standalone action card
+
+Examples for Way of the Open Hand:
+- Open Hand Technique should be supported as a real subclass feature and handled correctly
+- Wholeness of Body should be supported if it falls within the level range being implemented
+- Open Hand features should appear in the correct section based on whether they are passive, reminders, or usable abilities
+- Subclass features should not be dumped into the Actions tab unless they are truly activatable actions/bonus actions/reactions
+
+Examples for race/species handling:
+- Human traits should be stored as race/species features, not class features
+- Githyanki traits should be stored as race/species features, not class features
+- If Githyanki grants spells or special actions, those should only generate action entries if they are actually usable actions/spells
+- Race/species features should be checked separately during character audit
+
+Implementation guidance:
+Keep this lightweight.
+Do not rewrite the whole app.
+Add a small progression module and connect it to the current level-up flow.
+
+Suggested minimal implementation plan:
+Step 1:
+Add a progression data model and a small rules dataset for:
+- Monk
+- Way of the Open Hand
+- Human
+- Githyanki
+
+Step 2:
+Add a level-up audit function that returns:
+- automatic gains
+- required choices
+- optional replacements
+- derived updates
+
+Step 3:
+Update the level-up UI so it handles these categories separately.
+
+Step 4:
+Only after level-up completion, regenerate actions/resources/features.
+
+Step 5:
+Use AI only for:
+- explaining choices
+- summarizing what changed
+- helping the player understand missing progression items
+
+Do not use AI for:
+- deciding progression truth
+- deciding what monk features unlock at a level
+- deciding what Open Hand features unlock at a level
+- deciding what race/species grants
+- deciding whether a feature is an action
+- guessing what unlocks at a given level
+
+Data expectations:
+Make the progression data easy to extend later.
+Even though only Monk, Way of the Open Hand, Human, and Githyanki are supported first, structure it so more classes, subclasses, and races can be added later without rewriting the engine.
+
+Success criteria:
+- monk level-up is more reliable
+- Way of the Open Hand progression works correctly for real use
+- monk resources scale correctly
+- monk and Open Hand feature unlocks are correctly detected
+- human and githyanki racial/species features are tracked separately and correctly
+- missing features are classified properly
+- required choices are surfaced in a guided flow
+- actions tab only contains real usable actions
+- changes are small and modular, not a giant expensive rewrite
+
+Final instruction:
+Please make the smallest effective architectural change that creates a deterministic progression engine for Monk, Way of the Open Hand, Human, and Githyanki, and wire it into the current level-up flow without overbuilding.

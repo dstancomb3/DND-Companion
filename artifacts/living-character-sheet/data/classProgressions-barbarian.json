@@ -1,0 +1,31 @@
+{
+  "Barbarian": {
+    "class": "Barbarian",
+    "isSpellcaster": false,
+    "subclassLabel": "Primal Path",
+    "subclassLevel": 3,
+    "subclasses": [
+      "Path of the Berserker",
+      "Path of the Totem Warrior",
+      "Path of the Battlerager"
+    ],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Rage", "type": "active", "description": "Enter a rage for 1 minute. While raging: advantage on STR checks/saves, +2 damage on STR melee attacks, resistance to bludgeoning/piercing/slashing damage. Rages per long rest: 2 (lv1-2), 3 (lv3-5), 4 (lv6-11), 5 (lv12-16), 6 (lv17-19), unlimited (lv20)." },
+        { "name": "Unarmored Defense", "type": "passive", "description": "While not wearing armor, your AC equals 10 + DEX modifier + CON modifier. You can use a shield and still gain this benefit." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Reckless Attack", "type": "active", "description": "When you make your first attack on your turn, you can attack recklessly — you have advantage on all melee weapon attack rolls during this turn, but attack rolls against you have advantage until your next turn." },
+        { "name": "Danger Sense", "type": "passive", "description": "You have advantage on DEX saving throws against effects you can see, such as traps and spells, while not blinded, deafened, or incapacitated." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Primal Path", "type": "choice", "description": "Choose your Primal Path subclass, which grants features at levels 3, 6, 10, and 14. Options include Path of the Berserker, Path of the Totem Warrior, Path of the Battlerager, and more." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Extra Attack", "type": "passive", "description": "You can attack twice instead of once when you take the Attack action on your turn." },
+        { "name": "Fast Movement", "type": "passive", "description": "Your speed increases by 10 feet while you aren't wearing heavy armor." }
+      ]}
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "Human": {
+    "race": "Human",
+    "features": [
+      { "name": "+1 to All Ability Scores", "description": "Your ability scores each increase by 1." }
+    ]
+  },
+  "Elf": {
+    "race": "Elf",
+    "features": [
+      { "name": "Darkvision", "description": "You can see in darkness (shades of gray) up to 60 feet." },
+      { "name": "Keen Senses", "description": "You have proficiency in the Perception skill." },
+      { "name": "Fey Ancestry", "description": "You have advantage on saving throws against being charmed, and magic can't put you to sleep." }
+    ]
+  }
+}

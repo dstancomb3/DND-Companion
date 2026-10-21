@@ -1,0 +1,447 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: party
+    description: Party and combat session operations
+  - name: ai
+    description: AI parsing and generation operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /party/create:
+    post:
+      operationId: createParty
+      tags: [party]
+      summary: Create a party
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Party created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/join/{code}:
+    post:
+      operationId: joinParty
+      tags: [party]
+      summary: Join a party by code
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Party joined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/sync:
+    put:
+      operationId: syncPartyMemberState
+      tags: [party]
+      summary: Sync member state into party runtime
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Sync accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "409":
+          description: Sync conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/members:
+    get:
+      operationId: getPartyMembers
+      tags: [party]
+      summary: Get party members
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      responses:
+        "200":
+          description: Party member list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/combat-state:
+    get:
+      operationId: getPartyCombatState
+      tags: [party]
+      summary: Get current combat state
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      responses:
+        "200":
+          description: Combat state payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/combat/apply-outcomes:
+    post:
+      operationId: applyRemoteCombatOutcomes
+      tags: [party]
+      summary: Apply bounded remote-authoritative combat outcomes
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Outcomes applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "409":
+          description: Guard conflict (turn/authority/source mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/events:
+    post:
+      operationId: postPartyEvent
+      tags: [party]
+      summary: Append a party event
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/roll-requests:
+    post:
+      operationId: createRollRequest
+      tags: [party]
+      summary: Create a party roll request
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Roll request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/roll-requests/{requestId}/respond:
+    put:
+      operationId: respondRollRequest
+      tags: [party]
+      summary: Respond to a roll request
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Roll response accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/rest-requests:
+    post:
+      operationId: createRestRequest
+      tags: [party]
+      summary: Create a rest request
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Rest request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/rest-requests/{requestId}:
+    put:
+      operationId: respondRestRequest
+      tags: [party]
+      summary: Respond to a rest request
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Rest response accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /party/{code}/rest-requests/{requestId}/ack:
+    put:
+      operationId: acknowledgeRestRequest
+      tags: [party]
+      summary: Acknowledge a completed rest request
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Rest acknowledgment accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /ai/parse-update:
+    post:
+      operationId: parseUpdate
+      tags: [ai]
+      summary: Parse free-text updates into structured character/quest deltas
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Parsed update payload
+          headers:
+            X-Idempotency-Replay:
+              $ref: "#/components/headers/IdempotencyReplay"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "409":
+          description: Idempotency conflict or in-progress response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /ai/analyze-loot:
+    post:
+      operationId: analyzeLootImage
+      tags: [ai]
+      summary: Analyze loot from an image upload
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                snarkyParseMode:
+                  oneOf:
+                    - type: boolean
+                    - type: string
+                    - type: number
+              required:
+                - image
+      responses:
+        "200":
+          description: Loot analysis payload
+          headers:
+            X-Idempotency-Replay:
+              $ref: "#/components/headers/IdempotencyReplay"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "409":
+          description: Idempotency conflict or in-progress response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /ai/parse-quest-update:
+    post:
+      operationId: parseQuestUpdate
+      tags: [ai]
+      summary: Parse world journal text into quest and lore updates
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Quest update payload
+          headers:
+            X-Idempotency-Replay:
+              $ref: "#/components/headers/IdempotencyReplay"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "409":
+          description: Idempotency conflict or in-progress response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /ai/repair-import:
+    post:
+      operationId: repairImport
+      tags: [ai]
+      summary: Attempt to repair malformed import payload into a character snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rawText:
+                  type: string
+              required:
+                - rawText
+      responses:
+        "200":
+          description: Repaired snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+  /ai/level-up:
+    post:
+      operationId: getLevelUpData
+      tags: [ai]
+      summary: Generate level-up recommendations and derived progression metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Level-up payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+components:
+  parameters:
+    PartyCode:
+      name: code
+      in: path
+      required: true
+      schema:
+        type: string
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: X-Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional idempotency key for replay-safe AI calls
+  headers:
+    IdempotencyReplay:
+      description: Present and true when response body is a replayed idempotent result
+      schema:
+        type: string
+        enum: ["true"]
+  schemas:
+    GenericObject:
+      type: object
+      additionalProperties: true
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+

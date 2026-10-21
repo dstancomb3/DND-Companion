@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "./artifacts/living-character-sheet/*"
+      ]
+    }
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./lib/db"
+    },
+    {
+      "path": "./lib/api-client-react"
+    },
+    {
+      "path": "./lib/api-zod"
+    },
+  ]
+}

@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "fRscgjxyr148Ey0x7SmPZ"
+uri = "file://artifacts/living-character-sheet/assets/images/icon.png"
+type = "image"
+title = "dnd character sheet app icon"

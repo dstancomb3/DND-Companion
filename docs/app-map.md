@@ -1,0 +1,101 @@
+# App Map: Character Companion
+
+This is the canonical, code-grounded map of the repo after Phases 1-8.
+Use this first to locate authority boundaries before editing.
+
+## Top-Level Domains
+
+- Client app: artifacts/living-character-sheet/
+- API server: artifacts/api-server/
+- Shared libraries: lib/
+- Data: data/
+- Scripts: scripts/
+- Overrides: customData/overrides/
+
+## Authority Boundaries
+
+- UI and local UX orchestration: artifacts/living-character-sheet/
+- Server route authority and conflict checks: artifacts/api-server/src/routes/
+- Schema/API contract authority: lib/api-zod/ and lib/api-spec/openapi.yaml
+- Persistence adapters: lib/db/
+
+## High-Use Client Contexts
+
+- Character and progression: artifacts/living-character-sheet/context/CharacterContext.tsx
+- Combat outcomes and local authority gating: artifacts/living-character-sheet/context/CombatContext.tsx
+- Party session/member sync: artifacts/living-character-sheet/context/PartyContext.tsx
+- Deferred AI replay and retry queue: artifacts/living-character-sheet/context/SyncContext.tsx
+- Mutation history and undo/redo: artifacts/living-character-sheet/context/MutationHistoryContext.tsx
+
+## Key Product Surfaces
+
+- Character flows: app/characters.tsx, app/create-character.tsx, app/edit-character.tsx
+- Sheet and combat-facing UI: app/(tabs)/sheet.tsx and components/sheet/
+- Quick update and AI parse/apply: app/(tabs)/quick-update.tsx
+- Party and events: app/party.tsx, app/party-events.tsx, app/dm-party.tsx
+- DM tools: app/dm-item.tsx, app/dm-monsters.tsx, app/dm-npc.tsx, app/dm-notes.tsx
+- Adventure / AI DM Phase 1 (bounded one-off shell):
+  - Landing IA entry: artifacts/living-character-sheet/app/landing.tsx
+  - Adventure route shell: artifacts/living-character-sheet/app/adventure/_layout.tsx
+  - Adventure home: artifacts/living-character-sheet/app/adventure/index.tsx
+  - New adventure one-off setup route: artifacts/living-character-sheet/app/adventure/new.tsx
+  - Saved sessions scaffold route: artifacts/living-character-sheet/app/adventure/sessions.tsx
+  - Active one-off session shell route: artifacts/living-character-sheet/app/adventure/session/[sessionId].tsx
+  - Shared route defs: artifacts/living-character-sheet/utils/aiDmRouteDefs.ts
+  - One-off setup/session helpers: artifacts/living-character-sheet/utils/adventure/aiDmOneOffSessionBootstrap.ts, artifacts/living-character-sheet/utils/adventure/aiDmOneOffSessionGuidance.ts, artifacts/living-character-sheet/utils/adventure/aiDmSessionFeedScaffold.ts, artifacts/living-character-sheet/utils/adventure/aiDmOneOffToolBridge.ts, artifacts/living-character-sheet/utils/adventure/aiDmOneOffOutcomeScaffold.ts
+  - Campaign scaffold foundation helpers (bounded Phase 11): artifacts/living-character-sheet/utils/adventure/aiDmCampaignSessionBootstrap.ts
+  - One-off handoff submit helper: artifacts/living-character-sheet/utils/adventure/aiDmOneOffHandoffApi.ts
+  - Campaign scaffold submit helper: artifacts/living-character-sheet/utils/adventure/aiDmCampaignScaffoldApi.ts
+  - Campaign continuation submit helper: artifacts/living-character-sheet/utils/adventure/aiDmCampaignContinuationApi.ts
+  - One-off session UI shell components: artifacts/living-character-sheet/components/adventure/session/AiDmOneOffSetupForm.tsx, artifacts/living-character-sheet/components/adventure/session/AiDmSessionFeedShell.tsx, artifacts/living-character-sheet/components/adventure/session/AiDmSessionInputComposer.tsx, artifacts/living-character-sheet/components/adventure/session/AiDmSessionQuickActionsRow.tsx, artifacts/living-character-sheet/components/adventure/session/AiDmCombatSubmodePanel.tsx, artifacts/living-character-sheet/components/adventure/session/AiDmSessionOutcomeShell.tsx
+  - Shared AI DM contracts: artifacts/living-character-sheet/types/aiDmContracts.ts, artifacts/living-character-sheet/types/aiDmStyle.ts, artifacts/living-character-sheet/types/aiDmJournal.ts, artifacts/living-character-sheet/types/aiDmPolicy.ts
+  - Session-awareness placeholder UI: artifacts/living-character-sheet/components/adventure/
+
+## Adventure / AI DM Current Boundary
+
+- Current Adventure includes a bounded local one-off session shell (setup, deterministic feed, quick actions, bounded combat panel hooks, and local outcome shell state).
+- Current Adventure also includes a bounded campaign scaffold session contract path (deterministic local campaign session metadata and campaign scaffold feed seed) without server orchestration authority.
+- Current Adventure now also includes bounded campaign scaffold ingest submission from the session shell to a dedicated campaign scaffold ingest endpoint, with idempotency safety and no orchestration authority migration.
+- Current Adventure now also includes a bounded campaign continuation ingest endpoint contract (`campaign-continuation.v1`) with endpoint-scoped idempotency protections and no runtime-orchestration authority migration.
+- Adventure now also includes server-backed campaign continuation snapshot persistence with in-process fallback when the table or database is unavailable; this preserves the existing continuation submit/read contract without broad orchestration migration.
+- Adventure still does not provide persisted AI DM session orchestration, server AI runtime authority, or broad supporting-screen runtime integration.
+
+## Key Server Routes and Libraries
+
+- AI parsing routes: artifacts/api-server/src/routes/ai/index.ts
+- Adventure one-off, campaign scaffold, and campaign continuation ingest routes: artifacts/api-server/src/routes/adventure.ts
+- Adventure campaign continuation snapshot read route (`GET /api/adventure/campaign-continuations/:sessionId`): artifacts/api-server/src/routes/adventure.ts
+- Adventure live campaign runtime turn route (`POST /api/adventure/campaign-runtime/turn`): artifacts/api-server/src/routes/adventure.ts
+- Adventure campaign continuation snapshot store: artifacts/api-server/src/lib/campaignContinuationStore.ts
+- AI idempotency boundary helpers: artifacts/api-server/src/lib/aiIdempotencyStore.ts, artifacts/api-server/src/lib/aiIdempotencyHash.ts
+- Party sync/conflict handling: artifacts/api-server/src/routes/party.ts
+- Member sync guard: artifacts/api-server/src/lib/partySyncGuard.ts
+- Party runtime normalization: artifacts/api-server/src/lib/partyRuntimeSchema.ts
+- Adventure continuation snapshot schema: lib/db/src/schema/adventure.ts
+
+## Focused API Server Safety Tests
+
+- Remote apply authority/safety tests: artifacts/api-server/src/routes/party.remote-apply-route.test.ts
+- AI idempotency route safety tests: artifacts/api-server/src/routes/ai/idempotency-route-safety.test.ts
+
+## Notable Phase 6-8 Surfaces
+
+- Progression/rules derivation and guardrails:
+  - artifacts/living-character-sheet/data/progression/engine.ts
+  - artifacts/living-character-sheet/rules/engine.ts
+  - artifacts/living-character-sheet/rules/registry.ts
+- State/sync hardening and replay safety:
+  - artifacts/living-character-sheet/utils/aiQueue.ts
+  - artifacts/living-character-sheet/utils/mutationUndo.ts
+  - artifacts/living-character-sheet/utils/partyApi.ts
+- Monster compendium cache/performance hardening:
+  - artifacts/living-character-sheet/utils/monsterApi.ts
+  - artifacts/living-character-sheet/app/dm-monsters.tsx
+
+## Migration and Partial Zones
+
+- Combat runtime remains conservative/partial for remote mutation authority.
+- Quest graph workflows are implemented with deferred-review paths, not full end-to-end automation.
+- Schema convergence and legacy compatibility remain in progress.
+
+See docs/feature-status.md and docs/migrations.md for completion state and deferred backlog.

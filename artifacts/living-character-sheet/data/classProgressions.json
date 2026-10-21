@@ -1,0 +1,369 @@
+{
+  "Artificer": {
+    "class": "Artificer",
+    "isSpellcaster": true,
+    "casterType": "half",
+    "spellcastingAbility": "INT",
+    "spellLearningType": "known",
+    "subclassLabel": "Specialist (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Alchemist", "Armorer", "Artillerist", "Battle Smith"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Spellcasting", "type": "spellcasting", "description": "You know 2 cantrips and 4 artificer spells. INT is your spellcasting ability." },
+        { "name": "Magical Tinkering", "type": "passive", "description": "Imbue mundane objects with magical effects; up to 2 infusions active simultaneously." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Infuse Item", "type": "active", "description": "Gain 4 infusion slots. Create magical infusions on items to grant them special powers." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Artificer Specialist", "type": "choice", "description": "Choose your specialist: Alchemist, Armorer, Artillerist, or Battle Smith." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Infuse Item (+1)", "type": "passive", "description": "Your infusion slots increase to 5." }
+      ]}
+    ]
+  },
+  "Barbarian": {
+    "class": "Barbarian",
+    "isSpellcaster": false,
+    "subclassLabel": "Primal Path (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Path of the Berserker", "Path of the Totem Warrior", "Path of the Ancestral Guardian", "Path of the Storm Herald", "Path of the Zealot", "Path of the Beast", "Path of Wild Magic", "Path of the Battlerager"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Rage", "type": "active", "description": "Enter a rage for 1 minute as bonus action. Advantage on STR checks/saves, +2 damage (STR melee), resistance to B/P/S. 2 rages/long rest." },
+        { "name": "Unarmored Defense", "type": "passive", "description": "While not wearing armor, AC = 10 + DEX mod + CON mod." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Reckless Attack", "type": "active", "description": "Make melee attacks with advantage; attacks against you have advantage until next turn." },
+        { "name": "Danger Sense", "type": "passive", "description": "Advantage on DEX saves against effects you can see." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Primal Path", "type": "choice", "description": "Choose a Primal Path subclass granting features at 3, 6, 10, 14." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Extra Attack", "type": "passive", "description": "Attack twice when taking Attack action." },
+        { "name": "Fast Movement", "type": "passive", "description": "Speed +10 ft while not in heavy armor." }
+      ]}
+    ]
+  },
+  "Bard": {
+    "class": "Bard",
+    "isSpellcaster": true,
+    "casterType": "full",
+    "spellcastingAbility": "CHA",
+    "spellLearningType": "known",
+    "subclassLabel": "Bard College (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["College of Lore", "College of Valor", "College of Glamour", "College of Swords", "College of Whispers", "College of Creation", "College of Eloquence"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Know 2 cantrips and 4 bard spells. CHA is your spellcasting ability." },
+        { "name": "Bardic Inspiration", "type": "active", "description": "As bonus action, grant creature within 60ft a d6 Bardic die to add to ability check/attack/save within 10 min." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Jack of All Trades", "type": "passive", "description": "Add half proficiency (rounded down) to non-proficient ability checks." },
+        { "name": "Song of Rest", "type": "passive", "description": "Creatures regain +1d6 HP during short rests while hearing you." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Bard College", "type": "choice", "description": "Choose a Bard College granting features at 3, 6, 14." },
+        { "name": "Expertise", "type": "passive", "description": "Choose 2 skill proficiencies; proficiency bonus is doubled for those." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Bardic Inspiration (d8)", "type": "passive", "description": "Your Bardic die improves to d8; regain uses on short or long rest." },
+        { "name": "Font of Inspiration", "type": "passive", "description": "Regain Bardic Inspiration uses on short rest instead of only long rest." }
+      ]}
+    ]
+  },
+  "Blood Hunter": {
+    "class": "Blood Hunter",
+    "isSpellcaster": false,
+    "subclassLabel": "Order (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Order of the Ghostslayer", "Order of the Lycan", "Order of the Mutant", "Order of the Profane Soul"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Blood Hunter Quick Build", "type": "passive", "description": "Specialize in hunting supernatural creatures with hemocraft talents." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Blood Maledict", "type": "active", "description": "Spend blood to curse foes with hexes." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Blood Hunter Order", "type": "choice", "description": "Choose an Order granting features and special hemocraft abilities." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Eldritch Sight", "type": "passive", "description": "See magical auras and extraplanar presences." }
+      ]}
+    ]
+  },
+  "Cleric": {
+    "class": "Cleric",
+    "isSpellcaster": true,
+    "casterType": "full",
+    "spellcastingAbility": "WIS",
+    "spellLearningType": "prepared",
+    "subclassLabel": "Divine Domain (lv 1)",
+    "subclassLevel": 1,
+    "subclasses": ["Arcana Domain", "Death Domain", "Forge Domain", "Grave Domain", "Knowledge Domain", "Life Domain", "Light Domain", "Nature Domain", "Order Domain", "Peace Domain", "Tempest Domain", "Trickery Domain", "Twilight Domain", "War Domain"],
+    "progression": [
+      { "level": 1, "subclass": true, "features": [
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Prepare spells from cleric list (WIS + subclass level); WIS is your spellcasting ability." },
+        { "name": "Divine Domain", "type": "choice", "description": "Choose a Divine Domain granting channel divinity use and domain spells." },
+        { "name": "Channel Divinity", "type": "active", "description": "Use divine power to turn undead or invoke domain-specific effects." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Channel Divinity (Turn Undead)", "type": "active", "description": "Force undead within 30 ft to make WIS save or flee." }
+      ]},
+      { "level": 3, "features": [
+        { "name": "Destroy Undead", "type": "passive", "description": "Undead that fail your Channel Divinity are destroyed." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Destroy Undead (Level 1)", "type": "passive", "description": "Improve undead destruction (CR 1/8 and below)." }
+      ]}
+    ]
+  },
+  "Druid": {
+    "class": "Druid",
+    "isSpellcaster": true,
+    "casterType": "full",
+    "spellcastingAbility": "WIS",
+    "spellLearningType": "prepared",
+    "subclassLabel": "Druid Circle (lv 2)",
+    "subclassLevel": 2,
+    "subclasses": ["Circle of the Land", "Circle of the Moon", "Circle of Dreams", "Circle of the Shepherd", "Circle of Spores", "Circle of Stars", "Circle of Wildfire"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Druidic", "type": "passive", "description": "Know Druidic language; write in it to conceal messages." },
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Prepare spells from druid list (WIS + level/3); WIS is your spellcasting ability." }
+      ]},
+      { "level": 2, "subclass": true, "features": [
+        { "name": "Wild Shape", "type": "active", "description": "Transform into beasts (CR ≤ 1/4, max 1 hr); 2 uses/short rest." },
+        { "name": "Druid Circle", "type": "choice", "description": "Choose a Circle granting features and Wild Shape variants." }
+      ]},
+      { "level": 3, "features": [
+        { "name": "Wild Shape (Improvement)", "type": "passive", "description": "Increase beast forms and use frequency." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Wild Shape (CR +1 increase)", "type": "passive", "description": "Can assume forms with higher CR." }
+      ]}
+    ]
+  },
+  "Fighter": {
+    "class": "Fighter",
+    "isSpellcaster": false,
+    "subclassLabel": "Martial Archetype (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Champion", "Battle Master", "Eldritch Knight", "Arcane Archer", "Banneret", "Cavalier", "Echo Knight", "Psi Warrior", "Rune Knight", "Samurai"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Fighting Style", "type": "passive", "description": "Choose a fighting style: Archery, Defense, Dueling, Great Weapon Fighting, or Two-Weapon Fighting." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Second Wind", "type": "active", "description": "As bonus action, regain 1d10 + level HP; 1 use per short rest." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Martial Archetype", "type": "choice", "description": "Choose a Martial Archetype granting features at 3, 7, 10, 15, 18." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Extra Attack", "type": "passive", "description": "Attack twice when taking Attack action." }
+      ]}
+    ]
+  },
+  "Monk": {
+    "class": "Monk",
+    "isSpellcaster": false,
+    "subclassLabel": "Monastic Tradition (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Way of the Open Hand", "Way of Shadow", "Way of the Four Elements", "Way of the Drunken Master", "Way of the Kensei", "Way of the Sun Soul", "Way of Mercy", "Way of the Astral Self"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Unarmored Defense", "type": "passive", "description": "AC = 10 + DEX mod + WIS mod while unarmored." },
+        { "name": "Martial Arts", "type": "passive", "description": "Use DEX for unarmed strikes; d4 damage; bonus action unarmed after Attack." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Ki", "type": "active", "description": "Ki points = level; spend to fuel Flurry/Patient Defense/Step of Wind; short rest recharge." },
+        { "name": "Flurry of Blows", "type": "active", "description": "Spend 1 ki for 2 bonus action unarmed strikes after Attack." },
+        { "name": "Patient Defense", "type": "active", "description": "Spend 1 ki to Dodge as bonus action." },
+        { "name": "Step of the Wind", "type": "active", "description": "Spend 1 ki to Disengage/Dash as bonus action; jump distance doubled." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Monastic Tradition", "type": "choice", "description": "Choose a Tradition granting features at 3, 6, 11, 17." },
+        { "name": "Deflect Missiles", "type": "active", "description": "Reduce ranged damage by 1d10 + DEX + level; catch & throw back for 1d6 + DEX (1 ki)." }
+      ]},
+      { "level": 4, "asi": true, "features": [
+        { "name": "Stunning Strike", "type": "active", "description": "Spend 1 ki after unarmed hit; target CON save or stunned until end of your next turn." }
+      ]},
+      { "level": 5, "features": [
+        { "name": "Extra Attack", "type": "passive", "description": "Attack twice when taking Attack action." },
+        { "name": "Martial Arts (d6)", "type": "passive", "description": "Your martial arts die improves to d6." }
+      ]}
+    ]
+  },
+  "Paladin": {
+    "class": "Paladin",
+    "isSpellcaster": true,
+    "casterType": "half",
+    "spellcastingAbility": "CHA",
+    "spellLearningType": "prepared",
+    "subclassLabel": "Sacred Oath (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Oath of Devotion", "Oath of the Ancients", "Oath of Vengeance", "Oath of Conquest", "Oath of Redemption", "Oath of Glory", "Oath of the Watchers", "Oathbreaker", "Oath of the Crown"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Divine Sense", "type": "passive", "description": "Sense celestials/fiends/undead within 60 ft." },
+        { "name": "Lay on Hands", "type": "active", "description": "Touch a creature to restore hit points up to your level × 5; can cure diseases/poisons." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Fighting Style", "type": "passive", "description": "Choose Dueling, Great Weapon Fighting, Defense, or Two-Weapon Fighting." },
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Prepare CHA + level/2 spells (min 1) from paladin list; CHA is your spellcasting ability." },
+        { "name": "Divine Smite", "type": "active", "description": "Spend spell slots to add 1d8 radiant damage per slot level (max 5d8) to melee hits." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Sacred Oath", "type": "choice", "description": "Swear an oath granting features, spells, and Divine Wrath (channel divinity)." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Extra Attack", "type": "passive", "description": "Attack twice when taking Attack action." }
+      ]}
+    ]
+  },
+  "Ranger": {
+    "class": "Ranger",
+    "isSpellcaster": true,
+    "casterType": "half",
+    "spellcastingAbility": "WIS",
+    "spellLearningType": "known",
+    "subclassLabel": "Ranger Archetype (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Hunter", "Beast Master", "Gloom Stalker", "Horizon Walker", "Monster Slayer", "Fey Wanderer", "Swarmkeeper"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Favored Enemy", "type": "passive", "description": "Choose a creature type; advantage on WIS checks to track & INT checks to recall lore about it." },
+        { "name": "Natural Explorer", "type": "passive", "description": "Choose a terrain; double proficiency for navigation, tracking, and related checks." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Fighting Style", "type": "passive", "description": "Choose Archery, Defense, Dueling, or Two-Weapon Fighting." },
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Know WIS modifier ranger spells from your known list; WIS is your spellcasting ability." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Ranger Archetype", "type": "choice", "description": "Choose an archetype granting features and specialized hunter abilities." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Extra Attack", "type": "passive", "description": "Attack twice when taking Attack action." }
+      ]}
+    ]
+  },
+  "Rogue": {
+    "class": "Rogue",
+    "isSpellcaster": false,
+    "subclassLabel": "Roguish Archetype (lv 3)",
+    "subclassLevel": 3,
+    "subclasses": ["Thief", "Assassin", "Arcane Trickster", "Inquisitive", "Mastermind", "Scout", "Swashbuckler", "Phantom", "Soulknife"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Expertise", "type": "passive", "description": "Choose 2 skills; proficiency bonus is doubled for those." },
+        { "name": "Sneak Attack", "type": "passive", "description": "Deal +1d6 damage to a target once per turn if you have advantage or an ally nearby." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Cunning Action", "type": "active", "description": "Bonus action to Dash, Disengage, or Hide on each turn." }
+      ]},
+      { "level": 3, "subclass": true, "features": [
+        { "name": "Roguish Archetype", "type": "choice", "description": "Choose an archetype granting skills, features, and special abilities." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Uncanny Dodge", "type": "active", "description": "Reaction to halve damage from an attack you can see." }
+      ]}
+    ]
+  },
+  "Sorcerer": {
+    "class": "Sorcerer",
+    "isSpellcaster": true,
+    "casterType": "full",
+    "spellcastingAbility": "CHA",
+    "spellLearningType": "known",
+    "subclassLabel": "Sorcerous Origin (lv 1)",
+    "subclassLevel": 1,
+    "subclasses": ["Draconic Bloodline", "Wild Magic", "Aberrant Mind", "Clockwork Soul", "Divine Soul", "Shadow Magic", "Storm Sorcery"],
+    "progression": [
+      { "level": 1, "subclass": true, "features": [
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Know 2 cantrips and 2 sorcerer spells; CHA is your spellcasting ability." },
+        { "name": "Sorcerous Origin", "type": "choice", "description": "Choose your magical origin granting spells and features." },
+        { "name": "Sorcery Points", "type": "passive", "description": "Points = level; use for spell slots, Quickened Spell, Twinned Spell, Metamagic." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Font of Magic", "type": "active", "description": "Convert sorcery points to 1st-level spell slots or vice versa (1:1 ratio)." }
+      ]},
+      { "level": 3, "features": [
+        { "name": "Metamagic", "type": "active", "description": "Learn 2 of 7 metamagic options (Quickened, Twinned, Subtle, Extended, Heightened, etc.) to modify spells." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Sorcery Points (+1)", "type": "passive", "description": "Sorcery point pool increases." }
+      ]}
+    ]
+  },
+  "Warlock": {
+    "class": "Warlock",
+    "isSpellcaster": true,
+    "casterType": "warlock",
+    "spellcastingAbility": "CHA",
+    "spellLearningType": "known",
+    "subclassLabel": "Otherworldly Patron (lv 1)",
+    "subclassLevel": 1,
+    "subclasses": ["The Archfey", "The Fiend", "The Great Old One", "The Celestial", "The Hexblade", "The Fathomless", "The Genie", "The Undead", "The Undying"],
+    "progression": [
+      { "level": 1, "subclass": true, "features": [
+        { "name": "Otherworldly Patron", "type": "choice", "description": "Form a pact with an entity granting pact spells and invocation options." },
+        { "name": "Pact Magic", "type": "spellcasting", "description": "Cast spells using Pact Magic slots (recharge on short rest); know CHA-based warlock spells." },
+        { "name": "Eldritch Invocations", "type": "passive", "description": "Learn 2 invocations granting spell-like effects, passive benefits, or special abilities." }
+      ]},
+      { "level": 2, "features": [
+        { "name": "Eldritch Invocations (+1)", "type": "passive", "description": "Learn an additional invocation (3 total)." }
+      ]},
+      { "level": 3, "features": [
+        { "name": "Pact Boon", "type": "passive", "description": "Choose Pact of the Chain, Tome, Blade, or Talisman, granting special benefits." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Eldritch Invocations (+1)", "type": "passive", "description": "Learn an additional invocation (4 total)." }
+      ]}
+    ]
+  },
+  "Wizard": {
+    "class": "Wizard",
+    "isSpellcaster": true,
+    "casterType": "full",
+    "spellcastingAbility": "INT",
+    "spellLearningType": "prepared",
+    "subclassLabel": "Arcane Tradition (lv 2)",
+    "subclassLevel": 2,
+    "subclasses": ["School of Abjuration", "School of Conjuration", "School of Divination", "School of Enchantment", "School of Evocation", "School of Illusion", "School of Necromancy", "School of Transmutation", "Bladesinging", "Chronurgy Magic", "Graviturgy Magic", "Order of Scribes", "War Magic"],
+    "progression": [
+      { "level": 1, "features": [
+        { "name": "Spellcasting", "type": "spellcasting", "description": "Prepare INT + level spells from wizard list; INT is your spellcasting ability; know 6 cantrips/spells." },
+        { "name": "Spellbook", "type": "passive", "description": "Keep a grimoire; learn 2 new spells when gaining levels." },
+        { "name": "Arcane Recovery", "type": "active", "description": "Upon finishing short rest, recover spell slots totaling up to level/2 (rounded down)." }
+      ]},
+      { "level": 2, "subclass": true, "features": [
+        { "name": "Arcane Tradition", "type": "choice", "description": "Choose an Arcane Tradition school granting features and savant abilities." }
+      ]},
+      { "level": 3, "features": [
+        { "name": "Tradition Feature", "type": "passive", "description": "Gain additional feature from your chosen tradition." }
+      ]},
+      { "level": 4, "asi": true, "features": [] },
+      { "level": 5, "features": [
+        { "name": "Spell Mastery Preparation", "type": "passive", "description": "Begin learning to master 1st-level and cantrips for casting without prep slots." }
+      ]}
+    ]
+  }
+}

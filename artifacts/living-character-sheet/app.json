@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "D&D Companion",
+    "slug": "living-character-sheet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/appicon.png",
+    "scheme": "living-character-sheet",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/appicon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F1117"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "favicon": "./assets/images/appicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "Living Character Sheet"
+version = "1.0.0"
+id = "artifacts/living-character-sheet"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 24963
+
+[services.development]
+run = "pnpm --filter @workspace/living-character-sheet run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/living-character-sheet", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/living-character-sheet", "run", "serve" ]
+
+[services.env]
+PORT = "24963"
+BASE_PATH = "/"
