@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const partySessions = pgTable("party_sessions", {
   code: text("code").primaryKey(),
+  hostTokenHash: text("host_token_hash"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastActivityAt: timestamp("last_activity_at").notNull().defaultNow(),
 });

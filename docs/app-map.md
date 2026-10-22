@@ -103,3 +103,9 @@ See docs/feature-status.md and docs/migrations.md for completion state and defer
 ## Proposed Runtime Convergence Plan
 
 See [AI DM + Deterministic Combat Convergence Plan](ai-dm-combat-convergence-plan.md) for the proposed staged roadmap, authority invariants, durable roll handshake, and fire-immunity/reflection acceptance fixture. This is planning guidance, not a shipped-feature claim. After audit fixes, start with Phase 0 baseline/authority mapping and Phase 1.1 roll-stall diagnosis before gameplay changes.
+
+## Party host capability (disband only)
+
+- Server credential hashing: `artifacts/api-server/src/lib/partyHostToken.ts`; route checks remain in `routes/party.ts`.
+- Shared client creation/disband adapter: `artifacts/living-character-sheet/utils/partyHostApi.ts`, wired through `utils/partyApi.ts`.
+- Schema rollout and remaining authorization gaps: [Party host permissions](party-host-permissions.md).

@@ -1,3 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { partyHostApi } from "./partyHostApi";
 import { API_BASE_URL } from "./apiUrl";
 import type { CampaignLocation, NpcPerson, Quest, Companion, InventoryItem } from "@/types";
 import type { CombatTargetResolutionResult } from "@/types/combatOutcome";
@@ -385,9 +387,8 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export async function createParty(): Promise<{ code: string }> {
-  return apiRequest<{ code: string }>("/party/create", { method: "POST" });
-}
+const hostApi = partyHostApi(apiRequest, AsyncStorage);
+export const createParty = hostApi.createParty;
 
 export async function joinParty(code: string): Promise<{ code: string; memberCount: number }> {
   return apiRequest<{ code: string; memberCount: number }>(`/party/join/${code}`, { method: "POST" });
@@ -417,11 +418,7 @@ export async function leaveParty(memberId: string, partyCode: string): Promise<v
   });
 }
 
-export async function disbandParty(code: string): Promise<void> {
-  await apiRequest(`/party/${code}/disband`, {
-    method: "POST",
-  });
-}
+export const disbandParty = hostApi.disbandParty;
 
 export async function fetchPartyCombatState(code: string): Promise<PartyCombatState> {
   return apiRequest<PartyCombatState>(`/party/${code}/combat-state`);
