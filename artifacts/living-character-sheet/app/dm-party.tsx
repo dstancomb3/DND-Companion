@@ -1532,6 +1532,7 @@ export default function DmPartyScreen() {
     }
     setStartingInitiative(true);
     try {
+      setError(null);
       const initiativeStartResult = await startPartyInitiative(
         watchedCode,
         false,
@@ -1547,6 +1548,8 @@ export default function DmPartyScreen() {
         });
       }
       await refreshCombat(watchedCode);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to start initiative.");
     } finally {
       setStartingInitiative(false);
     }

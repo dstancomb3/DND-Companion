@@ -425,24 +425,16 @@ export async function fetchPartyCombatState(code: string): Promise<PartyCombatSt
   return apiRequest<PartyCombatState>(`/party/${code}/combat-state`);
 }
 
-export async function startPartyInitiative(
-  code: string,
-  includeEnvironment = true,
-  targetMemberIds?: string[],
-  targetNpcIds?: string[]
-): Promise<{
+export interface PartyInitiativeStartResult {
   ok: true;
   battleId: string;
   currentTurnId: string | null;
   currentTurnIdByBattle: Record<string, string | null>;
   turnOrder: string[];
   battleTurnOrderById: Record<string, string[]>;
-}> {
-  return apiRequest(`/party/${code}/initiative/start`, {
-    method: "POST",
-    body: JSON.stringify({ includeEnvironment, targetMemberIds, targetNpcIds }),
-  });
 }
+
+export const startPartyInitiative = hostApi.startPartyInitiative;
 
 export async function addCombatNpc(
   code: string,
@@ -506,23 +498,9 @@ export async function removeCombatNpc(code: string, npcId: string): Promise<void
   });
 }
 
-export async function endEncounter(code: string, battleId: string): Promise<void> {
-  await apiRequest(`/party/${code}/encounters/${battleId}`, {
-    method: "DELETE",
-  });
-}
+export const endEncounter = hostApi.endEncounter;
 
-export async function addToEncounter(
-  code: string,
-  battleId: string,
-  memberIds: string[],
-  npcIds: string[]
-): Promise<void> {
-  await apiRequest(`/party/${code}/encounters/${battleId}/participants`, {
-    method: "POST",
-    body: JSON.stringify({ memberIds, npcIds }),
-  });
-}
+export const addToEncounter = hostApi.addToEncounter;
 
 export async function rollNpcInitiative(
   code: string,

@@ -83,3 +83,31 @@ intact; server rollback reopens the authorization gap. No deployment or connecte
 DB write was performed. O02 remains partial: sixteen mutation handlers, read
 privacy, concurrent authorization/commit and transactional rest recovery remain
 open. See [route map](party-permission-map.md) and [implementation log](implementation-log.md).
+
+
+## O02-A5 encounter control authorization (2026-10-22)
+
+Initiative start, encounter participant addition and encounter end now require
+original-host proof before session activity/expiry or runtime work. Existing DM,
+demo and AI DM callers share the host adapter; signatures/results are retained.
+AI DM controls require the party-creator device's capability. Joined players and
+watchers are not delegated hosts; missing local proof prevents a request and
+existing tool/error paths report failure. DM initiative-start now catches and
+shows errors. Existing target/battle filtering, ordering and unrelated battles
+are preserved. See [caller map](party-permission-map.md).
+
+No new schema migration; provision existing host capability column and deploy
+matching client/API. Operator verified the configured DB column in the previous
+rollout; other environments are unverified. Old clients fail closed. Revert
+client/API together if needed, leaving columns intact; server rollback reopens
+unauthorized controls. No deployment or connected DB write performed by this pass.
+O02 remains partial: 13 mutation handlers, open reads, delegated roles, concurrent
+authorization/commit and complete AI orchestration still need work. Existing
+campaign reuse can reach ungated NPC/roll endpoints. QA-N02 quest completion and
+QA-N01 live notes retest remain pending at the user's direction.
+
+Focused DB/storage tests are mocked. Existing encounter regressions use temporary
+byte-identical .cts copies for the CommonJS package. Legacy HTTP smoke fixtures
+still use pre-capability enrollment/authorization and need a separate fixture
+migration; this pass does not claim they or browser/mobile/real DB acceptance pass.
+Validation details and exact files are in the [implementation log](implementation-log.md).

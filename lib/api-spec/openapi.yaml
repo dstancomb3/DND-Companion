@@ -263,6 +263,95 @@ paths:
           description: Party or assignment absent, or session expired
         "409":
           description: Assignment transition or runtime revision conflict
+  /party/{code}/initiative/start:
+    post:
+      operationId: startPartyInitiative
+      tags: [party]
+      summary: Start initiative as the original party host
+      description: Requires original-host bearer proof before session or runtime side effects. Member IDs, DM flags and AI DM labels do not authorize this operation. AI DM clients use the same host capability.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Encounter control applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "403":
+          description: Missing or invalid host capability (party_host_required)
+        "404":
+          description: Party expired or not found, or referenced encounter not found where required
+        "400":
+          description: No valid combat participants
+  /party/{code}/encounters/{battleId}:
+    delete:
+      operationId: endPartyEncounter
+      tags: [party]
+      summary: End an encounter as the original party host
+      description: Requires original-host bearer proof before session or runtime side effects. Member IDs, DM flags and AI DM labels do not authorize this operation. AI DM clients use the same host capability.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: battleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Encounter control applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "403":
+          description: Missing or invalid host capability (party_host_required)
+        "404":
+          description: Party expired or not found, or referenced encounter not found where required
+  /party/{code}/encounters/{battleId}/participants:
+    post:
+      operationId: addPartyEncounterParticipants
+      tags: [party]
+      summary: Add encounter participants as the original party host
+      description: Requires original-host bearer proof before session or runtime side effects. Member IDs, DM flags and AI DM labels do not authorize this operation. AI DM clients use the same host capability.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: battleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Encounter control applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "403":
+          description: Missing or invalid host capability (party_host_required)
+        "404":
+          description: Party expired or not found, or referenced encounter not found where required
+        "400":
+          description: No valid combat participants
   /party/{code}/initiative/roll:
     put:
       operationId: submitInitiativeRoll

@@ -1859,6 +1859,12 @@ router.get("/party/:code/combat-state", async (req, res) => {
 router.post("/party/:code/initiative/start", async (req, res) => {
   try {
     const { code } = req.params;
+    // Authenticate before session refresh/expiry cleanup or runtime work.
+    const access = await authorizePartyHost(code, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3161,6 +3167,19 @@ router.post("/party/:code/note-assignments", async (req, res) => {
   }
 });
 
+// Encounter control belongs to the persisted host capability, including AI DM
+// calls made on the host device. Caller labels do not establish delegation.
+async function authorizePartyHost(code: string, authorization: string | undefined) {
+  const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+  if (sessions.length === 0) {
+    return { ok: false as const, status: 404, code: "party_not_found", error: "Party session not found" };
+  }
+  if (!hasPartyHostToken(authorization, sessions[0].hostTokenHash)) {
+    return { ok: false as const, status: 403, code: "party_host_required", error: "Only the original party host can manage encounters. Run DM or AI DM controls from the device that created this party." };
+  }
+  return { ok: true as const };
+}
+
 // Member IDs are not credentials. Check live party/member proof before
 // ensureActiveSession can refresh activity or remove expired state.
 async function authorizePartyMember(code: string, memberId: string, authorization: string | undefined) {
@@ -3502,6 +3521,12 @@ router.delete("/party/:code/combat-npcs/:npcId", async (req, res) => {
 router.delete("/party/:code/encounters/:battleId", async (req, res) => {
   try {
     const { code, battleId } = req.params;
+    // Authenticate before session refresh/expiry cleanup or runtime work.
+    const access = await authorizePartyHost(code, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3561,6 +3586,12 @@ router.delete("/party/:code/encounters/:battleId", async (req, res) => {
 router.post("/party/:code/encounters/:battleId/participants", async (req, res) => {
   try {
     const { code, battleId } = req.params;
+    // Authenticate before session refresh/expiry cleanup or runtime work.
+    const access = await authorizePartyHost(code, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
