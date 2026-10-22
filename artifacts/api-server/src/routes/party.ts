@@ -2925,6 +2925,17 @@ router.put("/party/:code/loot-assignments/:assignmentId/claim", async (req, res)
 router.post("/party/:code/note-assignments", async (req, res) => {
   try {
     const { code } = req.params;
+    // Authenticate before ensureActiveSession: it refreshes activity and may
+    // delete expired sessions/runtime. A party code or DM label is not proof.
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+    if (sessions.length === 0) {
+      res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+    if (!hasPartyHostToken(req.get("authorization"), sessions[0].hostTokenHash)) {
+      res.status(403).json({ error: "Only the original party host can send DM notes. Older parties must expire or be recreated.", code: "party_host_required" });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -2935,7 +2946,7 @@ router.post("/party/:code/note-assignments", async (req, res) => {
       ? req.body.targetMemberIds.filter((id: unknown): id is string => typeof id === "string")
       : [];
     const payloadRaw = req.body?.payload;
-    const assignedBy = typeof req.body?.assignedBy === "string" ? req.body.assignedBy : undefined;
+    const assignedBy = "dm"; // Derived from host proof, never a caller role flag.
 
     if (targetMemberIds.length === 0 || typeof payloadRaw !== "object" || !payloadRaw) {
       res.status(400).json({ error: "targetMemberIds and payload are required" });

@@ -141,3 +141,11 @@ See [item creation audit](audits/item-creation-api-audit.md) for the actual prop
 ## Implementation history and active audit scope
 
 Read [Implementation log](implementation-log.md) before choosing the next slice. It maps merged PRs to the recovered original findings and the separate undo/item audits, records partial/contained work and rollout limits, and preserves the unresolved original audit count.
+
+
+## Party route authorization map
+
+[Party permission map](party-permission-map.md) covers all 33 party handlers and
+the O02-A1 host-proof gate for DM note creation. Client credential transport stays
+in `utils/partyHostApi.ts`; permission decisions stay in server `routes/party.ts`.
+Remaining routes and recipient/transaction limits are explicit.

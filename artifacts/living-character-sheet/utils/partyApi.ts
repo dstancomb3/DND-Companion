@@ -708,15 +708,7 @@ export async function claimPartyLootAssignment(
   });
 }
 
-export async function createPartyNoteAssignments(
-  code: string,
-  payload: { targetMemberIds: string[]; payload: NotesAssignmentPayload; assignedBy?: string }
-): Promise<{ ok: true; assignments: NotesAssignment[] }> {
-  return apiRequest<{ ok: true; assignments: NotesAssignment[] }>(`/party/${code}/note-assignments`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+export const createPartyNoteAssignments = hostApi.createPartyNoteAssignments;
 
 export async function acceptPartyNoteAssignment(
   code: string,

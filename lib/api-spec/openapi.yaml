@@ -172,6 +172,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenericObject"
+  /party/{code}/note-assignments:
+    post:
+      operationId: createPartyNoteAssignments
+      tags: [party]
+      summary: Send DM notes using the original host capability
+      description: Requires the original host proof before activity or runtime changes. Caller assignedBy/DM flags do not grant authority; assignments are stamped as DM-originated. Legacy unclaimed parties cannot send notes. Recipient accept/decline authorization is not covered by this route.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Notes assigned by authenticated host
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid targets or empty note payload
+        "403":
+          description: Missing or incorrect original host capability
+        "404":
+          description: Party absent or expired
   /party/{code}/combat-state:
     get:
       operationId: getPartyCombatState

@@ -327,3 +327,11 @@ currently disabled, and general shared rollback is not implemented.
 - Added a cross-linked log of all 15 merged implementation/planning/audit PRs, each of the 17 undo findings and 20 item findings, roadmap gates, validation limits and operator-reported rollout evidence.
 - Original audit reconstruction recovers five significant findings and a testing observation from prior conversation, corroborated by PRs. A reliable original numbered 15-item artifact remains unrecovered (REC-01); no completion percentage is asserted.
 - Documentation/process only. No new runtime fix, deployment, DB write or gameplay change. Future slices must name their finding IDs and update the log.
+
+
+## 2026-10-22 O02-A1: DM note-authoring authorization
+
+- Returned to original finding O02. Mapped all 33 party handlers; protected only DM note assignment creation in this bounded pass. Loot assignment creation also serves player transfers and is deliberately unchanged. O02 remains partial; O05 and recipient/other mutation/read gaps remain open.
+- Server checks the persisted original-host capability before session activity updates, expired cleanup, member reads or runtime hydration. Body DM flags/tokens are not proof. Origin is stamped DM by the server. Client uses the existing stored host token and retains it on failures. Existing DM error UI reports denial.
+- No new database migration; prior host column and matching client/API required. Old clients, legacy unclaimed parties and watching devices without host proof fail closed for note creation. OpenAPI documents bearer proof; current hand-written client is updated, generic/generated schema convergence remains deferred.
+- Eleven new route tests plus three new host-client tests; 87 focused server/client tests and 24 combat tests pass with workspace typecheck and frozen install. Nine route tests fail against the old source, including eight denial cases. DB/storage/HTTP boundaries are mocked; no live PostgreSQL/browser/mobile acceptance. Route map, rollback limits and exact pass files are linked from the implementation log.
