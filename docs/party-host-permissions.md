@@ -1,9 +1,10 @@
-# Party host permission: disband
+# Party host permission: disband and DM note creation
 
 Party codes are invitations and remain shareable. For parties created by the
 updated API, only the creating device receives a random 256-bit host capability.
 The server persists its SHA-256 hash in `party_sessions.host_token_hash` and
-requires the capability as an Authorization bearer token for disband. Join,
+requires the capability as an Authorization bearer token for disband and
+DM note assignment creation. Join,
 member and combat-state responses never expose the capability or its hash.
 Creation responses are marked `Cache-Control: no-store`.
 
@@ -43,7 +44,7 @@ older code ignores it. Reverting the server reopens code-only disband access.
 
 ## Current boundary
 
-This is a narrow disband protection, not complete party authentication. The
+These are narrow disband and DM note-authoring protections, not complete party authentication. The
 subsequent [member ownership slice](party-member-permissions.md) protects direct
 sync/leave. Remaining DM mutations, reads, campaign ownership and AI usage limits
 still need authorization. Client `isDmOverride` flags are not credentials.
@@ -51,3 +52,15 @@ Disband's existing multi-step deletion is not yet transactional. Focused tests
 mock the database; real PostgreSQL, HTTP and browser/mobile rollout checks remain
 pending. The client and schema changes are necessary to carry and persist the
 server-issued capability across reloads; gameplay authority does not change.
+
+
+## O02-A1 note-authoring extension (2026-10-22)
+
+POST /party/:code/note-assignments now reuses the original host proof before
+session activity/expiration side effects or runtime work. The client uses the
+same stored host token; assignedBy/DM flags are not authority and the server
+stamps DM origin. Old clients and legacy unclaimed parties fail closed for this
+operation. No new schema migration; matching client/API required. Recipient
+accept/decline, private read policies, loot award/transfer authorization and
+durable claim/save receipts remain open. See the complete
+[party permission map](party-permission-map.md) and [implementation log](implementation-log.md).

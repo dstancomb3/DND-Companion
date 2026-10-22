@@ -61,3 +61,22 @@ test("host removal uses the private host token and never a caller role flag", as
   await assert.rejects(api.removePartyMember("other-member", "OTHER"), /Only the device/);
   assert.equal(f.calls.length, 2);
 });
+
+test("a fresh adapter sends DM notes using persisted host proof and keeps it out of the payload", async () => {
+  const f=fixture(),api=partyHostApi(f.request,f.storage);await api.createParty();
+  const payload={targetMemberIds:["player"],payload:{quests:[],people:[],locations:[]},assignedBy:"dm"};
+  await partyHostApi(f.request,f.storage).createPartyNoteAssignments("PARTY",payload);
+  const call=f.calls[1];assert.equal(call.path,"/party/PARTY/note-assignments");
+  assert.deepEqual(call.options?.headers,{Authorization:"Bearer private-token","Content-Type":"application/json"});
+  assert.deepEqual(JSON.parse(String(call.options?.body)),payload);assert.equal(f.rows.size,1);
+});
+test("a watcher or another party's host cannot send DM notes without local proof",async()=>{
+  const f=fixture(),api=partyHostApi(f.request,f.storage);await api.createParty();
+  await assert.rejects(api.createPartyNoteAssignments("OTHER",{targetMemberIds:["player"],payload:{quests:[],people:[],locations:[]},assignedBy:"dm"}),/Only the device/);
+  assert.equal(f.calls.length,1);
+});
+test("failed DM note delivery retains the private capability for an explicit retry",async()=>{
+  const f=fixture(),api=partyHostApi(f.request,f.storage);await api.createParty();f.fail();
+  await assert.rejects(api.createPartyNoteAssignments("PARTY",{targetMemberIds:["player"],payload:{quests:[],people:[],locations:[]}}),/Server unavailable/);
+  assert.equal(f.rows.size,1);
+});

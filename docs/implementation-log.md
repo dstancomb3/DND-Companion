@@ -4,6 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
+Subsequent passes are appended below; latest recorded pass: O02-A1 ([PR #17](https://github.com/dstancomb3/DND-Companion/pull/17)).
 
 ## Read this before choosing more work
 
@@ -20,11 +21,13 @@ records the provenance and uncertainty. O01–O05 below are log IDs, not invente
 members of a 15-item list. Do not manufacture ten missing findings or use the
 later U/I findings to fill that denominator.
 
-Current scope decision: finish this reconciliation before activating another
-feature slice. Existing original-scope priorities include the remaining party/DM
-authorization and AI caller/usage protections. Loot claim recovery is documented
-under U08/I13/I19, not silently promoted ahead of those. The product goal remains
-the [AI DM and deterministic combat plan](ai-dm-combat-convergence-plan.md).
+Initial scope decision at backfill: reconcile before activating more work.
+2026-10-22 scope update: the user explicitly authorized returning to original
+O02 with a route permission map and one bounded fix. REC-01 remains unverified;
+it does not block this explicitly authorized original-scope pass. AI caller/usage
+protections remain O05. Loot claim recovery stays documented under U08/I13/I19,
+not silently promoted. The product goal remains the
+[AI DM and deterministic combat plan](ai-dm-combat-convergence-plan.md).
 
 ## Status and evidence rules
 
@@ -57,7 +60,7 @@ documents the original reproductions and testing limits.
 | Log ID | Recovered severity / finding | Current status | Implemented evidence | Remaining acceptance or scope |
 | --- | --- | --- | --- | --- |
 | O01 | High: rejected stale party sync already changed HP/temp HP/AC/conditions | Fixed (scoped) | [PR #1](https://github.com/dstancomb3/DND-Companion/pull/1) moves freshness/replay checks before writes; 3 new regressions cover sync/identity defects together | Sequential rejection fixed; concurrent member/runtime writes are not one atomic transaction. Live DB/concurrency tests pending. |
-| O02 | High: party code/caller IDs grant destructive or cross-member access | Partial | [PR #7](https://github.com/dstancomb3/DND-Companion/pull/7) host proof for disband; [PR #8](https://github.com/dstancomb3/DND-Companion/pull/8) member proof for direct sync/leave and host removal | Remaining combat, initiative, rolls, loot, notes, NPC/rest and campaign authorization; read/invite/recovery policies; schema rollout and real-client tests. Not full character-state protection. |
+| O02 | High: party code/caller IDs grant destructive or cross-member access | Partial | [PR #7](https://github.com/dstancomb3/DND-Companion/pull/7) host proof for disband; [PR #8](https://github.com/dstancomb3/DND-Companion/pull/8) member proof for direct sync/leave and host removal; [PR #17](https://github.com/dstancomb3/DND-Companion/pull/17) host proof for DM note creation | Remaining combat, initiative, rolls, loot, note accept/decline and read privacy, NPC/rest and campaign authorization; read/invite/recovery policies; schema rollout and real-client tests. Not full character-state protection. |
 | O03 | High: name/class/max-HP/AC dedupe collapses distinct characters | Fixed (scoped) | [PR #1](https://github.com/dstancomb3/DND-Companion/pull/1) groups by stable member ID | Repeated enrollment IDs remain distinct intentionally; ID migration/reference cleanup and live party QA remain separate. |
 | O04 | High: recovered DB reads can roll back newer fallback campaign saves | Fixed (scoped) | [PR #3](https://github.com/dstancomb3/DND-Companion/pull/3) cache ordering/bigint; [PR #4](https://github.com/dstancomb3/DND-Companion/pull/4) durable checkpoint+receipt commit; [PR #5](https://github.com/dstancomb3/DND-Companion/pull/5) atomic expected-token writes and durable reads | Guarded HTTP checkpoint boundary; compatibility memory helper is not a durable outbox. Real PostgreSQL, two-device, restart and delete/concurrency acceptance still pending. |
 | O05 | High when publicly reachable: AI routes lack app authentication/rate limits and accept memory-buffered uploads | Open | API output validation in [PR #14](https://github.com/dstancomb3/DND-Companion/pull/14) does not close request authorization or usage budgets | Caller/campaign authorization, quotas/concurrency, bounded expensive input/image handling and abuse tests. Also I17. |
@@ -65,7 +68,9 @@ documents the original reproductions and testing limits.
 
 ## Merged implementation history
 
-Every PR below is merged. “Implemented” describes only its row's scope.
+PR links provide current merge state. Historical backfill rows pin merge commits;
+subsequent pass rows link their PR for final merge metadata. “Implemented”
+describes only its row's scope.
 Documentation/audit PRs #2/#9/#12 delivered plans/evidence, not runtime features.
 
 | PR / local merge time | Track / finding IDs | Delivered change | Historical validation | Rollout and limits |
@@ -86,6 +91,9 @@ Documentation/audit PRs #2/#9/#12 delivered plans/evidence, not runtime features
 | [PR #14](https://github.com/dstancomb3/DND-Companion/pull/14) · 2026-10-22 09:25 · [`ca55465`](https://github.com/dstancomb3/DND-Companion/commit/ca55465913341df3ed7603d6b9115398fd43a247) | Item API validation slice · I06, I08, I09, I10, I11, I12; part of I15/I16 | Validate counts/scalars/dice/effects; preserve metadata; separate variants; quarantine malformed mechanics; remove AI self-verification; review unsupported damage responses. | 44 API tests including 28 new validation/route tests, workspace/API typecheck and 24 combat tests. | Partial structural schema/capability checking; no reflection execution, trusted official catalog, full provenance or AI request authorization. |
 | [PR #15](https://github.com/dstancomb3/DND-Companion/pull/15) · 2026-10-22 12:17 · [`c69f7d3`](https://github.com/dstancomb3/DND-Companion/commit/c69f7d34c50aecea862e994622e52765d4bf9afc) | Item DM draft/delivery slice · I04, I05, I10, I12, I16, I19 | Preserve supported full item snapshots in both assignment modes; no invented defaults for canonical-only items; require review acknowledgement; reject conflicting structured-field edits. | 11 draft tests, 5 transfer tests, 44 API tests, 24 combat tests, workspace typecheck and provider preservation probes. | Existing wire format/claim path. Read-only linked fields; acknowledgement does not verify effects. Claim and local inventory save remain separate. |
 
+| [PR #16](https://github.com/dstancomb3/DND-Companion/pull/16) · 2026-10-22 12:31 · [`55f78ee`](https://github.com/dstancomb3/DND-Companion/commit/55f78ee698b60e058af05ceea619e8b10fcc5bb3) | Scope reconciliation / REC-01 | Backfilled this log, original audit reconstruction and future-pass instructions; no runtime fix. | Finding/PR/priority coverage and local links checked; frozen install, workspace typecheck and 24 combat tests. | No original 15-item artifact recovered; no completion percentage, deployment or DB change. |
+| [PR #17](https://github.com/dstancomb3/DND-Companion/pull/17) · 2026-10-22 · O02-A1 | Original O02 / related U09 | Mapped all 33 party routes; require original-host proof before DM note authoring side effects; matching client sends persisted capability; server stamps DM origin. | 87 focused server/client tests, workspace typecheck, 24 combat tests, frozen install; 9 new regressions fail on old route, including 8 authorization cases. Map/source and OpenAPI checks pass. | No new migration; existing host column and matching API/client required. O02 partial: 24 open mutation handlers, open reads, recipient proof and transaction gaps remain. |
+
 ## Later audit: undo and snapshots
 
 Source: [undo/snapshot audit](audits/undo-snapshot-audit.md), baseline main after
@@ -103,7 +111,7 @@ repository findings.
 | U06 | P0: Latest saves replace prior state; no immutable versions/tombstones | Open | None | Version history and deletion recovery are not provided by checkpoint token conflict checks. |
 | U07 | P0: Snapshots omit mechanical runtime state and reset limited uses | Partial | [PR #11](https://github.com/dstancomb3/DND-Companion/pull/11) | Remaining spell/item counts now survive save/load/import/export. Concentration, reactions, turn economy, full codecs and per-action durability remain open. |
 | U08 | P0: Assignment/rest acceptance and local application are separate commits | Open | None | PR #15 preserves delivered fields, not a durable recipient receipt or atomic claim/save. Disconnect/retry recovery still required. |
-| U09 | P0: History/shared restore lacks complete caller/DM authorization | Open | None | PRs #7/#8 predate this audit and protect only specific routes; full current-scope history/restore authority remains absent. |
+| U09 | P0: History/shared restore lacks complete caller/DM authorization | Open | None | PRs #7/#8 and later O02-A1 (PR #17) protect specific routes only; note creation now requires host proof. Full history/restore authority remains absent. |
 | U10 | P1: Bounded best-effort history and mutating undo markers | Contained | [PR #10](https://github.com/dstancomb3/DND-Companion/pull/10) | No partial record is marked undone by the refused operation; append-only durable reversal/history and retention are not implemented. |
 | U11 | P1: Bounded event feeds also serve dedupe/history | Open | None | Permanent receipts, protected restore bases and safe pruning required. |
 | U12 | P1: Old queues, rolls and sync can outlive a restored timeline | Open | None | Restore epoch/revision and stale-work rejection have not been delivered. |
@@ -205,9 +213,20 @@ HTTP commits fail closed. These behaviors must not be conflated.
 | --- | --- | --- |
 | REC-01 original “15 issues” reconciliation | Unverified | Recover the original numbered artifact if available; preserve wording/severity and map each real finding. Until then retain the five recovered O IDs and do not claim a completion percentage. |
 | This implementation-log backfill | Documentation only | Coverage of PRs #1–#15, U01–U17, I01–I20 and H0–H7; evidence/links checked; workspace typecheck and 24-test combat baseline rerun for this documentation change. Full historical suites not rerun. No new runtime fix or migration. |
-| Original-scope permission/AI exposure work | O02 partial / O05 open | Choose and state a bounded route/actor authority slice, closure tests and migration consequences before editing. Do not label whole application security complete from a route fix. |
+| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1 maps all 33 routes and protects DM note creation. Select the next bounded remaining route/actor policy using the map; recipient proof and 24 mutation handlers remain open. AI caller/usage controls are unchanged. |
 | New claim-recovery proposal | Open, not activated by this backfill | U08/I13/I19 specify the gap. Durable receipt/state ownership, failure matrix and priority decision required before implementation. |
 | Full undo / combat engine / AI DM | Planned or partial as above | Continue the existing roadmap with its authority/acceptance gates, not a parallel implementation track. |
+
+## Pass record: 2026-10-22 O02-A1 (PR #17)
+
+- **Scope:** original finding O02, related U09. User-directed return to the original audit, not a new item/undo feature track. Narrow authorization boundary: DM note assignment creation. [Route map](party-permission-map.md) covers all 33 declarations with implemented vs proposed policies.
+- **Before → after:** code-only callers could author DM quest/people/location assignments. Original-host bearer proof is now checked before activity refresh, expired-session deletion, member reads or runtime hydration/writes. Wrong-party/member/legacy/body/role/hash-as-token attempts fail closed; valid hosts keep payload normalization, target checks and persistence. Server derives DM origin.
+- **Authority:** server remains the permission owner. Client credential transport and OpenAPI changes are jointly necessary to enforce the existing host-capability policy without breaking the authorized DM notes path. No gameplay authority moved. Loot creation remains unchanged because players use it to transfer items; host-only gating there would break that flow and would not prove inventory ownership.
+- **Touched files:** `artifacts/api-server/src/routes/party.ts`; new `artifacts/api-server/src/routes/party.note-assignment-safety.test.ts`; `artifacts/api-server/package.json` (includes new regression suite); `artifacts/living-character-sheet/utils/partyHostApi.ts`; `artifacts/living-character-sheet/utils/partyApi.ts`; `artifacts/living-character-sheet/tests/state/party-host-api.test.cts`; `lib/api-spec/openapi.yaml`; new `docs/party-permission-map.md`; `docs/party-host-permissions.md`; `docs/party-member-permissions.md`; `docs/app-map.md`; `docs/feature-status.md`; `docs/migrations.md`; this log. No UI screen, DB schema, credentials, lockfile or generated API bindings changed.
+- **Validation:** 11 new direct route tests and 3 new client tests; 87 focused server/client tests (including existing sync/member/host/remote-apply/AI idempotency and member-client tests), workspace typecheck and 24 combat safety tests pass. Nine route tests fail against prior code, including all eight denial cases. Frozen install, map coverage of all 33 handlers, OpenAPI bearer/403 parsing, local documentation links and diff checks pass. Root/test counts overlap other historical results; no project-wide sum.
+- **Rollout/rollback:** no new migration. Existing host-token column must be provisioned; deploy matching client/API. Old clients, unclaimed legacy sessions and DM watching devices lacking host proof cannot send notes. Existing error UI reports failure; client retains credentials for explicit retry. Roll back client/server together if needed, leaving columns intact; server rollback reopens the vulnerability. No deployment or connected database write performed.
+- **Remaining:** O02 is still partial. Note accept/decline, read visibility, loot awards/transfers, NPC/encounter, initiative/economy/roll/rest/event routes remain mapped gaps. Recipient claim/save receipts are not implemented; authorization and session/runtime commit are not one transaction. Delegated DM access/recovery/rotation, real PostgreSQL/HTTP/browser/mobile and concurrent disband/recreate acceptance remain open. O05, REC-01 and combat/AI DM implementation status are unchanged.
+
 
 ## Keep this log current
 

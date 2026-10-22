@@ -1,3 +1,5 @@
+import type { NotesAssignment, NotesAssignmentPayload } from "./partyApi";
+
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
   getItem(key: string): Promise<string | null>;
@@ -19,6 +21,13 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       const token = await storage.getItem(tokenKey(code));
       if (!token) throw new Error("Only the device that created this party can remove another player.");
       await request("/party/leave", { method: "DELETE", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ memberId, partyCode: code }) });
+    },
+    async createPartyNoteAssignments(code: string, payload: { targetMemberIds: string[]; payload: NotesAssignmentPayload; assignedBy?: string }): Promise<{ ok: true; assignments: NotesAssignment[] }> {
+      const token = await storage.getItem(tokenKey(code));
+      if (!token) throw new Error("Only the device that created this party can send DM notes. Older parties must expire or be recreated.");
+      return request(`/party/${code}/note-assignments`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
     },
     async disbandParty(code: string): Promise<void> {
       const token = await storage.getItem(tokenKey(code));
