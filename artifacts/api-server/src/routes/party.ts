@@ -146,7 +146,23 @@ interface NotesPayloadLocation {
   pinned?: boolean;
 }
 
+interface NotesPayloadNote {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+  sessionNumber?: number;
+  arcName?: string;
+  tags?: string[];
+  linkedNpcs?: string[];
+  linkedLocations?: string[];
+  linkedQuests?: string[];
+}
+
 interface NotesAssignmentPayload {
+  notes?: NotesPayloadNote[];
   quests: NotesPayloadQuest[];
   people: NotesPayloadPerson[];
   locations: NotesPayloadLocation[];
@@ -3022,6 +3038,27 @@ router.post("/party/:code/note-assignments", async (req, res) => {
     }
 
     const payloadObj = payloadRaw as Record<string, unknown>;
+    const normalizeNote = (value: unknown): NotesPayloadNote | null => {
+      if (!value || typeof value !== "object") return null;
+      const note = value as Record<string, unknown>;
+      const title = typeof note.title === "string" ? note.title.trim() : "";
+      if (!title) return null;
+      const strings = (value: unknown) => Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
+      return {
+        id: typeof note.id === "string" && note.id.trim() ? note.id : `note_${generateId()}`,
+        title,
+        body: typeof note.body === "string" ? note.body : "",
+        pinned: note.pinned === true,
+        createdAt: typeof note.createdAt === "number" && Number.isFinite(note.createdAt) ? note.createdAt : Date.now(),
+        updatedAt: typeof note.updatedAt === "number" && Number.isFinite(note.updatedAt) ? note.updatedAt : Date.now(),
+        sessionNumber: typeof note.sessionNumber === "number" && Number.isSafeInteger(note.sessionNumber) && note.sessionNumber >= 0 ? note.sessionNumber : undefined,
+        arcName: typeof note.arcName === "string" ? note.arcName : undefined,
+        tags: strings(note.tags), linkedNpcs: strings(note.linkedNpcs),
+        linkedLocations: strings(note.linkedLocations), linkedQuests: strings(note.linkedQuests),
+      };
+    };
+
     const normalizeQuest = (q: any): NotesPayloadQuest | null => {
       if (!q || typeof q !== "object") return null;
       const name = typeof q.name === "string" ? q.name.trim() : "";
@@ -3078,12 +3115,13 @@ router.post("/party/:code/note-assignments", async (req, res) => {
     };
 
     const payload: NotesAssignmentPayload = {
+      notes: Array.isArray(payloadObj.notes) ? payloadObj.notes.map(normalizeNote).filter((note): note is NotesPayloadNote => note !== null) : [],
       quests: Array.isArray(payloadObj.quests) ? payloadObj.quests.map(normalizeQuest).filter(Boolean) as NotesPayloadQuest[] : [],
       people: Array.isArray(payloadObj.people) ? payloadObj.people.map(normalizePerson).filter(Boolean) as NotesPayloadPerson[] : [],
       locations: Array.isArray(payloadObj.locations) ? payloadObj.locations.map(normalizeLocation).filter(Boolean) as NotesPayloadLocation[] : [],
     };
 
-    if (payload.quests.length === 0 && payload.people.length === 0 && payload.locations.length === 0) {
+    if ((payload.notes?.length ?? 0) === 0 && payload.quests.length === 0 && payload.people.length === 0 && payload.locations.length === 0) {
       res.status(400).json({ error: "No valid notes payload content found" });
       return;
     }
@@ -3108,6 +3146,7 @@ router.post("/party/:code/note-assignments", async (req, res) => {
       message: `DM sent notes to ${validTargets.length} player(s).`,
       metadata: {
         targetCount: validTargets.length,
+        noteCount: payload.notes?.length ?? 0,
         questCount: payload.quests.length,
         peopleCount: payload.people.length,
         locationCount: payload.locations.length,

@@ -261,6 +261,7 @@ export default function PartyScreen() {
     people,
     locations,
     inventory,
+    addNote,
     addQuest,
     updateQuest,
     addPerson,
@@ -482,6 +483,8 @@ export default function PartyScreen() {
       existingPeople: people,
       existingLocations: locations,
     });
+
+    merged.notes.forEach((note) => addNote(note));
 
     merged.quests.forEach((op) => {
       if (op.id) {
@@ -867,8 +870,16 @@ export default function PartyScreen() {
                       Sent {new Date(assignment.assignedAt).toLocaleString()}
                     </Text>
                     <Text style={{ fontSize: 13, color: c.foreground, fontWeight: "700" }}>
-                      {assignment.payload.quests.length} quest{assignment.payload.quests.length === 1 ? "" : "s"}, {assignment.payload.people.length} people, {assignment.payload.locations.length} locations
+                      {assignment.payload.notes?.length ?? 0} notes, {assignment.payload.quests.length} quest{assignment.payload.quests.length === 1 ? "" : "s"}, {assignment.payload.people.length} people, {assignment.payload.locations.length} locations
                     </Text>
+                    {(assignment.payload.notes ?? []).map((note) => (
+                      <Text key={note.id} style={{ color: c.mutedForeground, fontSize: 11 }}>{note.title}</Text>
+                    ))}
+                    {assignment.payload.quests.map((quest) => (
+                      <Text key={quest.id} style={{ color: c.mutedForeground, fontSize: 11 }}>
+                        {quest.name}: {quest.status.toUpperCase()}
+                      </Text>
+                    ))}
                     {questNames.length > 0 && (
                       <Text style={{ fontSize: 12, color: c.mutedForeground, marginTop: 4 }}>
                         Quests: {questNames.join(", ")}{assignment.payload.quests.length > questNames.length ? "..." : ""}

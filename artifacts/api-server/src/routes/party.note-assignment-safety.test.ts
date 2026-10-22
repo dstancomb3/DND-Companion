@@ -57,3 +57,26 @@ test("authorized invalid payload retains existing validation without runtime hyd
  const res=response();await handler({params:{code:"invalid-note"},body:{},get:()=>`Bearer ${host.hostToken}`},res);
  assert.equal(res.statusCode,400);assert.ok(reads.every(table=>table===partySessions));
 });
+
+for (const scenario of ["notes only", "active quest", "completed quest", "invalid note"] as const) {
+ test(`host delivery: ${scenario} preserves supported journal content and quest status`, async t => {
+  const now=new Date();const rows:Record<string,unknown>[]=[];
+  t.mock.method(db,"select",(()=>({from:(table:unknown)=>({where:()=>{
+   const data=table===partySessions?[{hostTokenHash:host.hostTokenHash,lastActivityAt:now}]:table===partyMembers?[{id:"member",updatedAt:now}]:rows;
+   return Object.assign(Promise.resolve(data),{limit:async()=>data});
+  }})})) as never);
+  t.mock.method(db,"update",(()=>({set:()=>({where:async()=>[]})})) as never);
+  t.mock.method(db,"insert",((table:unknown)=>({values:(row:Record<string,unknown>)=>({returning:async()=>{assert.equal(table,partyRuntimeSnapshots);rows.push(row);return [row];}})})) as never);
+  const note={id:"note",title:scenario==="invalid note"?"   ":" DM journal ",body:"Line one\nLine two",pinned:true,createdAt:1,updatedAt:2,sessionNumber:0,arcName:"Arc",tags:["clue",3],linkedQuests:["quest"]};
+  const status=scenario==="completed quest"?"completed":"active";
+  const quests=scenario.includes("quest")?[{id:"quest",name:"Unfinished quest",type:"side",status,createdAt:1}]:[];
+  const res=response();await handler({params:{code:`delivery-${scenario}`},body:{targetMemberIds:["member"],payload:{notes:[note],quests,people:[],locations:[]}},get:()=>`Bearer ${host.hostToken}`},res);
+  if(scenario==="invalid note"){assert.equal(res.statusCode,400);assert.equal(rows.length,0);return;}
+  assert.equal(res.statusCode,200);
+  const sent=(res.body.assignments as Array<{payload:{notes:Array<Record<string,unknown>>;quests:Array<{status:string}>}}>)[0].payload;
+  assert.equal(sent.notes[0].title,"DM journal");assert.equal(sent.notes[0].body,note.body);assert.equal(sent.notes[0].pinned,true);assert.equal(sent.notes[0].sessionNumber,0);
+  assert.deepEqual(sent.notes[0].tags,["clue"]);assert.deepEqual(sent.notes[0].linkedQuests,["quest"]);
+  assert.equal(sent.quests.length,quests.length);if(quests.length)assert.equal(sent.quests[0].status,status);
+  const stored=rows[0].snapshot as {noteAssignments:Array<{payload:unknown}>};assert.deepEqual(stored.noteAssignments[0].payload,sent);
+ });
+}

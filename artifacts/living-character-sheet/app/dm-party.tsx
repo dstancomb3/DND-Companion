@@ -1,3 +1,4 @@
+import { useFocusEffect } from "expo-router";
 import { createDmLootDraft, dmLootDraftFromProposal, toDmLootAssignment, hasStructuredLootEffects, type DmLootDraftFields } from "@/utils/dmLootDraft";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
@@ -58,7 +59,7 @@ import { ScrollHintScrollView } from "@/components/ScrollHintScrollView";
 import { getAllCharacters, type SavedCharacter } from "@/utils/characterStorage";
 import { getSavedDmNpcs, type SavedDmNpc } from "@/app/dm-npc";
 import { getCompendium, saveCustomMonster, updateCustomMonster, isCustomMonster } from "@/utils/monsterApi";
-import { getDmNotesPayload } from "@/utils/dmNotesStorage";
+import { getDmNotesPayload, type DmNotesPayload } from "@/utils/dmNotesStorage";
 import { getEncounterSetupHandoff, clearEncounterSetupHandoff } from "@/utils/encounterSetupIntent";
 import { API_BASE_URL } from "@/utils/apiUrl";
 import type { Attack, CampaignLocation, NpcPerson, Quest, CompendiumMonster, CustomMonster } from "@/types";
@@ -779,7 +780,8 @@ export default function DmPartyScreen() {
   const [sendingNotes, setSendingNotes] = useState(false);
   const [isTurnRollControlsCollapsed, setIsTurnRollControlsCollapsed] = useState(true);
   const [resolvingRestRequestId, setResolvingRestRequestId] = useState<string | null>(null);
-  const [dmNotesPayload, setDmNotesPayload] = useState<{ quests: Quest[]; people: NpcPerson[]; locations: CampaignLocation[] }>({ quests: [], people: [], locations: [] });
+  const [dmNotesPayload, setDmNotesPayload] = useState<DmNotesPayload>({ quests: [], people: [], locations: [], notes: [], items: [], planes: [] });
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [selectedQuestIds, setSelectedQuestIds] = useState<string[]>([]);
   const [includeRelatedPeople, setIncludeRelatedPeople] = useState(true);
   const [includeRelatedLocations, setIncludeRelatedLocations] = useState(true);
@@ -1366,7 +1368,7 @@ export default function DmPartyScreen() {
     };
   }, [watchedCode]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let mounted = true;
     void (async () => {
       const payload = await getDmNotesPayload();
@@ -1376,7 +1378,7 @@ export default function DmPartyScreen() {
     return () => {
       mounted = false;
     };
-  }, [watchedCode, activeControlTab]);
+  }, [watchedCode, activeControlTab]));
 
   // ── Restore persisted session ────────────────────────────────────────────────
 
@@ -2398,9 +2400,13 @@ export default function DmPartyScreen() {
       return;
     }
 
-    const selectedQuests = dmNotesPayload.quests.filter((q) => selectedQuestIds.includes(q.id));
-    if (selectedQuests.length === 0) {
-      setError("Select at least one quest from DM Notes.");
+    // Re-read saved DM state so editor changes cannot send a stale quest status.
+    const currentDmNotesPayload = await getDmNotesPayload();
+    setDmNotesPayload(currentDmNotesPayload);
+    const selectedQuests = currentDmNotesPayload.quests.filter((q) => selectedQuestIds.includes(q.id));
+    const selectedNotes = currentDmNotesPayload.notes.filter((note) => selectedNoteIds.includes(note.id));
+    if (selectedQuests.length === 0 && selectedNotes.length === 0) {
+      setError("Select at least one quest or journal note from DM Notes.");
       return;
     }
 
@@ -2409,7 +2415,7 @@ export default function DmPartyScreen() {
     const linkedLocations = (() => {
       if (!includeRelatedLocations) return [] as CampaignLocation[];
 
-      const locationById = new Map(dmNotesPayload.locations.map((location) => [location.id, location] as const));
+      const locationById = new Map(currentDmNotesPayload.locations.map((location) => [location.id, location] as const));
       const includeLocationIds = new Set<string>();
 
       selectedLocationIdSet.forEach((locationId) => {
@@ -2423,10 +2429,10 @@ export default function DmPartyScreen() {
         }
       });
 
-      return dmNotesPayload.locations.filter((location) => includeLocationIds.has(location.id));
+      return currentDmNotesPayload.locations.filter((location) => includeLocationIds.has(location.id));
     })();
     const linkedPeople = includeRelatedPeople
-      ? dmNotesPayload.people.filter((p) => (p.questTags || []).some((id) => selectedQuestIdSet.has(id)))
+      ? currentDmNotesPayload.people.filter((p) => (p.questTags || []).some((id) => selectedQuestIdSet.has(id)))
       : [];
 
     setSendingNotes(true);
@@ -2435,6 +2441,7 @@ export default function DmPartyScreen() {
       await createPartyNoteAssignments(watchedCode, {
         targetMemberIds: notesSelectedTargets,
         payload: {
+          notes: selectedNotes,
           quests: selectedQuests,
           people: linkedPeople,
           locations: linkedLocations,
@@ -2447,7 +2454,7 @@ export default function DmPartyScreen() {
     } finally {
       setSendingNotes(false);
     }
-  }, [watchedCode, notesSelectedTargets, dmNotesPayload, selectedQuestIds, includeRelatedPeople, includeRelatedLocations, refreshCombat]);
+  }, [watchedCode, notesSelectedTargets, selectedQuestIds, selectedNoteIds, includeRelatedPeople, includeRelatedLocations, refreshCombat]);
 
   const handleAdvanceTurn = async () => {
     if (!watchedCode) return;
@@ -4506,9 +4513,9 @@ export default function DmPartyScreen() {
 
             {activeControlTab === "notes" && (
             <View style={[styles.controlGroup, { borderColor: c.border, backgroundColor: c.background }]}> 
-              <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700", letterSpacing: 0.4 }}>QUEST NOTES DELIVERY</Text>
+              <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700", letterSpacing: 0.4 }}>QUESTS AND NOTES DELIVERY</Text>
               <Text style={{ fontSize: 11, color: c.mutedForeground }}>
-                Send selected DM quests to players. Optionally include linked people and locations.
+                Send selected DM quests and journal notes to players. Optionally include people and locations linked to quests.
               </Text>
               <TouchableOpacity onPress={() => router.push("/dm-notes")} style={[styles.chip, { borderColor: c.border, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6 }]}>
                 <Feather name="book-open" size={14} color={c.foreground} />
@@ -4529,12 +4536,28 @@ export default function DmPartyScreen() {
                         },
                       ]}
                     >
-                      <Text style={{ fontSize: 11, color: selected ? c.primary : c.mutedForeground, fontWeight: "700" }}>{quest.name}</Text>
+                      <Text style={{ fontSize: 11, color: selected ? c.primary : c.mutedForeground, fontWeight: "700" }}>{quest.name} ({quest.status})</Text>
                     </TouchableOpacity>
                   );
                 })}
                 {dmNotesPayload.quests.length === 0 && (
                   <Text style={{ fontSize: 11, color: c.mutedForeground }}>No DM quests found yet. Create them in DM Notes Menu.</Text>
+                )}
+              </View>
+              <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700" }}>JOURNAL NOTES</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {dmNotesPayload.notes.map((note) => {
+                  const selected = selectedNoteIds.includes(note.id);
+                  return (
+                    <TouchableOpacity key={note.id}
+                      onPress={() => setSelectedNoteIds((prev) => prev.includes(note.id) ? prev.filter((id) => id !== note.id) : [...prev, note.id])}
+                      style={[styles.chip, { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? c.primary + "22" : c.background }]}>
+                      <Text style={{ fontSize: 11, color: selected ? c.primary : c.mutedForeground, fontWeight: "700" }}>{note.title}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {dmNotesPayload.notes.length === 0 && (
+                  <Text style={{ fontSize: 11, color: c.mutedForeground }}>No DM journal notes found yet.</Text>
                 )}
               </View>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -4553,11 +4576,11 @@ export default function DmPartyScreen() {
               </View>
               <TouchableOpacity
                 onPress={() => void handleSendQuestNotes()}
-                disabled={sendingNotes || selectedTargets.length === 0}
-                style={[styles.btnPrimary, styles.btnFull, { backgroundColor: c.primary, opacity: sendingNotes || selectedTargets.length === 0 ? 0.6 : 1 }]}
+                disabled={sendingNotes || notesSelectedTargets.length === 0}
+                style={[styles.btnPrimary, styles.btnFull, { backgroundColor: c.primary, opacity: sendingNotes || notesSelectedTargets.length === 0 ? 0.6 : 1 }]}
               >
                 <Feather name="send" size={14} color="#fff" />
-                <Text style={styles.btnText}>{sendingNotes ? "Sending..." : "Send Quest Notes to Selected Players"}</Text>
+                <Text style={styles.btnText}>{sendingNotes ? "Sending..." : "Send Quests and Notes to Selected Players"}</Text>
               </TouchableOpacity>
 
               {!!combatState?.noteAssignments?.length && (
@@ -4568,7 +4591,7 @@ export default function DmPartyScreen() {
                     return (
                       <View key={assignment.id} style={[styles.chip, { borderColor: c.border, backgroundColor: c.background, flexDirection: "row", justifyContent: "space-between" }]}>
                         <Text style={{ fontSize: 11, color: c.foreground, fontWeight: "600", flex: 1 }}>
-                          {assignment.payload.quests.length} quest(s) {" -> "}{targetName}
+                          {assignment.payload.notes?.length ?? 0} note(s), {assignment.payload.quests.length} quest(s) {" -> "}{targetName}
                         </Text>
                         <Text style={{ fontSize: 10, color: assignment.acceptedAt ? "#22C55E" : c.mutedForeground, fontWeight: "700" }}>
                           {assignment.acceptedAt ? "ACCEPTED" : "PENDING"}

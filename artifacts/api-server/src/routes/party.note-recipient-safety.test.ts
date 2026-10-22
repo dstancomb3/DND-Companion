@@ -39,7 +39,7 @@ for(const action of ["accept","decline"]){
  for(const scenario of ["owner","wrong recipient","missing assignment","already accepted"]){
   test(`${action}: authenticated ${scenario} respects assignment target and transition`,async t=>{
    const code=`recipient-${++serial}`,now=new Date(),memberId=scenario==="wrong recipient"?"other":"member";
-   const assignment={id:"note",targetMemberId:"member",payload:{quests:[],people:[],locations:[]},assignedAt:now.toISOString(),...(scenario==="already accepted"?{acceptedAt:now.toISOString(),acceptedBy:"member"}:{})};
+   const assignment={id:"note",targetMemberId:"member",payload:{notes:[{id:"note-entry",title:"Journal note",body:"Clue",pinned:false,createdAt:1,updatedAt:1}],quests:[{id:"quest",name:"Still active",type:"side",status:"active",createdAt:1}],people:[],locations:[]},assignedAt:now.toISOString(),...(scenario==="already accepted"?{acceptedAt:now.toISOString(),acceptedBy:"member"}:{})};
    let durable:Record<string,unknown>={partyCode:code,schemaVersion:1,stateRevision:1,updatedAt:now,snapshot:{noteAssignments:scenario==="missing assignment"?[]:[assignment]}};
    let runtimeWrites=0;
    t.mock.method(db,"select",(()=>({from:(table:unknown)=>({where:(condition:never)=>{
@@ -55,6 +55,7 @@ for(const action of ["accept","decline"]){
    assert.equal(runtimeWrites,1);
    const snapshot=durable.snapshot as {noteAssignments:Array<Record<string,unknown>>;eventLog:Array<{type:string}>};
    if(action==="accept"){
+    assert.deepEqual(snapshot.noteAssignments[0].payload,assignment.payload);
     assert.equal(snapshot.noteAssignments[0].acceptedBy,"member");assert.ok(snapshot.noteAssignments[0].acceptedAt);
     if(scenario!=="already accepted")assert.equal(snapshot.eventLog.filter(e=>e.type==="notes_accepted").length,1);
    }else assert.deepEqual(snapshot.noteAssignments,[]);

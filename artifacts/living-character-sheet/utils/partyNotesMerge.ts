@@ -1,6 +1,6 @@
-import type { CampaignLocation, NpcPerson, Quest, QuestLocationLinkMode } from "@/types";
+import type { CampaignLocation, NpcPerson, Quest, Note, QuestLocationLinkMode } from "@/types";
 import type { NotesAssignmentPayload } from "@/utils/partyApi";
-import { normalizeLocationHierarchyRecords } from "@/utils/locationHierarchy";
+import { normalizeLocationHierarchyRecords } from "./locationHierarchy";
 
 export type PartyNotesMergeWarningCode =
   | "unknown_location_parent"
@@ -29,6 +29,7 @@ interface UpsertLocationOperation {
 }
 
 export interface MergeAssignedNotesPayloadResult {
+  notes: Array<Omit<Note, "id" | "createdAt" | "updatedAt">>;
   quests: UpsertQuestOperation[];
   people: UpsertPersonOperation[];
   locations: UpsertLocationOperation[];
@@ -254,6 +255,7 @@ export function mergeAssignedNotesPayload(input: {
   });
 
   return {
+    notes: (input.payload.notes ?? []).map(({ id, createdAt, updatedAt, ...note }) => note),
     quests: questOps,
     people: peopleOps,
     locations: locationOps,
