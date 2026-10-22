@@ -14,6 +14,11 @@ pending. The original inventory and probe output below remain evidence at the
 audited commit. `probe-current-undo.cjs` now asserts refusal and writes separate
 [containment results](undo-safety-containment-probes.json).
 
+H1a now preserves limited-use spell/item counts in character save/load and
+import/export. See [coverage and remaining gaps](../snapshot-effect-usage.md).
+The rest of U07, including concentration/reactions and complete combat state,
+remains open. No new restore command is enabled.
+
 ## Method and limits
 
 Read the existing undo implementation, character snapshot/load/save code, public

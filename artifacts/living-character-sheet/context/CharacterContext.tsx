@@ -649,8 +649,8 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       extraPlanes.push({ id: `plane-${racePlane.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`, name: racePlane.name, description: racePlane.description, questTags: [], locationTags: [], createdAt: 0 });
     }
     setRealms([...extraPlanes, ...savedPlanes]);
-    setSpellEffectUses({});
-    setItemActionUses({});
+    setSpellEffectUses(normalizedSnapshot.spellEffectUses ?? {});
+    setItemActionUses(normalizedSnapshot.itemActionUses ?? {});
     setRulesState(normalizedSnapshot.rulesState ?? {
       schemaVersion: 1,
       appliedEffects: [],
@@ -746,6 +746,8 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       wishlist,
       journalArcs,
       spellSlots,
+      spellEffectUses,
+      itemActionUses,
       classFeatures,
       passiveFeatures,
       preparedSpells,
@@ -761,7 +763,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       questGraphReviewQueue,
     });
     await saveCharacter(snapshot);
-  }, [hasCharacter, character, attacks, companions, resources, inventory, conditions, notes, wishlist, journalArcs, spellSlots, classFeatures, passiveFeatures, preparedSpells, people, quests, locations, realms, rulesState, combatLogEntries, combatLogSessions, questGraphReviewQueue]);
+  }, [hasCharacter, character, attacks, companions, resources, inventory, conditions, notes, wishlist, journalArcs, spellSlots, spellEffectUses, itemActionUses, classFeatures, passiveFeatures, preparedSpells, people, quests, locations, realms, rulesState, combatLogEntries, combatLogSessions, questGraphReviewQueue]);
 
   const importAll = useCallback((snapshot: CharacterSnapshot) => {
     const normalizedSnapshot = normalizeCharacterSnapshotMechanics(snapshot);
@@ -2182,6 +2184,8 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       wishlist,
       journalArcs,
       spellSlots,
+      spellEffectUses,
+      itemActionUses,
       classFeatures,
       passiveFeatures,
       preparedSpells,
@@ -2197,7 +2201,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
       questGraphReviewQueue,
     });
     saveCharacter(snapshot).catch(() => {});
-  }, [hasCharacter, character, attacks, companions, resources, conditions, notes, wishlist, journalArcs, spellSlots, classFeatures, passiveFeatures, preparedSpells, people, quests, locations, realms, rulesState, combatLogEntries, combatLogSessions, questGraphReviewQueue]);
+  }, [hasCharacter, character, attacks, companions, resources, conditions, notes, wishlist, journalArcs, spellSlots, spellEffectUses, itemActionUses, classFeatures, passiveFeatures, preparedSpells, people, quests, locations, realms, rulesState, combatLogEntries, combatLogSessions, questGraphReviewQueue]);
 
   const pinLocation = useCallback((id: string, pinned: boolean) => {
     setLocations((prev) => prev.map((l) => l.id === id ? { ...l, pinned } : pinned ? { ...l, pinned: false } : l));

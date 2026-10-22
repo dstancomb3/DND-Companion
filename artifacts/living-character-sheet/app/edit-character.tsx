@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { ScrollHintScrollView } from "@/components/ScrollHintScrollView";
 import colors from "@/constants/colors";
 import { useCharacter } from "@/context/CharacterContext";
+import { buildImportedCharacterSnapshot } from "@/utils/characterImportExport";
 import type { Character, CharacterSnapshot } from "@/types";
 import { API_BASE_URL } from "@/utils/apiUrl";
 import {
@@ -92,7 +93,7 @@ export default function EditCharacterScreen() {
   const {
     character, attacks, resources, inventory, conditions,
     notes: characterNotes, importAll, updateCharacter, applyQuestUpdate,
-    spellSlots, classFeatures, passiveFeatures, preparedSpells,
+    spellSlots, spellEffectUses, itemActionUses, classFeatures, passiveFeatures, preparedSpells,
     setClassFeatures, setPassiveFeatures,
     people, quests, locations, realms, wishlist, journalArcs, combatLogEntries, combatLogSessions,
     companions, rulesState, getReviewBatches,
@@ -230,6 +231,8 @@ export default function EditCharacterScreen() {
       wishlist,
       journalArcs,
       spellSlots,
+      spellEffectUses,
+      itemActionUses,
       classFeatures,
       passiveFeatures,
       preparedSpells,
@@ -299,83 +302,33 @@ export default function EditCharacterScreen() {
       return;
     }
 
-    // Accept either the full snapshot format or a bare Character object
-    let snapshot: CharacterSnapshot;
-    if (raw && typeof raw === "object" && "character" in raw) {
-      // Full snapshot — new format
-      const s = raw as CharacterSnapshot;
-      if (!s.character?.name || !s.character?.class) {
-        setImportError("Snapshot is missing character name or class.");
-        return;
-      }
-      snapshot = normalizeCharacterSnapshotMechanics({
-        _version: s._version ?? 1,
-        character: s.character,
-        attacks: s.attacks ?? [],
-        resources: s.resources ?? [],
-        inventory: s.inventory ?? [],
-        conditions: s.conditions ?? [],
-        notes: s.notes ?? [],
-        wishlist: s.wishlist ?? [],
-        journalArcs: s.journalArcs ?? [],
-        spellSlots: s.spellSlots,
-        classFeatures: s.classFeatures,
-        passiveFeatures: s.passiveFeatures,
-        preparedSpells: s.preparedSpells,
-        people: s.people,
-        quests: s.quests,
-        locations: s.locations,
-        realms: s.realms,
-        companions: s.companions,
-        rulesState: s.rulesState,
-        combatLog: s.combatLog,
-        questGraphReviewQueue: s.questGraphReviewQueue,
-        mechanics: s.mechanics,
-      });
-    } else {
-      // Bare character object — old format, inventory/attacks stay as-is
-      const ch = raw as Partial<Character>;
-      if (!ch.name || !ch.class) {
-        setImportError("This doesn't look like a character sheet — missing name or class field.");
-        return;
-      }
-      const mergedCharacter: Character = { ...character, ...ch };
-      snapshot = normalizeCharacterSnapshotMechanics({
-        _version: 0,
-        character: mergedCharacter,
-        attacks,
-        resources,
-        inventory,
-        conditions,
-        notes: characterNotes,
-        wishlist,
-        journalArcs,
-        spellSlots,
-        classFeatures,
-        passiveFeatures,
-        preparedSpells,
-        people,
-        quests,
-        locations,
-        realms,
-        companions,
-        rulesState,
-        combatLog: {
-          entries: combatLogEntries,
-          sessions: combatLogSessions,
+    try {
+      const imported = buildImportedCharacterSnapshot({
+        parsed: raw,
+        baseSnapshot: {
+          _version: 1, character, attacks, resources, inventory, conditions,
+          notes: characterNotes, wishlist, journalArcs, spellSlots,
+          spellEffectUses, itemActionUses, classFeatures, passiveFeatures,
+          preparedSpells, people, quests, locations, realms, companions, rulesState,
+          combatLog: { entries: combatLogEntries, sessions: combatLogSessions },
+          questGraphReviewQueue: getReviewBatches(), mechanics: character.mechanics,
         },
-        questGraphReviewQueue: getReviewBatches(),
-        mechanics: mergedCharacter.mechanics,
       });
+      if (!imported.ok) {
+        setImportError(imported.error);
+        return;
+      }
+      const snapshot = imported.snapshot;
+      importAll(snapshot);
+      // If the imported snapshot has no lore data, parse the character notes for people/locations/planes
+      const hasLore = (snapshot.people?.length ?? 0) > 0 || (snapshot.locations?.length ?? 0) > 0 || (snapshot.realms?.length ?? 0) > 0;
+      if (!hasLore) parseBackstory(snapshot.character.notes ?? "");
+      setPanel("none");
+      setPasteJson("");
+      router.back();
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Invalid character snapshot.");
     }
-
-    importAll(snapshot);
-    // If the imported snapshot has no lore data, parse the character notes for people/locations/planes
-    const hasLore = (snapshot.people?.length ?? 0) > 0 || (snapshot.locations?.length ?? 0) > 0 || (snapshot.realms?.length ?? 0) > 0;
-    if (!hasLore) parseBackstory(snapshot.character.notes ?? "");
-    setPanel("none");
-    setPasteJson("");
-    router.back();
   };
 
   const handleFixWithAI = async () => {
@@ -407,6 +360,8 @@ export default function EditCharacterScreen() {
         wishlist: data.wishlist ?? [],
         journalArcs: data.journalArcs ?? [],
         spellSlots: data.spellSlots,
+        spellEffectUses: data.spellEffectUses,
+        itemActionUses: data.itemActionUses,
         classFeatures: data.classFeatures,
         passiveFeatures: data.passiveFeatures,
         preparedSpells: data.preparedSpells,

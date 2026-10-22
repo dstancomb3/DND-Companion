@@ -834,6 +834,9 @@ export interface CharacterSnapshot {
   wishlist?: WishlistItem[];
   journalArcs?: JournalArc[];
   spellSlots?: SpellSlotLevel[];
+  /** Remaining limited-use effects by stable effect ID; absent only in older saves. */
+  spellEffectUses?: Record<string, number>;
+  itemActionUses?: Record<string, number>;
   classFeatures?: ClassFeature[];
   passiveFeatures?: ClassFeature[];
   preparedSpells?: PreparedSpell[];
