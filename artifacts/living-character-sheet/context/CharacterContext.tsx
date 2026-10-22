@@ -1772,11 +1772,16 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
   const applyProposedItems = useCallback((proposed: ProposedInventoryItem[]) => {
     let gainedCount = 0;
     let removedCount = 0;
+    let skipped = false;
     const gainedNames: string[] = [];
     setInventory((prev) => {
       const updated = [...prev];
       for (const p of proposed) {
+        if (!Number.isSafeInteger(p.quantity) || p.quantity === 0) { skipped = true; continue; }
         if (p.quantity < 0) {
+          // A name-only removal cannot choose between distinct variants.
+          const matches = updated.filter(i => i.name.toLowerCase() === p.name.toLowerCase());
+          if (matches.length !== 1) { skipped = true; continue; }
           removedCount += Math.abs(p.quantity);
           const existingIndex = updated.findIndex(
             (i) => i.name.toLowerCase() === p.name.toLowerCase()
@@ -1788,20 +1793,7 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
             else updated[existingIndex] = { ...existing, quantity: newQty };
           }
         } else {
-          gainedCount += p.quantity;
-          gainedNames.push(p.name);
-          const existingIndex = updated.findIndex(
-            (i) => i.name.toLowerCase() === p.name.toLowerCase()
-          );
-          if (existingIndex >= 0) {
-            updated[existingIndex] = normalizeRuntimeInventoryItem({
-              ...updated[existingIndex],
-              quantity: updated[existingIndex].quantity + p.quantity,
-              value: p.value ?? updated[existingIndex].value,
-              mechanics: mergeItemMechanicsBlocks(updated[existingIndex].mechanics, p.mechanics),
-            });
-          } else {
-            updated.push(normalizeRuntimeInventoryItem({
+          const candidate = normalizeRuntimeInventoryItem({
               id: generateId(),
               name: p.name,
               pinned: false,
@@ -1809,6 +1801,9 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
               equipped: false,
               category: p.category,
               value: p.value,
+              weight: p.weight,
+              subtype: p.subtype,
+              useAbilityModifierForDamage: p.useAbilityModifierForDamage,
               notes: p.notes,
               sourceTag: p.sourceTag ?? (p.officialMatch ? "official" : "custom"),
               attackAbility: p.attackAbility,
@@ -1821,13 +1816,25 @@ export function CharacterProvider({ children }: { children: ReactNode }) {
               equippedEffects: p.equippedEffects,
               tags: p.tags && p.tags.length > 0 ? p.tags : undefined,
               mechanics: p.mechanics,
-            }));
+          });
+          const key = buildInventoryStackKey(candidate);
+          const existingIndex = updated.findIndex(i => !i.equipped && buildInventoryStackKey(i) === key);
+          if (existingIndex >= 0) {
+            const quantity = updated[existingIndex].quantity + p.quantity;
+            if (!Number.isSafeInteger(quantity)) { skipped = true; continue; }
+            updated[existingIndex] = { ...updated[existingIndex], quantity };
+          } else {
+            updated.push(candidate);
           }
+          gainedCount += p.quantity;
+          gainedNames.push(p.name);
         }
       }
       return updated;
     });
-    if (gainedCount > 0) {
+    if (skipped) {
+      showStatusPill("Some item changes were skipped: invalid quantity or ambiguous item. Review inventory manually.", "neutral");
+    } else if (gainedCount > 0) {
       const uniqueNames = [...new Set(gainedNames)].slice(0, 3);
       const suffix = uniqueNames.length > 0 ? ` (${uniqueNames.join(", ")}${gainedNames.length > uniqueNames.length ? ", ..." : ""})` : "";
       showStatusPill(`Loot gained: ${gainedCount} item${gainedCount === 1 ? "" : "s"}${suffix}`, "positive");

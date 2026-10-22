@@ -290,3 +290,11 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - [Item creation audit](audits/item-creation-api-audit.md) traces description/generation/photo/text/quest APIs through DM storage, drafts, review and inventory application. Twenty findings define validation, mechanics preservation, variant identity, provenance, acceptance and operational work.
 - Eleven API and four client probes reproduce current gaps with mocked SDK/React/storage boundaries; sixteen existing API contracts pass. No real AI, browser, database or concurrency acceptance was performed.
 - Audit only: no item behavior, schema or connected data changed. A single canonical validated proposal contract and lossless adapters are priorities; model changes alone cannot solve field loss or duplicate application.
+
+
+## Item reliability: client preservation and variant safety (2026-10-22)
+
+- DM Item Creator now saves equipped/consumption effects, canonical mechanics and weapon fields to DM notes. Notes normalization and notes-modal edits preserve these additive fields; save failures are visible. Existing prose-only records cannot recover previously discarded mechanics.
+- Proposal review uses the existing inventory stack identity; different categories, mechanics, stats, metadata and provenance stay separate. Inventory gains normalize before comparing against unequipped compatible stacks and retain weight/subtype/ability-modifier settings. Invalid integer counts and ambiguous name-only removals are skipped with status feedback. Signed removals remain supported when unambiguous.
+- Client boundary only; no DB migration or new combat execution. Conservative identity may produce additional rows when metadata differs. Duplicate acceptance receipts, DM party generation/delivery adapters, API validation and reflection review remain separate follow-ups. No usable undo is enabled.
+- Validation: actual storage/provider verification script `node --import tsx scripts/audits/verify-item-preservation.cjs` mocks React and AsyncStorage; three updated review tests (byte-identical temporary .cts copy for CommonJS compatibility). Workspace typecheck and combat baseline run separately. No device/browser or live storage acceptance tested. Historical item audit probes remain unchanged as baseline evidence.

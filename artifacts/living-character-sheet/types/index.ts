@@ -444,6 +444,8 @@ export interface ProposedInventoryItem {
   quantity: number;
   category: ItemCategory;
   value?: number;
+  weight?: number;
+  subtype?: string;
   notes?: string;
   confidence: "high" | "medium" | "low";
   needsReview: boolean;
@@ -669,6 +671,12 @@ export interface CampaignLocation {
 export type DmCampaignItemLootRole = "quest_item" | "reward" | "loot" | "other";
 
 export interface DmCampaignItem {
+  equippedEffects?: ItemEffect[];
+  consumptionEffects?: ItemEffect[];
+  mechanics?: ItemMechanicsBlock;
+  damageDice?: string;
+  damageModifier?: number;
+  damageType?: string;
   id: string;
   name: string;
   quality?: string;
