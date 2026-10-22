@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { AddressInfo } from "node:net";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import express from "express";
 
 process.env.DATABASE_URL ??= "postgres://local:local@localhost:5432/local";
 
 const adventureModule = await import("./adventure");
+const { mockCheckpointDatabase } = await import("../lib/testing/checkpointDatabase");
+
+// Continuation success now requires a committed database transaction. Keep the
+// HTTP contract fixtures independent of an external PostgreSQL service.
+beforeEach((t) => {
+  if (t.name.startsWith("endpoint campaign continuation") && "mock" in t) mockCheckpointDatabase(t);
+});
 
 const {
   parseOneOffHandoffIngestRequest,

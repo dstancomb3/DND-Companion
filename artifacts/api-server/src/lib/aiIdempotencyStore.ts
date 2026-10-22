@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { aiIdempotencyRecords } from "@workspace/db/schema";
 import { computeAICallRequestHash } from "./aiIdempotencyHash";
 
+export type IdempotencyDatabase = Pick<typeof db, "select" | "insert" | "update" | "delete">;
+
 const AI_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type AIIdempotencyStartResult =
@@ -21,19 +23,19 @@ function isMissingTableError(error: unknown): boolean {
   return error["code"] === "42P01";
 }
 
-async function pruneExpiredRows(): Promise<void> {
-  await db.delete(aiIdempotencyRecords).where(lt(aiIdempotencyRecords.expiresAt, new Date()));
+async function pruneExpiredRows(database: IdempotencyDatabase): Promise<void> {
+  await database.delete(aiIdempotencyRecords).where(lt(aiIdempotencyRecords.expiresAt, new Date()));
 }
 
 export async function startAICallIdempotency(input: {
   key: string;
   endpoint: string;
   requestHash: string;
-}): Promise<AIIdempotencyStartResult> {
+}, database: IdempotencyDatabase = db): Promise<AIIdempotencyStartResult> {
   try {
-    await pruneExpiredRows();
+    await pruneExpiredRows(database);
 
-    const existingRows = await db
+    const existingRows = await database
       .select()
       .from(aiIdempotencyRecords)
       .where(eq(aiIdempotencyRecords.key, input.key))
@@ -57,7 +59,7 @@ export async function startAICallIdempotency(input: {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + AI_IDEMPOTENCY_TTL_MS);
 
-    const inserted = await db
+    const inserted = await database
       .insert(aiIdempotencyRecords)
       .values({
         key: input.key,
@@ -76,7 +78,7 @@ export async function startAICallIdempotency(input: {
     }
 
     // Race fallback: if another request inserted first, re-resolve deterministically.
-    const racedRows = await db
+    const racedRows = await database
       .select()
       .from(aiIdempotencyRecords)
       .where(eq(aiIdempotencyRecords.key, input.key))
@@ -93,7 +95,7 @@ export async function startAICallIdempotency(input: {
     return { kind: "in_progress" };
   } catch (error) {
     // Fallback for environments where the table is not provisioned yet.
-    if (isMissingTableError(error)) {
+    if (database === db && isMissingTableError(error)) {
       return { kind: "disabled" };
     }
     throw error;
@@ -106,9 +108,9 @@ export async function completeAICallIdempotency(input: {
   requestHash: string;
   statusCode: number;
   responseBody: unknown;
-}): Promise<void> {
+}, database: IdempotencyDatabase = db): Promise<void> {
   try {
-    await db
+    await database
       .update(aiIdempotencyRecords)
       .set({
         status: "completed",
@@ -124,7 +126,7 @@ export async function completeAICallIdempotency(input: {
         ),
       );
   } catch (error) {
-    if (!isMissingTableError(error)) {
+    if (database !== db || !isMissingTableError(error)) {
       throw error;
     }
   }

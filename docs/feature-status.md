@@ -215,3 +215,11 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - `campaign_continuation_snapshots.client_saved_at` is now declared as PostgreSQL bigint in numeric Drizzle mode, allowing the client's epoch-millisecond timestamps without a JSON contract change. Existing databases require the explicit widening migration before this schema correction is effective.
 - Rollout, rollback and limitations: [Campaign save recovery](campaign-save-recovery.md). Six focused store/schema tests were added; four fail against baseline and all six pass after the patch.
 - Remaining: memory fallback is still process-local and non-durable, there is no automatic flush, database writes still need version/conflict controls, and clock-skew/equal-timestamp conflict policy remains deferred. This is not full campaign continuity or runtime orchestration.
+
+
+## 2026-10-21 Audit Remediation: Durable Checkpoint Acknowledgment
+
+- Campaign checkpoint POST now commits the snapshot and keyed replay receipt in one transaction before returning 200. On persistence failure it returns retryable 503; it no longer accepts a memory-only fallback as a successful checkpoint. Existing client submission error handling displays the returned message.
+- Same-key retries remain possible after rollback; a committed receipt handles acknowledgment loss without rewriting the snapshot. Keyed requests require the idempotency table. Other AI routes keep their existing best-effort behavior.
+- API typecheck and 80 focused mocked-boundary/contract tests pass. The route regression fails against the original route (200 instead of 503). Live PostgreSQL, restart, and multi-worker integration testing remain required. Existing client typecheck blockers remain unchanged.
+- Remaining: stale competing snapshot writes, authenticated ownership/DM authority, AI quotas, and rollout of the required database schema. This does not implement a durable client outbox or full campaign runtime.

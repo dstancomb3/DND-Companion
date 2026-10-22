@@ -57,3 +57,7 @@ Campaign `clientSavedAt` values are epoch milliseconds: preserve bigint storage
 with numeric API serialization. Older database reads must not replace a newer
 in-process fallback. Fallback success is not proof of durable persistence;
 review `docs/campaign-save-recovery.md` before changing save/recovery behavior.
+
+Campaign checkpoint POST must acknowledge only after its snapshot and keyed replay
+receipt transaction commits. Do not route this path back through the compatibility
+memory-only save helper, or swallow transaction-scoped persistence errors.
