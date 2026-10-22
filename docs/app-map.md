@@ -123,3 +123,7 @@ See [DM history, snapshots and rollback](dm-history-and-rollback-spec.md) for th
 ## Local history undo containment
 
 `utils/mutationUndoSafety.ts` refuses unverified MutationHistory reversals. Quick Update/Log show the limitation; complete capture and guarded undo remain planned. See [local undo containment](local-undo-containment.md) before re-enabling a path.
+
+## Limited-use snapshot coverage
+
+`utils/mechanics/snapshotEffectUsage.ts` validates limited-use count maps at the existing character snapshot boundary. Context save/load and import/export preserve these maps; this is partial snapshot coverage. See [snapshot usage coverage](snapshot-effect-usage.md).

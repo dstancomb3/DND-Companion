@@ -9,6 +9,8 @@ import { normalizeLocationHierarchyRecords } from "@/utils/locationHierarchy";
 import { legacyItemToItemMechanicsBlock } from "./itemMechanicsAdapters";
 import { envelopeToRuntimeCompatibilityItem, runtimeCompatibilityItemToEnvelope } from "./mechanicsEnvelopeAdapters";
 
+import { readSnapshotEffectUsage } from "./snapshotEffectUsage";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -95,6 +97,8 @@ export function normalizeCharacterSnapshotMechanics(snapshot: CharacterSnapshot)
 
   return {
     ...snapshot,
+    spellEffectUses: readSnapshotEffectUsage(snapshot.spellEffectUses, "spellEffectUses"),
+    itemActionUses: readSnapshotEffectUsage(snapshot.itemActionUses, "itemActionUses"),
     inventory,
     locations: normalizedLocations,
     character: {

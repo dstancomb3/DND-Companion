@@ -1112,3 +1112,10 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Optional display-only `recordingStage` is additive. No database, authority or saved-character schema migration. Missing stage remains compatible. All existing MutationHistory undo is intentionally unavailable; separate spell/action refund flows are unchanged and unaudited by this slice.
 - Six focused tests and three provider probes verify refusal without mutation; old provider fails the regression. Workspace typecheck and 24 combat safety tests pass. Updated probe writes new containment evidence, preserving the original baseline audit output.
 - H0 is not complete: exact capture, lifecycle side effects, after-state/revision/dependency proof and transactional history are still required before safe undo can return. Scope/rollback: `docs/local-undo-containment.md`. Reverting restores the unsafe behavior; no data rollback is necessary.
+
+## 2026-10-22 Snapshot Limited-Use Effect Maps
+
+- Added optional `spellEffectUses` and `itemActionUses` to CharacterSnapshot. Remaining uses are nonnegative safe integers; zero is retained, missing legacy fields become empty maps, and present invalid values fail validation. No database migration, version bump, dependency or automatic stored-data rewrite.
+- CharacterContext normal/reorder saves and load now preserve these maps. Shared snapshot normalization/import/export and Edit Character use the same validation; paste import delegates to the existing shared adapter. This is one client snapshot boundary, with no gameplay resolution or server authority move.
+- Sixteen new codec/provider tests plus undo/compatibility/combat checks pass; fourteen initial regressions fail against previous code. Mocked React/persistence tests do not establish browser/disk behavior. Full checkpoints, autosave, concentration/reaction state, transactional history and usable undo remain deferred.
+- Rollback the client contract/context/adapter/UI slice together; older code drops or resets the new counts. No database rollback. Details: `docs/snapshot-effect-usage.md`.

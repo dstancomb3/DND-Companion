@@ -278,3 +278,9 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Diagnostic recording occurs before item-review handoff and includes world-only changes; mixed entries explicitly mark pending item review. Records are still partial, best effort and capped at 20.
 - Six focused tests, three actual-provider probes, workspace typecheck and 24 combat safety tests pass; provider regression fails against the previous implementation. Browser/mobile/navigation acceptance remains pending.
 - This contains audit U01/U02/U10 data-loss paths; it does not implement complete snapshots, usable guarded undo or shared rollback. H0/H1 capture, revision/authority proof and durable history remain required. [Scope and rollback](local-undo-containment.md). No database migration or data rewrite.
+
+## 2026-10-22 Snapshot Limited-Use Coverage (H1a)
+
+- Character saves now include limited-use spell/item remaining-count maps, including exhausted zero values. Normal save, reorder, load, full/bare import and portable/Edit Character export paths preserve them. Present malformed usage data is rejected before load instead of treated as fresh charges.
+- Legacy absent counts remain unknown and retain old defaults; no data is reconstructed. Character clearing still resets usage. This does not add per-action autosave, complete combat snapshots or safe undo; H0a refusal remains in place.
+- Sixteen new tests, six undo tests, eight existing compatibility tests, workspace typecheck and 24 combat safety tests pass. Provider/persistence boundaries are mocked; browser/device save/reload and import interaction remain pending. [Scope and rollback](snapshot-effect-usage.md).

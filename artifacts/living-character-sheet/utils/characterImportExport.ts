@@ -24,7 +24,7 @@ export function parseCharacterImportText(rawText: string): ImportParseResult {
   }
 }
 
-export function buildImportedCharacterSnapshot(input: {
+function buildImportedCharacterSnapshotUnchecked(input: {
   parsed: unknown;
   baseSnapshot: CharacterSnapshot;
 }): ImportSnapshotResult {
@@ -49,6 +49,8 @@ export function buildImportedCharacterSnapshot(input: {
         wishlist: snapshot.wishlist ?? [],
         journalArcs: snapshot.journalArcs ?? [],
         spellSlots: snapshot.spellSlots,
+        spellEffectUses: snapshot.spellEffectUses,
+        itemActionUses: snapshot.itemActionUses,
         classFeatures: snapshot.classFeatures,
         passiveFeatures: snapshot.passiveFeatures,
         preparedSpells: snapshot.preparedSpells,
@@ -84,6 +86,17 @@ export function buildImportedCharacterSnapshot(input: {
       mechanics: mergedCharacter.mechanics,
     }),
   };
+}
+
+export function buildImportedCharacterSnapshot(input: {
+  parsed: unknown;
+  baseSnapshot: CharacterSnapshot;
+}): ImportSnapshotResult {
+  try {
+    return buildImportedCharacterSnapshotUnchecked(input);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Invalid character snapshot." };
+  }
 }
 
 export function buildPortableCharacterExport(snapshot: CharacterSnapshot): CharacterSnapshot {
