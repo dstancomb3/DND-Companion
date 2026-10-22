@@ -453,7 +453,10 @@ paths:
     put:
       operationId: respondRestRequest
       tags: [party]
-      summary: Respond to a rest request
+      summary: Approve or deny a rest request as the original party host
+      description: Requires persisted host bearer proof. resolvedBy is ignored; the server stamps dm. Legacy unclaimed parties fail closed.
+      security:
+        - partyCapability: []
       parameters:
         - $ref: "#/components/parameters/PartyCode"
         - $ref: "#/components/parameters/RequestId"
@@ -464,6 +467,10 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       responses:
+        "403":
+          description: Missing or invalid original-host proof (party_host_required)
+        "404":
+          description: Party session or rest request not found
         "200":
           description: Rest response accepted
           content:

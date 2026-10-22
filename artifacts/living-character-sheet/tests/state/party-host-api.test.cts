@@ -80,3 +80,27 @@ test("failed DM note delivery retains the private capability for an explicit ret
   await assert.rejects(api.createPartyNoteAssignments("PARTY",{targetMemberIds:["player"],payload:{quests:[],people:[],locations:[]}}),/Server unavailable/);
   assert.equal(f.rows.size,1);
 });
+
+for (const status of ["approved", "denied"] as const) {
+ test(`rest ${status} transports persisted host proof and returns the response`,async()=>{
+  const f=fixture();await partyHostApi(f.request,f.storage).createParty();
+  const expected={ok:true as const,request:{id:"rest",status}};
+  const request=async<T>(path:string,options?:RequestInit):Promise<T>=>{f.calls.push({path,options});return expected as T;};
+  const payload={status,resolvedBy:"dm"};
+  assert.deepEqual(await partyHostApi(request,f.storage).resolvePartyRestRequest("PARTY","rest",payload),expected);
+  assert.deepEqual(f.calls[1],{path:"/party/PARTY/rest-requests/rest",options:{method:"PUT",headers:{Authorization:"Bearer private-token","Content-Type":"application/json"},body:JSON.stringify(payload)}});
+  assert.equal(f.rows.size,1);
+ });
+}
+test("watchers and hosts of another party cannot resolve rest without local proof",async()=>{
+ const f=fixture(),api=partyHostApi(f.request,f.storage);
+ await assert.rejects(api.resolvePartyRestRequest("PARTY","rest",{status:"approved"}),/Only the device/);
+ await api.createParty();
+ await assert.rejects(api.resolvePartyRestRequest("OTHER","rest",{status:"denied"}),/Only the device/);
+ assert.equal(f.calls.length,1);
+});
+test("failed rest resolution keeps the host credential for explicit retry",async()=>{
+ const f=fixture(),api=partyHostApi(f.request,f.storage);await api.createParty();f.fail();
+ await assert.rejects(api.resolvePartyRestRequest("PARTY","rest",{status:"approved"}),/Server unavailable/);
+ assert.equal(f.rows.get("party-host-token.v1:PARTY"),"private-token");
+});

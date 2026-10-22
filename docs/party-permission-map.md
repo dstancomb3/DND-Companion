@@ -24,10 +24,10 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A3: eleven handlers have explicit capability proof (sync, leave,
+After O02-A4: twelve handlers have explicit capability proof (sync, leave,
 disband, note creation/accept/decline, member initiative, roll response, rest
-request/acknowledgement and loot claim); three are bootstrap handlers; two are
-open read handlers; 17 are open mutation handlers. Counts are declarations, not a security-completion
+request/approval/acknowledgement and loot claim); three are bootstrap handlers; two are
+open read handlers; 16 are open mutation handlers. Counts are declarations, not a security-completion
 percentage. Some GET/session helpers have writes.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
@@ -48,8 +48,8 @@ percentage. Some GET/session helpers have writes.
 | POST | `/party/:code/combat/apply-outcomes` | Open mutation | Apply bounded remote HP/temp HP/conditions | Existing source/turn/target checks are business validation, not caller authentication. Prove source ownership or explicit host authority. |
 | POST | `/party/:code/roll-requests` | Open mutation | Create roll prompts | Proposed host or explicit authorized orchestrator role; no caller DM flag. |
 | PUT | `/party/:code/roll-requests/:requestId/respond` | Target-member proof | Record/replace target member roll response | Live exact-member proof plus existing request-target check. Dice/modifier fairness and durable roll authority remain separate. |
-| POST | `/party/:code/rest-requests` | Member proof | Request rest for member | Live requester proof; existing party-wide rest request semantics retained. Approval authority is still an open route. |
-| PUT | `/party/:code/rest-requests/:requestId` | Open mutation | Approve/deny rest | Proposed host proof; resolvedBy is not credentials. |
+| POST | `/party/:code/rest-requests` | Member proof | Request rest for member | Live requester proof; existing party-wide rest request semantics retained. Host proof is required on the separate approval route. |
+| PUT | `/party/:code/rest-requests/:requestId` | Host proof (O02-A4) | Approve/deny rest | Original-host proof before activity/expiry/runtime work; server stamps resolvedBy as dm. |
 | PUT | `/party/:code/rest-requests/:requestId/ack` | Target-member proof | Acknowledge recipient rest application | Live exact-member proof plus approved-state/target checks; local/server receipt atomicity remains U08. |
 | POST | `/party/:code/events` | Open mutation | Append event with member/metadata labels | Proposed member/host policy with permitted event kinds; labels cannot grant state authority. |
 | POST | `/party/:code/loot-assignments` | Open mutation | DM awards AND player-to-player item transfers | Do not make blindly host-only. Need distinct host award/member-owned transfer proof; server currently lacks complete inventory ownership/debit authority. |
@@ -182,3 +182,30 @@ server-recorded dice and modifier validation remain separate gaps. Rest approval
 event/award creation and combat controls remain open; this is not complete O02.
 Rollback matching client/server together; reverting the server reopens spoofing.
 Tests use mocked DB/storage and do not establish device/HTTP/real DB acceptance.
+
+
+## O02-A4: host rest resolution (2026-10-22)
+
+Approval/denial now verifies the existing original-host capability before session
+activity, expired-session deletion or runtime hydration. Party code, member proof,
+body tokens, DM labels and legacy unclaimed sessions cannot resolve rest. Unknown
+sessions return 404; unauthorized requests return 403 party_host_required without
+writes. Authorized hosts retain status validation, missing-request handling,
+expiry checks and persisted approved/denied events. The server stamps resolvedBy
+as dm. The only current UI caller is dm-party.tsx; its existing error handling
+reports missing local host proof or API failure.
+
+The existing client export delegates to partyHostApi, transports the per-party
+stored proof with JSON headers and returns the typed response. Missing local
+proof prevents the request; failures retain proof for explicit retry. No UI flow,
+new schema or automatic retry is added. Provision the existing host column and
+deploy matching client/API; old clients and DM watchers without the original
+host capability fail closed. Roll back both together if needed, leaving columns
+intact; a server rollback reopens unauthenticated approval. No deployment or
+connected database change was performed.
+
+This is permission enforcement, not transactional rest application or complete
+rest lifecycle validation. Existing resolution transition/replay behavior is
+unchanged, as are acknowledgement/local-save recovery, delegation, read privacy
+and authorization-to-commit races. Sixteen mutation handlers remain open. Tests
+mock DB/storage; live PostgreSQL, HTTP and mobile acceptance remain pending.

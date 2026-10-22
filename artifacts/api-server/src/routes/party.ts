@@ -2669,13 +2669,23 @@ router.post("/party/:code/rest-requests", async (req, res) => {
 router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
   try {
     const { code, requestId } = req.params;
+    // Host proof must precede activity refresh, expiration cleanup and runtime work.
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+    if (sessions.length === 0) {
+      res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+    if (!hasPartyHostToken(req.get("authorization"), sessions[0].hostTokenHash)) {
+      res.status(403).json({ error: "Only the original party host can approve or deny rest. Older parties must expire or be recreated.", code: "party_host_required" });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
       return;
     }
 
-    const { status, resolvedBy } = req.body ?? {};
+    const { status } = req.body ?? {};
     if (status !== "approved" && status !== "denied") {
       res.status(400).json({ error: "status must be approved or denied" });
       return;
@@ -2690,7 +2700,7 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
 
     request.status = status;
     request.resolvedAt = new Date().toISOString();
-    request.resolvedBy = typeof resolvedBy === "string" ? resolvedBy : undefined;
+    request.resolvedBy = "dm"; // Derived from host proof, not caller labels.
 
     appendEvent(state, {
       type: status === "approved" ? "rest_approved" : "rest_denied",
