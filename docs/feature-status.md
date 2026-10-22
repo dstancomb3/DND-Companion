@@ -349,3 +349,18 @@ currently disabled, and general shared rollback is not implemented.
 - Five additional endpoints require live exact-member proof before activity/expiry/runtime work: initiative roll, roll response, rest request, rest acknowledgement and loot claim. Existing target/reroll/status/total-normalization rules are retained. Body IDs/flags and host proof cannot substitute for member proof.
 - Existing client functions delegate to the persisted member adapter with compatible signatures/results and JSON headers; revoked proof is invalidated, transport failures retain it. No screen, host control or player-transfer authoring policy changed.
 - Existing capability columns and matching client/API required; no new migration or DB writes performed by implementation. Old clients fail closed; legacy members rejoin. O02 remains partial, with 11 proof-gated handlers and 17 open mutation handlers. Public reads, combat/DM controls, dice authority and durable loot/rest recovery remain open. Validation and exact files are recorded in the implementation log.
+
+
+## O02-A4 rest approval authorization (2026-10-22)
+
+Rest approval/denial now requires the original-host bearer capability before
+session activity, expiration cleanup or runtime access. The server derives DM
+origin; the matching client sends existing persisted host proof through the host
+adapter. Existing validation and response contracts are retained. No new schema
+migration; provision the existing host column before the matching client/API.
+Old clients and legacy/unclaimed parties fail closed; delegation/recovery is not
+added. Roll back client/server together if necessary, leaving capability columns
+intact; server rollback reopens the authorization gap. No deployment or connected
+DB write was performed. O02 remains partial: sixteen mutation handlers, read
+privacy, concurrent authorization/commit and transactional rest recovery remain
+open. See [route map](party-permission-map.md) and [implementation log](implementation-log.md).

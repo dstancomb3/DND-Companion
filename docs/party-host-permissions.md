@@ -68,3 +68,18 @@ durable claim/save receipts remain open. See the complete
 O02-A2 subsequently adds live recipient-member proof for note accept/decline;
 host proof is not a substitute. Recipient persistence/recovery and open reads
 remain separate gaps. See the updated route map.
+
+
+## O02-A4 rest approval authorization (2026-10-22)
+
+Rest approval/denial now requires the original-host bearer capability before
+session activity, expiration cleanup or runtime access. The server derives DM
+origin; the matching client sends existing persisted host proof through the host
+adapter. Existing validation and response contracts are retained. No new schema
+migration; provision the existing host column before the matching client/API.
+Old clients and legacy/unclaimed parties fail closed; delegation/recovery is not
+added. Roll back client/server together if necessary, leaving capability columns
+intact; server rollback reopens the authorization gap. No deployment or connected
+DB write was performed. O02 remains partial: sixteen mutation handlers, read
+privacy, concurrent authorization/commit and transactional rest recovery remain
+open. See [route map](party-permission-map.md) and [implementation log](implementation-log.md).

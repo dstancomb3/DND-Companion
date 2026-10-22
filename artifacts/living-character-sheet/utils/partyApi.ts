@@ -630,16 +630,7 @@ export const submitPartyRollResponse = memberApi.submitPartyRollResponse;
 
 export const createPartyRestRequest = memberApi.createPartyRestRequest;
 
-export async function resolvePartyRestRequest(
-  code: string,
-  requestId: string,
-  payload: { status: "approved" | "denied"; resolvedBy?: string }
-): Promise<{ ok: true; request: PartyRestRequest }> {
-  return apiRequest<{ ok: true; request: PartyRestRequest }>(`/party/${code}/rest-requests/${requestId}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const resolvePartyRestRequest = hostApi.resolvePartyRestRequest;
 
 export const acknowledgePartyRestRequest = memberApi.acknowledgePartyRestRequest;
 

@@ -1,4 +1,4 @@
-import type { NotesAssignment, NotesAssignmentPayload } from "./partyApi";
+import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest } from "./partyApi";
 
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
@@ -27,6 +27,13 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       if (!token) throw new Error("Only the device that created this party can send DM notes. Older parties must expire or be recreated.");
       return request(`/party/${code}/note-assignments`, {
         method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+    },
+    async resolvePartyRestRequest(code: string, requestId: string, payload: { status: "approved" | "denied"; resolvedBy?: string }): Promise<{ ok: true; request: PartyRestRequest }> {
+      const token = await storage.getItem(tokenKey(code));
+      if (!token) throw new Error("Only the device that created this party can approve or deny rest. Older parties must expire or be recreated.");
+      return request(`/party/${code}/rest-requests/${requestId}`, {
+        method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
     },
     async disbandParty(code: string): Promise<void> {
