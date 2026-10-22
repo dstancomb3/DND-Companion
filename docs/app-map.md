@@ -149,3 +149,12 @@ Read [Implementation log](implementation-log.md) before choosing the next slice.
 the O02-A1 host-proof gate for DM note creation. Client credential transport stays
 in `utils/partyHostApi.ts`; permission decisions stay in server `routes/party.ts`.
 Remaining routes and recipient/transaction limits are explicit.
+
+
+## Party journal note delivery
+
+`app/dm-party.tsx` selects journal notes/quests from saved DM data; existing
+host-authorized note assignments normalize/persist optional notes in server
+`routes/party.ts`. `utils/partyNotesMerge.ts` prepares note creation and quest
+upserts for `app/party.tsx` through CharacterContext. Acceptance remains separate
+from local journal save. See the implementation log's QA-N01/QA-N02 pass.

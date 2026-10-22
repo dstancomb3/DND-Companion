@@ -364,3 +364,35 @@ intact; server rollback reopens the authorization gap. No deployment or connecte
 DB write was performed. O02 remains partial: sixteen mutation handlers, read
 privacy, concurrent authorization/commit and transactional rest recovery remain
 open. See [route map](party-permission-map.md) and [implementation log](implementation-log.md).
+
+
+## Live rollout QA: journal note delivery (2026-10-22)
+
+User testing found plain DM journal notes absent from the quest delivery menu
+(QA-N01). The existing host-authorized assignment path now carries optional
+journal notes, allows notes-only sends, preserves supported note metadata, and
+adds accepted notes to the local journal. Legacy payloads without notes remain
+valid. The notes tab's send button uses its own recipient selection. Saved DM
+data refreshes on focus and immediately before sending, avoiding stale editor
+state; sender/recipient displays show quest status before acceptance.
+
+QA-N02: user reports an unfinished quest showing Completed in the player journal
+after acceptance. Server creation, recipient acceptance and local insert/update
+regressions preserve Active, Completed and Failed in tested fixtures. Stale sender
+state was found and corrected, but the exact reported state change remains
+unreproduced and requires user retest. Do not claim this report resolved solely
+from passing tests. No automatic status reset or gameplay completion change.
+
+No new DB migration; deploy matching API/client for journal notes. Existing
+host/member proof remains required. Old APIs drop notes; old clients ignore them.
+Accepted notes append locally using normal note IDs/timestamps. Linked record IDs
+are retained metadata, not a completed graph remapping or save/receipt recovery
+system; repeated deliveries can append again. Existing acknowledgement-before-
+local-save risk remains. Rollback both API/client together if needed; avoid
+accepting note-only deliveries with an old client. No deployment performed.
+
+Operator evidence: user applied both existing host/member SQL migrations and
+verified nullable text columns; root Windows typechecks and all 24 combat safety
+tests passed on Node 20.20.2/pnpm 10.33.0. API and web app startup reported working.
+Fresh backup recorded five public tables before migration. Gameplay acceptance
+and restart/concurrency checks are still in progress. See implementation log.

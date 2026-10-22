@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { partyHostApi } from "./partyHostApi";
 import { partyMemberApi, PartyMemberAccessError } from "./partyMemberApi";
 import { API_BASE_URL } from "./apiUrl";
-import type { CampaignLocation, NpcPerson, Quest, Companion, InventoryItem } from "@/types";
+import type { CampaignLocation, NpcPerson, Quest, Note, Companion, InventoryItem } from "@/types";
 import type { CombatTargetResolutionResult } from "@/types/combatOutcome";
 
 export interface PartyMemberSummary {
@@ -128,6 +128,7 @@ export interface LootAssignment {
 }
 
 export interface NotesAssignmentPayload {
+  notes?: Note[];
   quests: Quest[];
   people: NpcPerson[];
   locations: CampaignLocation[];

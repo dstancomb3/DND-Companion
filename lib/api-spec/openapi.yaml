@@ -177,7 +177,7 @@ paths:
       operationId: createPartyNoteAssignments
       tags: [party]
       summary: Send DM notes using the original host capability
-      description: Requires the original host proof before activity or runtime changes. Caller assignedBy/DM flags do not grant authority; assignments are stamped as DM-originated. Legacy unclaimed parties cannot send notes. Recipient accept/decline authorization is not covered by this route.
+      description: Requires the original host proof before activity or runtime changes. Caller assignedBy/DM flags do not grant authority; assignments are stamped as DM-originated. Legacy unclaimed parties cannot send notes. Recipient accept/decline authorization is enforced separately. Payload supports optional journal notes plus quests, people and locations; quest status is preserved.
       security:
         - partyCapability: []
       parameters:
