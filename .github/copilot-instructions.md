@@ -66,3 +66,12 @@ Checkpoint HTTP updates must compare the prior server submission ID atomically;
 client timestamps are not version authority. Missing tokens are create-only.
 Read version tokens from durable storage and never silently retry a conflict
 with another writer's token. Deploy the matching client contract with the server.
+
+
+## Validation Tooling Boundary
+
+Client typecheck includes both the Expo project and the separate Node-aware
+Playwright config project. Keep both checks when changing TypeScript settings.
+The combat safety test uses `.cts` to match the CommonJS app package; changing
+its module format can break named imports before assertions run. Preserve the
+standard root combat-baseline command and frozen lockfile consistency.

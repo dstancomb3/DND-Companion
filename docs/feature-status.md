@@ -240,3 +240,12 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Session client retains a session-scoped base token, includes it on submit, updates it from its own save response, and preserves local work on conflict. No silent token refresh/retry or automatic merge. Older clients cannot overwrite existing checkpoints without adopting the new contract.
 - 87 focused server tests and 3 client API tests pass. Five new conflict/ID regressions fail on the preceding implementation. API typecheck passes; the same existing client errors still prevent a green workspace baseline. Full React UI, PostgreSQL locking, and two-device QA remain pending.
 - No new schema migration. Authorization/DM roles, AI quotas, party write atomicity and green-baseline repair remain audit work; this is not the planned new combat engine.
+
+
+## 2026-10-22 Validation Baseline Repair
+
+- Workspace typecheck now passes, including a separate Node-aware Playwright config check. Encounter Actions uses a supported Feather crosshair icon.
+- Frozen installation now succeeds: React Query catalog/shared-client references match the already-locked app version, and the client's explicit Node type dependency is recorded. Package records/transitive snapshots are unchanged.
+- The existing combat safety test is now `.cts` to match the app package and runs through `node --import tsx --test`; all 24 original assertions/tests pass without editing test contents. Current package scripts reference the renamed file.
+- `pnpm run validate:combat-baseline`, `pnpm install --frozen-lockfile`, 90 focused server tests and 3 checkpoint client API tests pass. Details: [Runtime baseline](runtime-baseline.md). This resolves the previously recorded typecheck/install blockers; it does not establish full browser, live database or mobile QA.
+- User app save/reload/restart testing remains pending. Authentication/DM permissions, AI usage controls and party transactional writes remain audit work.

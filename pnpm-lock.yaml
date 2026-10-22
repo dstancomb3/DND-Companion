@@ -17,7 +17,7 @@ catalogs:
       version: 4.2.2
     '@tanstack/react-query':
       specifier: ^5.100.10
-      version: 5.99.0
+      version: 5.100.10
     '@types/node':
       specifier: ^25.3.3
       version: 25.6.0
@@ -307,6 +307,9 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.10(react@19.1.0)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.0
       '@types/react':
         specifier: ~19.1.17
         version: 19.1.17
@@ -603,7 +606,7 @@ importers:
     dependencies:
       '@tanstack/react-query':
         specifier: 'catalog:'
-        version: 5.99.0(react@19.1.0)
+        version: 5.100.10(react@19.1.0)
 
   lib/api-spec:
     devDependencies:
