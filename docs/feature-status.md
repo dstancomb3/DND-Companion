@@ -271,3 +271,10 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Agreed scope: durable snapshots and immutable history for NPCs, quests, people, items/resources and combat; Undo Last DM Change plus reviewed Restore Checkpoint.
 - [Specification](dm-history-and-rollback-spec.md) adds transactional capture, coherent checkpoints, dependency/revision checks, pre-restore safety checkpoints and explicit retention requirements. Integrated into convergence Phase 2; audit fixes remain first.
 - Planning only. Existing local character undo is partial; no cross-domain snapshot persistence or DM rollback UI was added. No gameplay, database or schema changes. A [code-grounded audit](audits/undo-snapshot-audit.md) inventories 140 context method declarations, 59 storage write sites and 51 server routes, with three isolated probes of existing undo behavior. These counts are candidates, not complete reversible coverage. H0-H7 define the required additions; browser/database acceptance remains pending.
+
+## 2026-10-22 Local Undo Containment (H0a)
+
+- Unsafe MutationHistory reversal is disabled for existing records: provider calls return readable refusal without character/history mutation. Log shows the reason and newest records; Quick Update stops offering its misleading Undo button.
+- Diagnostic recording occurs before item-review handoff and includes world-only changes; mixed entries explicitly mark pending item review. Records are still partial, best effort and capped at 20.
+- Six focused tests, three actual-provider probes, workspace typecheck and 24 combat safety tests pass; provider regression fails against the previous implementation. Browser/mobile/navigation acceptance remains pending.
+- This contains audit U01/U02/U10 data-loss paths; it does not implement complete snapshots, usable guarded undo or shared rollback. H0/H1 capture, revision/authority proof and durable history remain required. [Scope and rollback](local-undo-containment.md). No database migration or data rewrite.

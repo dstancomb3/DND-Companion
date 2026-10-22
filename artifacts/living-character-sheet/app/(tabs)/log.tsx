@@ -18,6 +18,7 @@ import { useCharacter } from "@/context/CharacterContext";
 import type { CombatLogEntry, MutationBatch, SessionLog } from "@/types";
 import { ScrollHintScrollView } from "@/components/ScrollHintScrollView";
 import { useMutationHistory } from "@/context/MutationHistoryContext";
+import { getLocalUndoAvailability } from "@/utils/mutationUndoSafety";
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -207,11 +208,11 @@ export default function LogTab() {
   const c = useColors();
   const { combatLogEntries, combatLogSessions, addLogNote, clearCombatLog, startNewSession } = useCharacter();
 
-  const { history, undoBatch } = useMutationHistory();
+  const { history } = useMutationHistory();
   const [recentExpanded, setRecentExpanded] = useState(true);
 
   const recentBatches = useMemo(
-    () => history.filter((b) => b.applied && !b.undone && b.deltas.length > 0).slice().reverse().slice(0, 5),
+    () => history.filter((b) => b.applied && !b.undone).slice(0, 5),
     [history]
   );
 
@@ -302,17 +303,16 @@ export default function LogTab() {
                       </Text>
                       <Text style={[s.recentTime, { color: c.mutedForeground, fontSize: c.scaleFont(11) }]}> 
                         {new Date(batch.timestamp).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                        {" · "}{batch.deltas.length} change{batch.deltas.length !== 1 ? "s" : ""}
+                        {" · "}Recorded update
                         {batch.source === "ai" ? " · AI" : " · manual"}
                       </Text>
+                      <Text style={[s.undoBtnText, { color: c.mutedForeground, fontSize: c.scaleFont(12) }]}>
+                        {getLocalUndoAvailability(batch).reason}
+                      </Text>
+                      {batch.recordingStage === "awaiting_item_review" ? (
+                        <Text style={{ color: c.mutedForeground, fontSize: c.scaleFont(12) }}>Items still require Loot Review.</Text>
+                      ) : null}
                     </View>
-                    <TouchableOpacity
-                      onPress={() => undoBatch(batch.id)}
-                      activeOpacity={0.7}
-                      style={[s.undoBtn, { borderColor: c.border }]}
-                    >
-                      <Text style={[s.undoBtnText, { color: c.primary, fontSize: c.scaleFont(12) }]}>Undo</Text>
-                    </TouchableOpacity>
                   </View>
                 ))}
               </View>

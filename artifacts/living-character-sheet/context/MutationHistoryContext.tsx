@@ -17,7 +17,7 @@ import type {
   ProposedConditionChange,
 } from "@/types";
 import { useCharacter } from "@/context/CharacterContext";
-import { buildResourceUndoChanges } from "@/utils/mutationUndo";
+import { getLocalUndoAvailability, type UndoUnavailable } from "@/utils/mutationUndoSafety";
 
 const MAX_HISTORY = 20;
 const KEY_PREFIX = "@lcs_mutation_history_";
@@ -26,18 +26,18 @@ interface MutationHistoryContextType {
   history: MutationBatch[];
   /** Append a fully-constructed batch AFTER it has been applied. */
   appendBatch: (batch: MutationBatch) => Promise<void>;
-  /** Undo the most recently applied, un-undone batch. */
-  undoLast: () => Promise<void>;
-  /** Undo a specific batch by id. */
-  undoBatch: (id: string) => Promise<void>;
+  /** Refuse unverified reversals without modifying character or history. */
+  undoLast: () => Promise<UndoUnavailable>;
+  /** Return the safety refusal for a specific batch by ID. */
+  undoBatch: (id: string) => Promise<UndoUnavailable>;
   clearHistory: () => Promise<void>;
 }
 
 const DEFAULT_CTX: MutationHistoryContextType = {
   history: [],
   appendBatch: async () => {},
-  undoLast: async () => {},
-  undoBatch: async () => {},
+  undoLast: async () => getLocalUndoAvailability(),
+  undoBatch: async () => getLocalUndoAvailability(),
   clearHistory: async () => {},
 };
 
@@ -48,7 +48,7 @@ function storageKey(characterId: string | null) {
 }
 
 export function MutationHistoryProvider({ children }: { children: ReactNode }) {
-  const { character, resources, currentCharacterId, updateHp, updateCurrency, applyResourceChanges, addCondition, removeCondition } = useCharacter();
+  const { currentCharacterId } = useCharacter();
   const [history, setHistory] = useState<MutationBatch[]>([]);
 
   // Load history when character changes
@@ -79,62 +79,14 @@ export function MutationHistoryProvider({ children }: { children: ReactNode }) {
     });
   }, [currentCharacterId]);
 
-  const undoBatch = useCallback(async (id: string) => {
-    if (!character) return;
+  const undoBatch = useCallback(async (id: string): Promise<UndoUnavailable> => {
+    return getLocalUndoAvailability(history.find((batch) => batch?.id === id));
+  }, [history]);
 
-    const batch = history.find((b) => b.id === id);
-    if (!batch || batch.undone || !batch.applied) return;
-
-    const snap = batch.beforeSnapshot;
-    if (!snap) {
-      const updatedWithoutSnapshot = history.map((b) =>
-        b.id === id ? { ...b, undone: true } : b
-      );
-      setHistory(updatedWithoutSnapshot);
-      AsyncStorage.setItem(storageKey(currentCharacterId), JSON.stringify(updatedWithoutSnapshot)).catch(() => {});
-      return;
-    }
-
-    // Restore HP if it was affected
-    if (snap.currentHp !== undefined) {
-      const currentHp = character.currentHp ?? 0;
-      const delta = snap.currentHp - currentHp;
-      if (delta !== 0) updateHp(delta, "manual");
-    }
-
-    // Restore currency
-    if (snap.currency) {
-      const curr = character.currency;
-      const reverseCurrency: ProposedCurrencyChange = {
-        cp: snap.currency.cp - curr.cp,
-        sp: snap.currency.sp - curr.sp,
-        ep: snap.currency.ep - curr.ep,
-        gp: snap.currency.gp - curr.gp,
-        pp: snap.currency.pp - curr.pp,
-      };
-      const anyChange = Object.values(reverseCurrency).some((v) => v !== 0);
-      if (anyChange) updateCurrency(reverseCurrency);
-    }
-
-    // Restore resources via deterministic reverse deltas
-    if (snap.resourceStates && snap.resourceStates.length > 0) {
-      const reverseResourceChanges = buildResourceUndoChanges(snap, resources);
-      if (reverseResourceChanges.length > 0) {
-        applyResourceChanges(reverseResourceChanges, "manual");
-      }
-    }
-
-    const updated = history.map((b) =>
-      b.id === id ? { ...b, undone: true } : b
-    );
-    setHistory(updated);
-    AsyncStorage.setItem(storageKey(currentCharacterId), JSON.stringify(updated)).catch(() => {});
-  }, [applyResourceChanges, character, currentCharacterId, history, resources, updateHp, updateCurrency]);
-
-  const undoLast = useCallback(async () => {
-    const last = history.find((b) => b.applied && !b.undone);
-    if (last) await undoBatch(last.id);
-  }, [history, undoBatch]);
+  const undoLast = useCallback(async (): Promise<UndoUnavailable> => {
+    const last = history.find((batch) => batch?.applied && !batch.undone);
+    return getLocalUndoAvailability(last);
+  }, [history]);
 
   const clearHistory = useCallback(async () => {
     await persist([]);

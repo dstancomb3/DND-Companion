@@ -1041,9 +1041,11 @@ export interface MutationBatch {
   deltas: MutationDelta[];
   /** Snapshot of relevant fields taken BEFORE apply, used for undo. */
   beforeSnapshot: MutationBatchSnapshot;
+  /** Display-only history stage; neither stage proves reversibility. */
+  recordingStage?: "applied" | "awaiting_item_review";
   /** True once all deltas have been applied to character state. */
   applied: boolean;
-  /** True once undone (undo creates a forward reverse-batch, not destructive). */
+  /** Legacy undo marker. It does not establish that a reversal was complete. */
   undone: boolean;
 }
 

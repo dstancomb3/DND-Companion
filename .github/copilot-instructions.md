@@ -85,3 +85,12 @@ or claim a legacy row. Keep capability hashes out of public projections and
 client-writable insert schemas. Apply nullable host/member-column migrations
 before deploying the matching client and API. Read docs/party-member-permissions.md
 for cutover and the remaining unauthenticated indirect mutation paths.
+
+
+## Local Undo Safety Boundary
+
+MutationHistory records are incomplete and must not be used to restore game
+state. Keep undo refusal until exact capture, side effects, revisions and guarded
+commit are implemented. Display deltas, legacy before snapshots and caller flags
+do not establish reversibility. Read docs/local-undo-containment.md before
+re-enabling a path; do not label diagnostic mixed-update history transactional.

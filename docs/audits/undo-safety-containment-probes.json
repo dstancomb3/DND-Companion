@@ -1,0 +1,29 @@
+{
+  "method": "Containment regression: actual MutationHistoryProvider.undoBatch refuses incomplete records without character mutations; mocked React/hooks and storage, no browser/database.",
+  "results": [
+    {
+      "label": "incomplete temp HP and condition history is refused",
+      "calls": [],
+      "result": {
+        "status": "unavailable",
+        "reason": "Undo unavailable: this record lacks verified before/after state and cannot safely reverse later changes. Correct the affected values manually."
+      }
+    },
+    {
+      "label": "old HP history is refused instead of overwriting later HP",
+      "calls": [],
+      "result": {
+        "status": "unavailable",
+        "reason": "Undo unavailable: this record lacks verified before/after state and cannot safely reverse later changes. Correct the affected values manually."
+      }
+    },
+    {
+      "label": "HP-only history is refused instead of overwriting unrelated currency/resources",
+      "calls": [],
+      "result": {
+        "status": "unavailable",
+        "reason": "Undo unavailable: this record lacks verified before/after state and cannot safely reverse later changes. Correct the affected values manually."
+      }
+    }
+  ]
+}
