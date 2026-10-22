@@ -1,3 +1,4 @@
+import { createDmLootDraft, dmLootDraftFromProposal, toDmLootAssignment, hasStructuredLootEffects, type DmLootDraftFields } from "@/utils/dmLootDraft";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
@@ -125,20 +126,10 @@ type CustomMonsterFormData = Omit<CustomMonster, "id" | "createdAt" | "updatedAt
 type LootAssignmentMode = "selected-players" | "by-player";
 type LootRarity = (typeof LOOT_RARITIES)[number];
 type LootAttackAbility = "strength" | "dexterity" | "constitution" | "intelligence" | "wisdom" | "charisma";
-type LootDraftItem = LootAssignmentItem & {
+type LootDraftItem = DmLootDraftFields & {
   draftId: string;
   targetMemberId: string | null;
   rarity?: LootRarity;
-  subtype?: string;
-  tags?: string[];
-  properties?: string;
-  description?: string;
-  mapImageUri?: string;
-  attackAbility?: LootAttackAbility;
-  isProficient?: boolean;
-  damageDice?: string;
-  damageType?: string;
-  weaponRange?: string;
 };
 
 const LOOT_RARITIES = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"] as const;
@@ -166,28 +157,6 @@ function normalizeLootRarity(raw: unknown): LootRarity | undefined {
   return LOOT_RARITIES.find((rarity) => rarity.toLowerCase() === normalized);
 }
 
-function buildLootAssignmentNotes(item: LootDraftItem): string | undefined {
-  const parts: string[] = [];
-  const sanitizedNotes = item.notes
-    ?.replace(/^Map Image:\s*.+$/gim, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  if (sanitizedNotes) parts.push(sanitizedNotes);
-  if (item.properties?.trim()) parts.push(`Properties: ${item.properties.trim()}`);
-  if (item.description?.trim()) parts.push(`Description: ${item.description.trim()}`);
-  if (item.rarity) parts.push(`Rarity: ${item.rarity}`);
-  if (item.subtype?.trim()) parts.push(`Subtype: ${item.subtype.trim()}`);
-  if (item.tags && item.tags.length > 0) parts.push(`Tags: ${item.tags.join(", ")}`);
-  if (item.category === "weapon") {
-    const combatParts: string[] = [];
-    if (item.attackAbility) combatParts.push(`ability=${item.attackAbility.toUpperCase()}`);
-    if (typeof item.isProficient === "boolean") combatParts.push(`proficient=${item.isProficient ? "yes" : "no"}`);
-    if (item.damageDice?.trim()) combatParts.push(`damage=${item.damageDice.trim()}${item.damageType?.trim() ? ` ${item.damageType.trim()}` : ""}`);
-    if (item.weaponRange?.trim()) combatParts.push(`range=${item.weaponRange.trim()}`);
-    if (combatParts.length > 0) parts.push(`Weapon: ${combatParts.join(", ")}`);
-  }
-  return parts.length > 0 ? parts.join("\n") : undefined;
-}
 const NPC_STAT_PILLS: Array<{ key: CombatNpcStatKey; label: string }> = [
   { key: "speed", label: "SPD" },
   { key: "initiativeBonus", label: "INIT" },
@@ -2042,27 +2011,20 @@ export default function DmPartyScreen() {
     return lootSelectedTargets[0] ?? members[0]?.id ?? null;
   }, [lootSelectedTargets, members]);
 
-  const buildLootDraftItems = useCallback((items: LootAssignmentItem[]) => {
+  const buildLootDraftItems = useCallback((items: DmLootDraftFields[]) => {
     const fallbackTargetId = getDefaultLootTargetId();
     return items.map<LootDraftItem>((item) => ({
-      ...item,
+      ...createDmLootDraft(item),
+      rarity: normalizeLootRarity(item.rarity),
       draftId: createLootDraftId(),
       targetMemberId: lootAssignmentMode === "by-player" ? fallbackTargetId : null,
-      subtype: "",
-      tags: [],
-      properties: "",
-      description: "",
-      mapImageUri: "",
-      attackAbility: item.category === "weapon" ? "strength" : undefined,
-      isProficient: item.category === "weapon" ? true : undefined,
-      damageDice: "",
-      damageType: "",
-      weaponRange: "",
     }));
   }, [getDefaultLootTargetId, lootAssignmentMode]);
 
   const updateLootDraftItem = useCallback((draftId: string, updates: Partial<LootDraftItem>) => {
-    setLootDraftItems((prev) => prev.map((item) => item.draftId === draftId ? { ...item, ...updates } : item));
+    setLootDraftItems((prev) => prev.map((item) => item.draftId === draftId
+      ? { ...item, ...updates, reviewAcknowledged: Object.keys(updates).some(key => !["reviewAcknowledged", "targetMemberId", "quantity"].includes(key)) ? false : updates.reviewAcknowledged ?? item.reviewAcknowledged }
+      : item));
   }, []);
 
   const addBlankLootDraftItem = useCallback(() => {
@@ -2117,7 +2079,7 @@ export default function DmPartyScreen() {
       const nextTags = currentTags.includes(tag)
         ? currentTags.filter((value) => value !== tag)
         : [...currentTags, tag];
-      return { ...item, tags: nextTags };
+      return { ...item, tags: nextTags, reviewAcknowledged: false };
     }));
   }, []);
 
@@ -2284,38 +2246,12 @@ export default function DmPartyScreen() {
         throw new Error(message);
       }
 
-      const rawProposedItems = Array.isArray((parsed as { proposedItems?: unknown[] }).proposedItems)
-        ? (parsed as { proposedItems: any[] }).proposedItems
-        : [];
-
-      const aiItems = rawProposedItems.length > 0
-        ? (rawProposedItems.map((item) => {
-            const tags = Array.isArray(item?.tags)
-              ? [...new Set(item.tags.filter((tag: unknown): tag is string => typeof tag === "string" && tag.trim().length > 0).map((tag: string) => tag.trim()))]
-              : [];
-            const rarity = tags.map((tag) => normalizeLootRarity(tag)).find((value): value is LootRarity => Boolean(value));
-            const draftTags = tags.filter((tag) => !normalizeLootRarity(tag));
-            const parsedCategory = LOOT_CATEGORY_GUARDS.includes(item?.category) ? item.category : "other";
-            return {
-            name: typeof item?.name === "string" ? item.name.trim() : "",
-            quantity: typeof item?.quantity === "number" ? Math.max(1, Math.floor(item.quantity)) : 1,
-            category: parsedCategory,
-            notes: typeof item?.notes === "string" ? item.notes.trim() || undefined : undefined,
-            value: typeof item?.value === "number" && Number.isFinite(item.value) ? item.value : undefined,
-            rarity,
-            subtype: "",
-            tags: draftTags,
-            properties: "",
-            description: "",
-            mapImageUri: "",
-            attackAbility: parsedCategory === "weapon" ? "strength" : undefined,
-            isProficient: parsedCategory === "weapon" ? true : undefined,
-            damageDice: "",
-            damageType: "",
-            weaponRange: "",
-          };
-          }).filter((item) => item.name.length > 0) as LootDraftItem[])
-        : [];
+      if (!Array.isArray(parsed.proposedItems)) throw new Error("AI returned an invalid loot list.");
+      const aiItems: DmLootDraftFields[] = parsed.proposedItems.map((raw: unknown) => {
+        const draft = dmLootDraftFromProposal(raw);
+        const rarity = draft.tags?.map(normalizeLootRarity).find((value): value is LootRarity => Boolean(value));
+        return { ...draft, rarity, tags: draft.tags?.filter(tag => !normalizeLootRarity(tag)) };
+      });
 
       if (aiItems.length === 0) {
         setError("AI did not return any usable loot items for that prompt.");
@@ -2343,24 +2279,13 @@ export default function DmPartyScreen() {
       return;
     }
 
-    const normalizedItems = lootDraftItems
-      .map((item) => ({
-        ...item,
-        name: item.name.trim(),
-        quantity: Math.max(1, Math.floor(item.quantity || 1)),
-        notes: buildLootAssignmentNotes(item),
-        subtype: item.subtype?.trim() || "",
-        tags: item.tags ?? [],
-        properties: item.properties?.trim() || "",
-        description: item.description?.trim() || "",
-        mapImageUri: item.mapImageUri?.trim() || "",
-        damageDice: item.damageDice?.trim() || "",
-        damageType: item.damageType?.trim() || "",
-        weaponRange: item.weaponRange?.trim() || "",
-        imageUri: item.category === "map" ? (item.mapImageUri?.trim() || undefined) : undefined,
-        imageSource: item.category === "map" && item.mapImageUri?.trim() ? "dm" as const : undefined,
-      }))
-      .filter((item) => item.name.length > 0);
+    let normalizedItems: Array<{ draftId: string; targetMemberId: string | null; assignment: LootAssignmentItem }>;
+    try {
+      normalizedItems = lootDraftItems.map(item => ({ draftId: item.draftId, targetMemberId: item.targetMemberId, assignment: toDmLootAssignment(item) }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Invalid loot draft.");
+      return;
+    }
 
     if (normalizedItems.length === 0) {
       setError("Each loot row needs an item name before assigning.");
@@ -2377,29 +2302,21 @@ export default function DmPartyScreen() {
       return;
     }
 
-    const hasInvalidMapImage = normalizedItems.some(
-      (item) => item.category === "map" && item.imageUri && !isPortableMapImageUri(item.imageUri)
-    );
-    if (hasInvalidMapImage) {
-      setError("Map images must use a shareable data URL or public HTTPS URL. Re-upload the map image before assigning.");
-      return;
-    }
-
     setAssigningLoot(true);
     try {
       setError(null);
       if (lootAssignmentMode === "selected-players") {
         await createPartyLootAssignments(watchedCode, {
           targetMemberIds: lootSelectedTargets,
-          items: normalizedItems.map(({ draftId, targetMemberId, rarity, subtype, tags, properties, description, mapImageUri, attackAbility, isProficient, damageDice, damageType, weaponRange, ...item }) => item),
+          items: normalizedItems.map(item => item.assignment),
           assignedBy: "dm",
         });
       } else {
         const grouped = new Map<string, LootAssignmentItem[]>();
-        normalizedItems.forEach(({ draftId, targetMemberId, rarity, subtype, tags, properties, description, mapImageUri, attackAbility, isProficient, damageDice, damageType, weaponRange, ...item }) => {
+        normalizedItems.forEach(({ targetMemberId, assignment }) => {
           if (!targetMemberId) return;
           if (!grouped.has(targetMemberId)) grouped.set(targetMemberId, []);
-          grouped.get(targetMemberId)!.push(item);
+          grouped.get(targetMemberId)!.push(assignment);
         });
 
         await Promise.all(
@@ -2461,13 +2378,14 @@ export default function DmPartyScreen() {
         {
           missingName: item.name.trim().length === 0,
           missingTarget: lootAssignmentMode === "by-player" && !item.targetMemberId,
+          unreviewed: !!item.needsReview && !item.reviewAcknowledged,
         },
       ])
-    ) as Record<string, { missingName: boolean; missingTarget: boolean }>;
+    ) as Record<string, { missingName: boolean; missingTarget: boolean; unreviewed: boolean }>;
   }, [lootDraftItems, lootAssignmentMode]);
 
   const hasLootDraftValidationIssues = React.useMemo(() => {
-    return Object.values(lootDraftValidation).some((entry) => entry.missingName || entry.missingTarget);
+    return Object.values(lootDraftValidation).some((entry) => entry.missingName || entry.missingTarget || entry.unreviewed);
   }, [lootDraftValidation]);
 
   const handleSendQuestNotes = useCallback(async () => {
@@ -4092,8 +4010,8 @@ export default function DmPartyScreen() {
                 <View style={{ gap: 10 }}>
                   <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700" }}>EDITABLE LOOT DRAFT</Text>
                   {lootDraftItems.map((item, idx) => {
-                    const rowValidation = lootDraftValidation[item.draftId] ?? { missingName: false, missingTarget: false };
-                    const hasRowError = rowValidation.missingName || rowValidation.missingTarget;
+                    const rowValidation = lootDraftValidation[item.draftId] ?? { missingName: false, missingTarget: false, unreviewed: false };
+                    const hasRowError = rowValidation.missingName || rowValidation.missingTarget || rowValidation.unreviewed;
                     const isCategoryEditorOpen = activeLootCategoryEditorId === item.draftId;
                     const isAdvancedEditorOpen = activeLootAdvancedEditorId === item.draftId;
                     const subtypeOptions = subtypesForCategory(item.category);
@@ -4167,10 +4085,11 @@ export default function DmPartyScreen() {
                                 <Text style={{ fontSize: 10, color: c.primary, fontWeight: "700", textTransform: "capitalize" }}>{item.category}</Text>
                               </View>
                               <TouchableOpacity
+                                disabled={hasStructuredLootEffects(item)}
                                 onPress={() => setActiveLootCategoryEditorId((prev) => prev === item.draftId ? null : item.draftId)}
                                 style={[styles.chip, { borderColor: c.border, paddingHorizontal: 8, paddingVertical: 4 }]}
                               >
-                                <Text style={{ fontSize: 10, color: c.mutedForeground, fontWeight: "700" }}>{isCategoryEditorOpen ? "Hide" : "Change"}</Text>
+                                <Text style={{ fontSize: 10, color: c.mutedForeground, fontWeight: "700" }}>{hasStructuredLootEffects(item) ? "Linked to effects" : isCategoryEditorOpen ? "Hide" : "Change"}</Text>
                               </TouchableOpacity>
                             </View>
                             {isCategoryEditorOpen && (
@@ -4360,8 +4279,9 @@ export default function DmPartyScreen() {
                               </View>
                             )}
 
+                            {hasStructuredLootEffects(item) && <Text style={{ color: c.mutedForeground, fontSize: 11 }}>Category and combat fields are linked to this item's effects and are read-only here.</Text>}
                             {item.category === "weapon" && (
-                              <View style={{ gap: 8 }}>
+                              <View pointerEvents={hasStructuredLootEffects(item) ? "none" : "auto"} style={{ gap: 8, opacity: hasStructuredLootEffects(item) ? 0.6 : 1 }}>
                                 <Text style={{ fontSize: 10, color: c.mutedForeground, fontWeight: "700", letterSpacing: 0.4 }}>WEAPON STATS</Text>
                                 <View style={{ gap: 6 }}>
                                   <Text style={{ fontSize: 10, color: c.mutedForeground, fontWeight: "700" }}>ATTACK ABILITY</Text>
@@ -4479,6 +4399,16 @@ export default function DmPartyScreen() {
                                 })}
                               </View>
                             </View>
+                          </View>
+                        )}
+                        {item.needsReview && (
+                          <View style={{ gap: 6 }}>
+                            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>Review item effects before assigning. Unsupported effects still require manual handling.</Text>
+                            {item.inventoryItem?.equippedEffects?.map(effect => <Text key={effect.id} style={{ color: c.foreground, fontSize: 12 }}>{effect.label}{effect.description ? `: ${effect.description}` : ""}{effect.uses != null ? ` (${effect.uses} uses; ${effect.resetOn ?? "reset unspecified"})` : ""}</Text>)}
+                            {item.inventoryItem?.mechanics?.mechanics.map(mechanic => <Text key={mechanic.mechanicId} style={{ color: c.foreground, fontSize: 12 }}>{mechanic.name}{mechanic.description ? `: ${mechanic.description}` : ""}</Text>)}
+                            <TouchableOpacity onPress={() => updateLootDraftItem(item.draftId, { reviewAcknowledged: !item.reviewAcknowledged })} accessibilityRole="checkbox" accessibilityState={{ checked: !!item.reviewAcknowledged }}>
+                              <Text style={{ color: c.primary, fontWeight: "700" }}>{item.reviewAcknowledged ? "✓ Effects reviewed" : "Confirm effects reviewed"}</Text>
+                            </TouchableOpacity>
                           </View>
                         )}
                         {lootAssignmentMode === "by-player" && (

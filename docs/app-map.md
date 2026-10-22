@@ -131,3 +131,8 @@ See [DM history, snapshots and rollback](dm-history-and-rollback-spec.md) for th
 ## Item creation API reliability
 
 See [item creation audit](audits/item-creation-api-audit.md) for the actual proposal→draft/review→store/inventory paths, field-preservation gaps and prioritized fixes. Item Designer's description API and functional item application are separate authority boundaries today.
+
+
+## DM loot draft preservation
+
+`artifacts/living-character-sheet/utils/dmLootDraft.ts` adapts generated proposals and DM edits into the existing full inventory snapshot carried by party loot assignments. `app/dm-party.tsx` uses it for both assignment modes. Player claims already accept that snapshot in `app/party.tsx`; durable claim/save receipts and complete schema validation remain separate audit work.
