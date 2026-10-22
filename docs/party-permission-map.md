@@ -24,10 +24,11 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A4: twelve handlers have explicit capability proof (sync, leave,
+After O02-A5: fifteen handlers have explicit capability proof (sync, leave,
 disband, note creation/accept/decline, member initiative, roll response, rest
-request/approval/acknowledgement and loot claim); three are bootstrap handlers; two are
-open read handlers; 16 are open mutation handlers. Counts are declarations, not a security-completion
+request/approval/acknowledgement, loot claim, initiative start, encounter end
+and participant addition); three are bootstrap handlers; two are
+open read handlers; 13 are open mutation handlers. Counts are declarations, not a security-completion
 percentage. Some GET/session helpers have writes.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
@@ -40,7 +41,7 @@ percentage. Some GET/session helpers have writes.
 | DELETE | `/party/leave` | Member or host proof | Remove self or host-remove another member | Existing proof; removal is not a ban, and runtime serialization remains open. |
 | POST | `/party/:code/disband` | Host proof | Delete session/members/runtime | Existing original-host check; delegated DM/recovery not implemented. |
 | GET | `/party/:code/combat-state` | Open read | Read/hydrate runtime; refresh activity | No caller proof; read privacy and pre-auth activity/expiry side effects remain open. |
-| POST | `/party/:code/initiative/start` | Open mutation | Start initiative/change participants and order | Proposed host policy; member inclusion alone is not caller proof. |
+| POST | `/party/:code/initiative/start` | Host proof (O02-A5) | Start initiative/change participants and order | Live original-host proof before activity/runtime work; AI DM uses the same host capability. |
 | PUT | `/party/:code/initiative/roll` | Member proof | Submit member initiative | Live own-member proof before activity/runtime work; existing member/reroll checks retained. DM override is not granted by this route. |
 | POST | `/party/:code/end-turn` | Open mutation | Advance battle turn; optional isDmOverride | Proposed current-actor member proof or host; caller DM flag is not authority. |
 | POST | `/party/:code/economy/spend` | Open mutation | Spend member turn economy | Proposed own-current-actor proof and existing economy validation. |
@@ -62,8 +63,8 @@ percentage. Some GET/session helpers have writes.
 | PUT | `/party/:code/combat-npcs/:npcId/gear` | Open mutation | Replace NPC gear | Proposed host proof; canonical effect validation remains separate. |
 | PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Open mutation | Choose NPC stats visible to players | Proposed host proof; audience-limited read projection remains separate. |
 | DELETE | `/party/:code/combat-npcs/:npcId` | Open mutation | Remove NPC and runtime references | Proposed host proof and aggregate serialization. |
-| DELETE | `/party/:code/encounters/:battleId` | Open mutation | End/remove encounter and related state | Proposed host proof; authorized reversal/history not implemented. |
-| POST | `/party/:code/encounters/:battleId/participants` | Open mutation | Add encounter members/NPCs | Proposed host proof and live referenced-object scope. |
+| DELETE | `/party/:code/encounters/:battleId` | Host proof (O02-A5) | End/remove encounter and related state | Original-host proof before side effects; existing party-local battle checks retained. Reversal/history remains unimplemented. |
+| POST | `/party/:code/encounters/:battleId/participants` | Host proof (O02-A5) | Add encounter members/NPCs | Original-host proof plus existing live party-local participant filtering and battle existence checks. |
 | PUT | `/party/:code/combat-npcs/:npcId/initiative` | Open mutation | Set NPC initiative | Proposed host proof and NPC/battle scope. |
 
 ## O02-A1: authenticated DM note authoring
@@ -209,3 +210,45 @@ rest lifecycle validation. Existing resolution transition/replay behavior is
 unchanged, as are acknowledgement/local-save recovery, delegation, read privacy
 and authorization-to-commit races. Sixteen mutation handlers remain open. Tests
 mock DB/storage; live PostgreSQL, HTTP and mobile acceptance remain pending.
+
+
+## O02-A5: encounter control proof and caller map (2026-10-22)
+
+Three additional routes use authorizePartyHost before ensureActiveSession. Missing,
+member, other-party, malformed, legacy, body-only or AI-role-label proof cannot
+start initiative, add participants or end encounters. Verify the persisted host
+hash for the requested party before activity refresh, expiration cleanup, member
+reads or runtime hydration. Denial is 403 party_host_required with zero writes;
+unknown party is 404. Valid proof still passes existing expiry, participant and
+battle checks. Battle selection, NPC cleanup, ordering, events and persistence
+retain their prior behavior; unrelated battles survive.
+
+| Caller | Controls used | Observed authority / resulting policy |
+| --- | --- | --- |
+| app/dm-party.tsx | Start, add, end | Watching a code does not prove host ownership. Existing stored creator capability is required. Start now displays failure through the screen's error state, matching add/end. |
+| app/landing.tsx demo bootstrap | Start | Creates party through host adapter before enrollment/seeding; private host proof is already stored. Member initiative submissions remain member-authorized. |
+| components/adventure/session/AiDmCombatSubmodePanel.tsx | Start, add, end | Uses the current party and shared client exports. Host-device AI DM controls use the creator capability; an ordinary joined player or watcher has no implicit delegation. Existing tool-event failure handling remains. |
+| utils/adventure/campaignEncounterRuntime.ts via app/adventure/session/[sessionId].tsx | Start when no reusable battle | Injects the same startPartyInitiative export. Main party or watched-code fallback must have stored host proof. New-battle denial happens before later NPC/roll work; existing session catch reports setup failure. |
+
+Client function signatures and results remain compatible through partyHostApi.
+Private proof is selected by exact party code, sent in Authorization alongside
+JSON headers, and retained on network/server errors. Missing local proof prevents
+the request. No public flag, member proof, watched code, request label, model
+response or AI DM session metadata grants host privilege. No automatic party
+creation, legacy claiming, delegation or capability transfer is introduced.
+
+This intentionally closes previously unauthorized encounter control on joined
+or watching devices. Run host/AI DM controls from the party-creator device.
+Delegated AI orchestration is a future explicit authority contract. An existing
+reusable campaign battle can still proceed through NPC/roll routes that remain
+open, and this pass does not secure that entire workflow. NPC creation also has
+player-companion callers, so it is not blindly made host-only here.
+
+No new migration. Existing host column and matching API/client are required;
+operator verified this column in the configured test DB, not all environments.
+Old clients fail closed on these controls. Roll back matching API/client together
+if needed, leaving columns intact; server rollback reopens unauthenticated
+encounter changes. Authorization and runtime commit are not one transaction;
+concurrent disband/recreate/capability-change races and live acceptance remain.
+There are now 15 proof-gated handlers, 3 bootstrap, 2 open reads and 13 open
+mutation handlers. This is a count of declarations, not security completion.

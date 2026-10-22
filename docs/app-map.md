@@ -158,3 +158,11 @@ host-authorized note assignments normalize/persist optional notes in server
 `routes/party.ts`. `utils/partyNotesMerge.ts` prepares note creation and quest
 upserts for `app/party.tsx` through CharacterContext. Acceptance remains separate
 from local journal save. See the implementation log's QA-N01/QA-N02 pass.
+
+
+## Encounter control capability
+
+`routes/party.ts` verifies host proof before initiative start, encounter addition
+and end. `utils/partyHostApi.ts` carries existing creator credentials for shared
+DM/demo/AI DM client exports. The [permission map](party-permission-map.md) records
+all call sites, the joined-device restriction and remaining ungated workflows.
