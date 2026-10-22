@@ -86,3 +86,22 @@ test("storage failure prevents successful registration acknowledgment", async ()
   f.storage.setItem = async () => { throw new Error("Storage unavailable"); };
   await assert.rejects(partyMemberApi(f.request, f.storage).registerPartyMember("PARTY", "character"), /Storage unavailable/);
 });
+
+for(const action of ["accept","decline"] as const){
+ test(`${action} notes uses persisted recipient proof, preserves JSON and returns the response`,async()=>{
+  const f=fixture();const first=partyMemberApi(f.request,f.storage);await first.registerPartyMember("PARTY","character");
+  const api=partyMemberApi(f.request,f.storage);
+  const result=await (action==="accept"?api.acceptPartyNoteAssignment:api.declinePartyNoteAssignment)("PARTY","note",{memberId:"member-1"});
+  assert.deepEqual(result,{ok:true});assert.deepEqual(f.calls[1],{path:`/party/PARTY/note-assignments/note/${action}`,options:{method:"PUT",body:JSON.stringify({memberId:"member-1"}),headers:{"Content-Type":"application/json",Authorization:"Bearer private-1"}}});
+ });
+ test(`${action} notes refuses unknown party/member locally`,async()=>{
+  const f=fixture(),api=partyMemberApi(f.request,f.storage);await api.registerPartyMember("PARTY","character");
+  await assert.rejects((action==="accept"?api.acceptPartyNoteAssignment:api.declinePartyNoteAssignment)("OTHER","note",{memberId:"member-1"}),PartyMemberAccessError);assert.equal(f.calls.length,1);
+ });
+ test(`${action} notes retains proof on transport failure but revokes rejected member proof`,async()=>{
+  const f=fixture(),api=partyMemberApi(f.request,f.storage);await api.registerPartyMember("PARTY","character");
+  const send=()=> (action==="accept"?api.acceptPartyNoteAssignment:api.declinePartyNoteAssignment)("PARTY","note",{memberId:"member-1"});
+  f.fail(new Error("Offline"));await assert.rejects(send(),/Offline/);assert.equal(await api.hasPartyMemberAccess("PARTY","member-1"),true);
+  f.fail(new PartyMemberAccessError("Revoked"));await assert.rejects(send(),PartyMemberAccessError);assert.equal(await api.hasPartyMemberAccess("PARTY","member-1"),false);
+ });
+}

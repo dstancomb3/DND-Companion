@@ -3062,18 +3062,35 @@ router.post("/party/:code/note-assignments", async (req, res) => {
   }
 });
 
+// Recipient IDs are not credentials. Check live party/member proof before
+// ensureActiveSession can refresh activity or remove expired state.
+async function authorizeNoteRecipient(code: string, memberId: string, authorization: string | undefined) {
+  const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+  if (!sessions.length) return { ok: false as const, status: 404, error: "Party session not found", code: "party_not_found" };
+  const members = await db.select().from(partyMembers)
+    .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, code)));
+  if (!hasPartyHostToken(authorization, members[0]?.memberTokenHash)) {
+    return { ok: false as const, status: 403, code: "party_member_required", error: "Member access is missing or expired. Rejoin this party." };
+  }
+  return { ok: true as const };
+}
+
 router.put("/party/:code/note-assignments/:assignmentId/accept", async (req, res) => {
   try {
     const { code, assignmentId } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
-    }
-
     const memberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
     if (!memberId) {
       res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizeNoteRecipient(code, memberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
       return;
     }
 
@@ -3111,15 +3128,19 @@ router.put("/party/:code/note-assignments/:assignmentId/accept", async (req, res
 router.put("/party/:code/note-assignments/:assignmentId/decline", async (req, res) => {
   try {
     const { code, assignmentId } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
-    }
-
     const memberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
     if (!memberId) {
       res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizeNoteRecipient(code, memberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
       return;
     }
 

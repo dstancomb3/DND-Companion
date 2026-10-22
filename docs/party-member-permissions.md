@@ -1,4 +1,4 @@
-# Party member ownership: enrollment, sync and leave
+# Party member ownership: enrollment, sync, leave and note receipt
 
 Party codes remain invitations. `POST /api/party/:code/register-member` creates
 a new UUID member with a random private capability, reusing the existing host
@@ -69,7 +69,7 @@ connected database migration is performed by this change.
 ## Remaining boundary
 
 This protects enrollment identity and direct sync/leave only. Other party routes,
-including remote combat application, initiative, rolls, loot, note acceptance/decline, NPCs and
+including remote combat application, initiative, rolls, loot, NPCs and
 rest workflows, still need caller/host authorization. Some can indirectly mutate
 member HP or conditions, so this is not complete character-state protection.
 Read access, invite limits, campaign ownership, AI quotas and transactional
@@ -88,3 +88,11 @@ GenericObject contracts remain in their migration zone.
 DM note creation separately requires original-host proof under O02-A1; it does
 not use a member token or authorize recipient actions. See the
 [route permission map](party-permission-map.md) for all current boundaries.
+
+
+O02-A2 extends live member proof to note assignment accept/decline before
+session side effects or runtime access. Only the assignment's authenticated
+recipient can act; host proof is not a substitute. Matching client/API and
+existing schema columns are required. This does not make server acknowledgement
+and local journal persistence atomic. Read access and other mutation routes
+remain in the [permission map](party-permission-map.md).

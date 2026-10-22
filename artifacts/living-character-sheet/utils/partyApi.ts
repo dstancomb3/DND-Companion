@@ -710,26 +710,7 @@ export async function claimPartyLootAssignment(
 
 export const createPartyNoteAssignments = hostApi.createPartyNoteAssignments;
 
-export async function acceptPartyNoteAssignment(
-  code: string,
-  assignmentId: string,
-  payload: { memberId: string }
-): Promise<{ ok: true; assignment: NotesAssignment }> {
-  return apiRequest<{ ok: true; assignment: NotesAssignment }>(`/party/${code}/note-assignments/${assignmentId}/accept`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function declinePartyNoteAssignment(
-  code: string,
-  assignmentId: string,
-  payload: { memberId: string }
-): Promise<{ ok: true; assignmentId: string }> {
-  return apiRequest<{ ok: true; assignmentId: string }>(`/party/${code}/note-assignments/${assignmentId}/decline`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const acceptPartyNoteAssignment = memberApi.acceptPartyNoteAssignment;
+export const declinePartyNoteAssignment = memberApi.declinePartyNoteAssignment;
 
 export { PartyMemberAccessError } from "./partyMemberApi";

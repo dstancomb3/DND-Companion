@@ -335,3 +335,10 @@ currently disabled, and general shared rollback is not implemented.
 - Server checks the persisted original-host capability before session activity updates, expired cleanup, member reads or runtime hydration. Body DM flags/tokens are not proof. Origin is stamped DM by the server. Client uses the existing stored host token and retains it on failures. Existing DM error UI reports denial.
 - No new database migration; prior host column and matching client/API required. Old clients, legacy unclaimed parties and watching devices without host proof fail closed for note creation. OpenAPI documents bearer proof; current hand-written client is updated, generic/generated schema convergence remains deferred.
 - Eleven new route tests plus three new host-client tests; 87 focused server/client tests and 24 combat tests pass with workspace typecheck and frozen install. Nine route tests fail against the old source, including eight denial cases. DB/storage/HTTP boundaries are mocked; no live PostgreSQL/browser/mobile acceptance. Route map, rollback limits and exact pass files are linked from the implementation log.
+
+
+## 2026-10-22 O02-A2: note recipient authorization
+
+- Accept/decline require live exact-party/member capability proof before activity/expiry/runtime work. Host substitution and caller IDs/flags are not credentials; existing target and transition checks remain. O02 is still partial: map now has six proof-gated handlers and 22 open mutation handlers.
+- Matching hand-written client uses persisted member proof, merges JSON headers and returns the typed response. Credentials survive transport errors and are removed on explicit member-access rejection. No UI screen or automatic retry changed.
+- No new migration; existing host/member columns and matching API/client required. Legacy players rejoin; old clients fail closed. Server acknowledgement/local journal saving remains nontransactional, with public read and concurrency gaps still open. See permission map and implementation-log pass record for validation and files.
