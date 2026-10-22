@@ -209,6 +209,14 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Focused api-server idempotency test:
   - pnpm --filter @workspace/api-server exec tsx --test src/lib/aiIdempotencyStore.test.ts
 
+## 2026-10-21 Audit Remediation: Party Data Safety
+
+- Member sync now evaluates stale timestamps, timestamp collisions, and replay decisions before writing member records or activity timestamps. Rejected snapshots no longer overwrite HP, temporary HP, AC, or conditions.
+- Party member deduplication uses stable member IDs. Separate IDs with identical names/classes/combat stats retain separate roster entries and runtime state. Existing duplicate registrations under different IDs remain visible; identity reconciliation requires an explicit workflow.
+- Three new regression tests cover route-level no-write rejection and preservation of separate member combat state. These and the existing sync/remote-apply tests pass (27 tests); all three new tests fail against the original implementation. Added sync tests to the API test script.
+- API typecheck passes. Workspace typecheck remains blocked by existing client Feather icon and Playwright Node-type errors. A frozen install fails because the existing client manifest and lockfile disagree. Database integration tests require a running PostgreSQL instance, which was unavailable here.
+- This slice does not make member and runtime writes transactional or solve simultaneous-request races. Party authentication/DM permissions, AI usage controls, and campaign fallback recovery remain outstanding audit items.
+
 ## 2026-10-21 Audit Remediation: Campaign Snapshot Persistence
 
 - Campaign snapshot reads preserve a newer in-process fallback instead of replacing it with older durable data after an outage or an in-flight read. Older incoming saves no longer downgrade the cache.
