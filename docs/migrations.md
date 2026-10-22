@@ -1041,3 +1041,12 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Authority boundary: API party routes only. No client contract, combat authority category, database schema, or legacy field changes.
 - Validation: three new regression tests fail on baseline and pass on the patch; combined sync/remote-apply tests pass (27 tests). API typecheck passes. Workspace validation is blocked by existing client type errors; PostgreSQL integration checks require an unavailable local database.
 - Deferred: transactional member/runtime commits and concurrent sync serialization; campaign persistence recovery; authentication/DM authorization and AI quotas.
+
+## 2026-10-21 Audit Remediation Slice 2: Campaign Save Recovery
+
+- Files: `artifacts/api-server/src/lib/campaignContinuationStore.ts`, `artifacts/api-server/src/lib/campaignContinuationStore.test.ts`, `artifacts/api-server/package.json`, `lib/db/src/schema/adventure.ts`, `lib/db/migrations/manual/20261021_campaign_timestamp_bigint.sql`, `docs/campaign-save-recovery.md`, `docs/feature-status.md`, `docs/migrations.md`.
+- Cache selection now compares `clientSavedAt` after database reads and retains a newer fallback. Older save attempts cannot downgrade cached state; database writes remain unchanged.
+- Required schema correction: widen `client_saved_at` from integer to bigint with Drizzle number mapping. The existing client sends `Date.now()` values, which exceed PostgreSQL integer range. Existing values and JSON numeric fields remain compatible. This narrow database change is necessary for the same snapshot-persistence boundary; no gameplay or orchestration authority is moved.
+- Explicit operator migration and rollback procedure are documented in `docs/campaign-save-recovery.md`. No connected database was migrated. Keep bigint on application rollback to preserve valid timestamp data.
+- Six store/schema tests cover outage/read races, old/new ordering, clone isolation and millisecond type mapping; four fail on baseline and all six pass on the patch.
+- Deferred: durable fallback queue/retry, multi-worker conflict control, equal timestamp policy, deletion recovery and client-visible durability status.

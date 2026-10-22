@@ -112,6 +112,13 @@ export async function loadCampaignContinuationSnapshot(sessionId: string): Promi
   try {
     const loaded = await loadFromDatabase(sessionId);
     if (loaded) {
+      // Read the cache after the await: another save may have completed while
+      // this database read was in flight. A recovered database can also still
+      // contain the snapshot from before an outage.
+      const cached = fallbackSnapshotsBySession.get(sessionId);
+      if (cached && cached.clientSavedAt > loaded.clientSavedAt) {
+        return cloneSnapshot(cached);
+      }
       fallbackSnapshotsBySession.set(sessionId, cloneSnapshot(loaded));
       return cloneSnapshot(loaded);
     }
@@ -126,7 +133,11 @@ export async function loadCampaignContinuationSnapshot(sessionId: string): Promi
 }
 
 export async function saveCampaignContinuationSnapshot(snapshot: CampaignContinuationSnapshotRecord): Promise<void> {
-  fallbackSnapshotsBySession.set(snapshot.continuation.sessionId, cloneSnapshot(snapshot));
+  const sessionId = snapshot.continuation.sessionId;
+  const cached = fallbackSnapshotsBySession.get(sessionId);
+  if (!cached || snapshot.clientSavedAt >= cached.clientSavedAt) {
+    fallbackSnapshotsBySession.set(sessionId, cloneSnapshot(snapshot));
+  }
   try {
     await saveToDatabase(snapshot);
   } catch (error) {

@@ -216,3 +216,10 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Three new regression tests cover route-level no-write rejection and preservation of separate member combat state. These and the existing sync/remote-apply tests pass (27 tests); all three new tests fail against the original implementation. Added sync tests to the API test script.
 - API typecheck passes. Workspace typecheck remains blocked by existing client Feather icon and Playwright Node-type errors. A frozen install fails because the existing client manifest and lockfile disagree. Database integration tests require a running PostgreSQL instance, which was unavailable here.
 - This slice does not make member and runtime writes transactional or solve simultaneous-request races. Party authentication/DM permissions, AI usage controls, and campaign fallback recovery remain outstanding audit items.
+
+## 2026-10-21 Audit Remediation: Campaign Snapshot Persistence
+
+- Campaign snapshot reads preserve a newer in-process fallback instead of replacing it with older durable data after an outage or an in-flight read. Older incoming saves no longer downgrade the cache.
+- `campaign_continuation_snapshots.client_saved_at` is now declared as PostgreSQL bigint in numeric Drizzle mode, allowing the client's epoch-millisecond timestamps without a JSON contract change. Existing databases require the explicit widening migration before this schema correction is effective.
+- Rollout, rollback and limitations: [Campaign save recovery](campaign-save-recovery.md). Six focused store/schema tests were added; four fail against baseline and all six pass after the patch.
+- Remaining: memory fallback is still process-local and non-durable, there is no automatic flush, database writes still need version/conflict controls, and clock-skew/equal-timestamp conflict policy remains deferred. This is not full campaign continuity or runtime orchestration.

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, jsonb, integer, bigint } from "drizzle-orm/pg-core";
 
 export const campaignContinuationSnapshots = pgTable("campaign_continuation_snapshots", {
   sessionId: text("session_id").primaryKey(),
@@ -9,7 +9,7 @@ export const campaignContinuationSnapshots = pgTable("campaign_continuation_snap
   checkpointIndex: integer("checkpoint_index").notNull(),
   continuityStatus: text("continuity_status").notNull(),
   progressSummary: text("progress_summary").notNull(),
-  clientSavedAt: integer("client_saved_at").notNull(),
+  clientSavedAt: bigint("client_saved_at", { mode: "number" }).notNull(),
   recapLines: jsonb("recap_lines").notNull().default([]),
   receivedAt: timestamp("received_at").notNull().defaultNow(),
   ingestTraceId: text("ingest_trace_id").notNull(),
