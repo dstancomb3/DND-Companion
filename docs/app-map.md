@@ -99,3 +99,7 @@ Use this first to locate authority boundaries before editing.
 - Schema convergence and legacy compatibility remain in progress.
 
 See docs/feature-status.md and docs/migrations.md for completion state and deferred backlog.
+
+## Proposed Runtime Convergence Plan
+
+See [AI DM + Deterministic Combat Convergence Plan](ai-dm-combat-convergence-plan.md) for the proposed staged roadmap, authority invariants, durable roll handshake, and fire-immunity/reflection acceptance fixture. This is planning guidance, not a shipped-feature claim. After audit fixes, start with Phase 0 baseline/authority mapping and Phase 1.1 roll-stall diagnosis before gameplay changes.
