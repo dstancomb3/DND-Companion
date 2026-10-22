@@ -105,3 +105,25 @@ for(const action of ["accept","decline"] as const){
   f.fail(new PartyMemberAccessError("Revoked"));await assert.rejects(send(),PartyMemberAccessError);assert.equal(await api.hasPartyMemberAccess("PARTY","member-1"),false);
  });
 }
+
+const memberActions=[
+ {name:"initiative",path:"/party/PARTY/initiative/roll",method:"PUT",send:(api:ReturnType<typeof partyMemberApi>,code:string)=>api.submitInitiativeRoll(code,{memberId:"member-1",initiativeRoll:12,initiativeBonus:2}),isVoid:true},
+ {name:"roll response",path:"/party/PARTY/roll-requests/request/respond",method:"PUT",send:(api:ReturnType<typeof partyMemberApi>,code:string)=>api.submitPartyRollResponse(code,"request",{memberId:"member-1",roll:12,modifier:2,total:14})},
+ {name:"rest request",path:"/party/PARTY/rest-requests",method:"POST",send:(api:ReturnType<typeof partyMemberApi>,code:string)=>api.createPartyRestRequest(code,{memberId:"member-1",restType:"short_rest"})},
+ {name:"rest acknowledgement",path:"/party/PARTY/rest-requests/request/ack",method:"PUT",send:(api:ReturnType<typeof partyMemberApi>,code:string)=>api.acknowledgePartyRestRequest(code,"request",{memberId:"member-1"})},
+ {name:"loot claim",path:"/party/PARTY/loot-assignments/loot/claim",method:"PUT",send:(api:ReturnType<typeof partyMemberApi>,code:string)=>api.claimPartyLootAssignment(code,"loot",{memberId:"member-1"})},
+];
+for(const action of memberActions){
+ test(`${action.name} carries exact stored member proof and JSON with compatible result`,async()=>{
+  const f=fixture(),api=partyMemberApi(f.request,f.storage);await api.registerPartyMember("PARTY","character");
+  const value=await action.send(partyMemberApi(f.request,f.storage),"PARTY");assert.deepEqual(value,action.isVoid?undefined:{ok:true});
+  const call=f.calls[1];assert.equal(call.path,action.path);assert.equal(call.options?.method,action.method);assert.deepEqual(call.options?.headers,{"Content-Type":"application/json",Authorization:"Bearer private-1"});
+  assert.equal(JSON.parse(String(call.options?.body)).memberId,"member-1");assert.equal(String(call.options?.body).includes("private-1"),false);
+ });
+ test(`${action.name} cannot use another party and keeps proof only on transient failure`,async()=>{
+  const f=fixture(),api=partyMemberApi(f.request,f.storage);await api.registerPartyMember("PARTY","character");
+  await assert.rejects(action.send(api,"OTHER"),PartyMemberAccessError);assert.equal(f.calls.length,1);
+  f.fail(new Error("Offline"));await assert.rejects(action.send(api,"PARTY"),/Offline/);assert.equal(await api.hasPartyMemberAccess("PARTY","member-1"),true);
+  f.fail(new PartyMemberAccessError("Revoked"));await assert.rejects(action.send(api,"PARTY"),PartyMemberAccessError);assert.equal(await api.hasPartyMemberAccess("PARTY","member-1"),false);
+ });
+}

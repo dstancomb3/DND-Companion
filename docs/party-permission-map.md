@@ -24,9 +24,10 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A2: six handlers have explicit capability proof (sync, leave,
-disband, note creation, note accept and decline); three are bootstrap handlers;
-two are open read handlers; 22 are open mutation handlers. Counts are declarations, not a security-completion
+After O02-A3: eleven handlers have explicit capability proof (sync, leave,
+disband, note creation/accept/decline, member initiative, roll response, rest
+request/acknowledgement and loot claim); three are bootstrap handlers; two are
+open read handlers; 17 are open mutation handlers. Counts are declarations, not a security-completion
 percentage. Some GET/session helpers have writes.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
@@ -40,19 +41,19 @@ percentage. Some GET/session helpers have writes.
 | POST | `/party/:code/disband` | Host proof | Delete session/members/runtime | Existing original-host check; delegated DM/recovery not implemented. |
 | GET | `/party/:code/combat-state` | Open read | Read/hydrate runtime; refresh activity | No caller proof; read privacy and pre-auth activity/expiry side effects remain open. |
 | POST | `/party/:code/initiative/start` | Open mutation | Start initiative/change participants and order | Proposed host policy; member inclusion alone is not caller proof. |
-| PUT | `/party/:code/initiative/roll` | Open mutation | Submit member initiative | Proposed own-member proof or explicit host override; validate battle/roll ownership. |
+| PUT | `/party/:code/initiative/roll` | Member proof | Submit member initiative | Live own-member proof before activity/runtime work; existing member/reroll checks retained. DM override is not granted by this route. |
 | POST | `/party/:code/end-turn` | Open mutation | Advance battle turn; optional isDmOverride | Proposed current-actor member proof or host; caller DM flag is not authority. |
 | POST | `/party/:code/economy/spend` | Open mutation | Spend member turn economy | Proposed own-current-actor proof and existing economy validation. |
 | POST | `/party/:code/economy/reset` | Open mutation | Reset member turn economy | Requires explicit reset/host policy; memberId alone is not proof. |
 | POST | `/party/:code/combat/apply-outcomes` | Open mutation | Apply bounded remote HP/temp HP/conditions | Existing source/turn/target checks are business validation, not caller authentication. Prove source ownership or explicit host authority. |
 | POST | `/party/:code/roll-requests` | Open mutation | Create roll prompts | Proposed host or explicit authorized orchestrator role; no caller DM flag. |
-| PUT | `/party/:code/roll-requests/:requestId/respond` | Open mutation | Record/replace target member roll response | Proposed live target-member proof and current request ownership/revision. |
-| POST | `/party/:code/rest-requests` | Open mutation | Request rest for member | Proposed own-member proof; limits separate from role. |
+| PUT | `/party/:code/roll-requests/:requestId/respond` | Target-member proof | Record/replace target member roll response | Live exact-member proof plus existing request-target check. Dice/modifier fairness and durable roll authority remain separate. |
+| POST | `/party/:code/rest-requests` | Member proof | Request rest for member | Live requester proof; existing party-wide rest request semantics retained. Approval authority is still an open route. |
 | PUT | `/party/:code/rest-requests/:requestId` | Open mutation | Approve/deny rest | Proposed host proof; resolvedBy is not credentials. |
-| PUT | `/party/:code/rest-requests/:requestId/ack` | Open mutation | Acknowledge recipient rest application | Proposed target-member proof; durable local/server receipt still U08. |
+| PUT | `/party/:code/rest-requests/:requestId/ack` | Target-member proof | Acknowledge recipient rest application | Live exact-member proof plus approved-state/target checks; local/server receipt atomicity remains U08. |
 | POST | `/party/:code/events` | Open mutation | Append event with member/metadata labels | Proposed member/host policy with permitted event kinds; labels cannot grant state authority. |
 | POST | `/party/:code/loot-assignments` | Open mutation | DM awards AND player-to-player item transfers | Do not make blindly host-only. Need distinct host award/member-owned transfer proof; server currently lacks complete inventory ownership/debit authority. |
-| PUT | `/party/:code/loot-assignments/:assignmentId/claim` | Open mutation | Mark assignment claimed | Checks target ID, not proof. Prove live recipient; durable claim/save transaction remains I13/U08. |
+| PUT | `/party/:code/loot-assignments/:assignmentId/claim` | Recipient member proof | Mark assignment claimed | Live exact-member proof plus target check. Claim-first/local-inventory-save recovery remains open (I13/U08). |
 | POST | `/party/:code/note-assignments` | Host proof (O02-A1) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
 | PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
@@ -154,3 +155,30 @@ recipient application receipt. Roll back matching client/server together if
 needed; reverting the server reopens recipient spoofing. No connected DB or
 deployment was changed. Direct-handler tests mock the DB; live PostgreSQL,
 HTTP/browser/mobile and reload/disconnect acceptance remain pending.
+
+## O02-A3: member-owned action gates (2026-10-22)
+
+Five additional routes reuse authorizePartyMember, renamed from the note-only
+helper because the same persisted live-party/member boundary applies. Verify
+memberId and capability before session refresh, expiration cleanup or runtime
+access; neither host capability nor body role flags substitute. Existing
+initiative/reroll, roll target/total derivation, rest approval/target and loot
+recipient checks remain. Successful authenticated requests retain their existing
+normalization and persistence paths.
+
+The client exports keep their signatures and delegate through the member adapter.
+Stored per-party/member proof is sent in Authorization alongside JSON headers;
+response-returning methods preserve results, and initiative remains void. Generic
+transport errors retain proof; explicit member rejection removes that credential.
+Demo bootstrap already enrolls and stores its member credentials. No host-only
+gate was applied to player transfers or companion/AI DM operations.
+
+No new schema migration. Matching client/API and existing capability columns are
+required; old clients fail closed and legacy members rejoin. Authenticated foreign
+assignment/request targets cannot mutate those objects, though session activity
+refresh remains an existing side effect. Concurrent removal/session races,
+public read privacy, item ownership/debit, transactional loot/rest recovery,
+server-recorded dice and modifier validation remain separate gaps. Rest approval,
+event/award creation and combat controls remain open; this is not complete O02.
+Rollback matching client/server together; reverting the server reopens spoofing.
+Tests use mocked DB/storage and do not establish device/HTTP/real DB acceptance.

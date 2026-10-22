@@ -96,3 +96,11 @@ recipient can act; host proof is not a substitute. Matching client/API and
 existing schema columns are required. This does not make server acknowledgement
 and local journal persistence atomic. Read access and other mutation routes
 remain in the [permission map](party-permission-map.md).
+
+
+O02-A3 reuses the live party/member boundary for initiative submission, roll
+response, rest request/acknowledgement and loot claim. The shared helper name is
+now authorizePartyMember. Existing target, reroll and approval checks remain;
+caller proof does not grant DM authority or prove dice/inventory truth. Existing
+client signatures now send stored member credentials. See the permission map for
+the 17 still-open mutation handlers and nontransactional delivery limits.

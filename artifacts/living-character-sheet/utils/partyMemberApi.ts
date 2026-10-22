@@ -1,4 +1,4 @@
-import type { NotesAssignment } from "./partyApi";
+import type { NotesAssignment, LootAssignment, PartyRollRequest, PartyRestRequest, PartyRestType } from "./partyApi";
 
 interface MemberStorage {
   getItem(key: string): Promise<string | null>;
@@ -42,6 +42,21 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
     },
     async syncPartyMember<T extends { memberId: string; partyCode: string }>(payload: T): Promise<void> {
       await authorizedRequest(payload.partyCode, payload.memberId, "/party/sync", { method: "PUT", body: JSON.stringify(payload) });
+    },
+    async submitInitiativeRoll(code: string, payload: { memberId: string; initiativeRoll: number; initiativeBonus: number }): Promise<void> {
+      await authorizedRequest(code, payload.memberId, `/party/${code}/initiative/roll`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async submitPartyRollResponse(code: string, requestId: string, payload: { memberId: string; roll: number; modifier: number; total: number }): Promise<{ ok: true; request: PartyRollRequest }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/roll-requests/${requestId}/respond`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async createPartyRestRequest(code: string, payload: { memberId: string; restType: PartyRestType }): Promise<{ ok: true; request: PartyRestRequest }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/rest-requests`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async acknowledgePartyRestRequest(code: string, requestId: string, payload: { memberId: string }): Promise<{ ok: true; request: PartyRestRequest }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/rest-requests/${requestId}/ack`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async claimPartyLootAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignment: LootAssignment }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/loot-assignments/${assignmentId}/claim`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
     async acceptPartyNoteAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignment: NotesAssignment }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/note-assignments/${assignmentId}/accept`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

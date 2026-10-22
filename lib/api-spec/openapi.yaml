@@ -263,6 +263,63 @@ paths:
           description: Party or assignment absent, or session expired
         "409":
           description: Assignment transition or runtime revision conflict
+  /party/{code}/initiative/roll:
+    put:
+      operationId: submitInitiativeRoll
+      tags: [party]
+      summary: Apply member-owned action using live member proof
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Action accepted
+        "400":
+          description: Missing member or invalid action
+        "403":
+          description: Missing member proof or target mismatch
+        "404":
+          description: Party or referenced object absent
+        "409":
+          description: State transition or revision conflict
+  /party/{code}/loot-assignments/{assignmentId}/claim:
+    put:
+      operationId: claimPartyLootAssignment
+      tags: [party]
+      summary: Apply member-owned action using live member proof
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Action accepted
+        "400":
+          description: Missing member or invalid action
+        "403":
+          description: Missing member proof or target mismatch
+        "404":
+          description: Party or referenced object absent
+        "409":
+          description: State transition or revision conflict
   /party/{code}/combat-state:
     get:
       operationId: getPartyCombatState
@@ -345,6 +402,8 @@ paths:
                 $ref: "#/components/schemas/GenericObject"
   /party/{code}/roll-requests/{requestId}/respond:
     put:
+      security:
+        - partyCapability: []
       operationId: respondRollRequest
       tags: [party]
       summary: Respond to a roll request
@@ -358,6 +417,8 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       responses:
+        "403":
+          description: Missing member proof or request not owned by this recipient
         "200":
           description: Roll response accepted
           content:
@@ -366,6 +427,8 @@ paths:
                 $ref: "#/components/schemas/GenericObject"
   /party/{code}/rest-requests:
     post:
+      security:
+        - partyCapability: []
       operationId: createRestRequest
       tags: [party]
       summary: Create a rest request
@@ -378,6 +441,8 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       responses:
+        "403":
+          description: Missing member proof or request not owned by this recipient
         "200":
           description: Rest request created
           content:
@@ -407,6 +472,8 @@ paths:
                 $ref: "#/components/schemas/GenericObject"
   /party/{code}/rest-requests/{requestId}/ack:
     put:
+      security:
+        - partyCapability: []
       operationId: acknowledgeRestRequest
       tags: [party]
       summary: Acknowledge a completed rest request
@@ -420,6 +487,8 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       responses:
+        "403":
+          description: Missing member proof or request not owned by this recipient
         "200":
           description: Rest acknowledgment accepted
           content:
