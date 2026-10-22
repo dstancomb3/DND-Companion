@@ -1,5 +1,8 @@
 # Undo and snapshot audit
 
+Historical audit evidence is retained below. For current per-finding remediation,
+merged PRs and remaining acceptance, see the [implementation log](../implementation-log.md).
+
 Audited gameplay baseline: `d722086af72272a6f166d90f1b3a79bc09095a73` (main after
 PR #8). Date: 2026-10-22. This is an implementation audit and backlog, not a
 claim that general rollback exists. No gameplay, schema or connected database

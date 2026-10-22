@@ -1,5 +1,8 @@
 # Item creation API and application audit
 
+Historical audit evidence is retained below. For current per-finding remediation,
+merged PRs and remaining acceptance, see the [implementation log](../implementation-log.md).
+
 Baseline: `d4cacecb75bc408f13fc90809e9f364e7899f805` (main after PR #11).
 Date: 2026-10-22. Scope: item proposal/generation APIs, Item Designer, loot and
 quest reward consumers, review, DM storage and inventory application. This audit
