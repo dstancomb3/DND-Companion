@@ -73,7 +73,10 @@ async function loadFromDatabase(sessionId: string): Promise<CampaignContinuation
   return toSnapshotRecord(rows[0]);
 }
 
-async function saveToDatabase(snapshot: CampaignContinuationSnapshotRecord): Promise<void> {
+export async function saveCampaignContinuationToDatabase(
+  snapshot: CampaignContinuationSnapshotRecord,
+  database: Pick<typeof db, "insert"> = db,
+): Promise<void> {
   const now = new Date();
   const row = {
     sessionId: snapshot.continuation.sessionId,
@@ -99,7 +102,7 @@ async function saveToDatabase(snapshot: CampaignContinuationSnapshotRecord): Pro
   };
   delete (updateRow as Partial<typeof row>).createdAt;
 
-  await db
+  await database
     .insert(campaignContinuationSnapshots)
     .values(row)
     .onConflictDoUpdate({
@@ -139,7 +142,7 @@ export async function saveCampaignContinuationSnapshot(snapshot: CampaignContinu
     fallbackSnapshotsBySession.set(sessionId, cloneSnapshot(snapshot));
   }
   try {
-    await saveToDatabase(snapshot);
+    await saveCampaignContinuationToDatabase(snapshot);
   } catch (error) {
     if (!isMissingTableError(error)) {
       console.warn("[adventure] continuation snapshot save unavailable; using in-memory fallback", error);

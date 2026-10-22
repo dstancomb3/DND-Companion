@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:campaign-persistence": "pnpm exec tsx --test src/lib/campaignContinuationStore.test.ts",
+    "test:campaign-persistence": "pnpm exec tsx --test src/lib/campaignContinuationStore.test.ts src/lib/commitCampaignCheckpoint.test.ts",
     "test": "pnpm exec tsx --test src/lib/aiIdempotencyStore.test.ts src/lib/partySyncGuard.test.ts src/routes/party.sync-safety.test.ts src/routes/party.remote-apply-route.test.ts src/routes/ai/idempotency-route-safety.test.ts src/routes/ai/parser-contract.test.ts"
   },
   "dependencies": {

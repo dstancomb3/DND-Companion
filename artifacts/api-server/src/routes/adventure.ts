@@ -6,9 +6,10 @@ import { startAICallIdempotency, completeAICallIdempotency } from "../lib/aiIdem
 import { computeAICallRequestHash } from "../lib/aiIdempotencyHash";
 import {
   loadCampaignContinuationSnapshot,
-  saveCampaignContinuationSnapshot,
   type CampaignContinuationSnapshotRecord,
 } from "../lib/campaignContinuationStore";
+
+import { commitCampaignCheckpoint } from "../lib/commitCampaignCheckpoint";
 
 const router: IRouter = Router();
 
@@ -875,19 +876,6 @@ export function buildCampaignContinuationSnapshotResponse(input: { sessionId: st
   };
 }
 
-async function writeCampaignContinuationSnapshot(input: {
-  request: CampaignContinuationIngestRequest;
-  response: ReturnType<typeof buildCampaignContinuationIngestResponse>;
-}): Promise<void> {
-  await saveCampaignContinuationSnapshot({
-    continuation: input.request.continuation,
-    recapLines: [...input.request.recapLines],
-    clientSavedAt: input.request.clientSavedAt,
-    receivedAt: input.response.receivedAt,
-    ingestTraceId: input.response.ingestTraceId,
-    submissionId: input.response.submissionId,
-  });
-}
 
 function getIdempotencyKey(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -1093,35 +1081,34 @@ router.post("/adventure/campaign-continuations", async (req, res) => {
   }
 
   const requestHash = computeAICallRequestHash({ body: parsed.value });
-  const idempotencyStart = await beginOneOffHandoffRouteIdempotency({
-    headerValue: req.get("Idempotency-Key"),
-    requestHash,
-    endpoint: CAMPAIGN_CONTINUATION_INGEST_ENDPOINT,
-    startFn: campaignContinuationRouteStartOverride ?? undefined,
-  });
-  if (idempotencyStart.kind === "respond") {
-    if (idempotencyStart.replayHeader) {
-      res.setHeader("X-Idempotent-Replay", "true");
-    }
-    res.status(idempotencyStart.statusCode).json(idempotencyStart.body);
-    return;
-  }
-
   const responseBody = buildCampaignContinuationIngestResponse(parsed.value);
-  await writeCampaignContinuationSnapshot({
-    request: parsed.value,
-    response: responseBody,
-  });
-  res.status(200).json(responseBody);
-
-  await completeOneOffHandoffRouteIdempotency({
-    key: idempotencyStart.key,
-    canPersist: idempotencyStart.canPersist,
-    requestHash,
-    statusCode: 200,
-    responseBody,
-    endpoint: CAMPAIGN_CONTINUATION_INGEST_ENDPOINT,
-  });
+  try {
+    const result = await commitCampaignCheckpoint({
+      snapshot: {
+        continuation: parsed.value.continuation,
+        recapLines: [...parsed.value.recapLines],
+        clientSavedAt: parsed.value.clientSavedAt,
+        receivedAt: responseBody.receivedAt,
+        ingestTraceId: responseBody.ingestTraceId,
+        submissionId: responseBody.submissionId,
+      },
+      responseBody,
+      idempotencyKey: getIdempotencyKey(req.get("Idempotency-Key")),
+      endpoint: CAMPAIGN_CONTINUATION_INGEST_ENDPOINT,
+      requestHash,
+      startOverride: campaignContinuationRouteStartOverride ?? undefined,
+    });
+    if (result.replayed) res.setHeader("X-Idempotent-Replay", "true");
+    res.status(result.statusCode).json(result.body);
+  } catch (error) {
+    req.log?.error({ err: error }, "Campaign checkpoint durable commit failed");
+    res.setHeader("Retry-After", "3");
+    res.status(503).json({
+      code: "campaign_checkpoint_unavailable",
+      error: "Checkpoint could not be saved to the server. Keep this session open and retry.",
+      retryable: true,
+    });
+  }
 });
 
 router.get("/adventure/campaign-continuations/:sessionId", async (req, res) => {

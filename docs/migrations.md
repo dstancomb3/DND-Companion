@@ -1050,3 +1050,14 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Explicit operator migration and rollback procedure are documented in `docs/campaign-save-recovery.md`. No connected database was migrated. Keep bigint on application rollback to preserve valid timestamp data.
 - Six store/schema tests cover outage/read races, old/new ordering, clone isolation and millisecond type mapping; four fail on baseline and all six pass on the patch.
 - Deferred: durable fallback queue/retry, multi-worker conflict control, equal timestamp policy, deletion recovery and client-visible durability status.
+
+
+## 2026-10-21 Audit Remediation Slice 3: Transactional Campaign Checkpoints
+
+- Files: `artifacts/api-server/src/lib/commitCampaignCheckpoint.ts` and its tests (new), `src/lib/testing/checkpointDatabase.ts` (test double), `src/lib/aiIdempotencyStore.ts`, `src/lib/campaignContinuationStore.ts`, `src/routes/adventure.ts`, `src/routes/adventure.handoff-route.test.ts`, API package script, persistence/status/migration docs and engineering cautions.
+- Added optional transaction executors to existing idempotency helpers and the existing database snapshot writer. Transaction-scoped errors fail closed; default AI helper behavior is retained. Checkpoint POST uses these existing primitives in one transaction; response emission happens only after commit.
+- A rollback removes the new receipt and snapshot together. Lost commit acknowledgments replay the completed receipt. Persistence failures produce 503 with a retry message; the existing client already displays that message. No new client UI or database schema is introduced in this slice.
+- Prerequisite: prior bigint timestamp migration and both existing snapshot/idempotency tables. This PR is stacked on the campaign-save-recovery branch. No connected database was modified.
+- Validation: 80 focused tests pass; direct route invocation verifies rollback, retry and replay without sockets. A regression fails against the original route. API typecheck passes. Database boundaries are mocked; live PostgreSQL/HTTP integration and restart acceptance remain pending. Existing client type errors still block workspace baseline.
+- Rollback: revert this slice while leaving bigint storage intact, noting that reverting restores unsafe memory-only save acknowledgments. Preserve the original checkpoint/replay tables and records.
+- Deferred: cross-writer version checks, security/role authority, quotas, offline queue and legacy in-progress receipt recovery.
