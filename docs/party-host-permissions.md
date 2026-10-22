@@ -64,3 +64,7 @@ operation. No new schema migration; matching client/API required. Recipient
 accept/decline, private read policies, loot award/transfer authorization and
 durable claim/save receipts remain open. See the complete
 [party permission map](party-permission-map.md) and [implementation log](implementation-log.md).
+
+O02-A2 subsequently adds live recipient-member proof for note accept/decline;
+host proof is not a substitute. Recipient persistence/recovery and open reads
+remain separate gaps. See the updated route map.

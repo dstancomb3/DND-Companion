@@ -1,3 +1,5 @@
+import type { NotesAssignment } from "./partyApi";
+
 interface MemberStorage {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
@@ -17,9 +19,9 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
     if (!token) throw new PartyMemberAccessError("Member access is missing. Rejoin this party.");
     return { Authorization: `Bearer ${token}` };
   }
-  async function authorizedRequest(code: string, memberId: string, path: string, options: RequestInit) {
+  async function authorizedRequest<T = void>(code: string, memberId: string, path: string, options: RequestInit) {
     try {
-      await request(path, { ...options, headers: await memberHeaders(code, memberId) });
+      return await request<T>(path, { ...options, headers: { ...options.headers, ...await memberHeaders(code, memberId) } });
     } catch (error) {
       if (error instanceof PartyMemberAccessError) await storage.removeItem(tokenKey(code, memberId));
       throw error;
@@ -40,6 +42,12 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
     },
     async syncPartyMember<T extends { memberId: string; partyCode: string }>(payload: T): Promise<void> {
       await authorizedRequest(payload.partyCode, payload.memberId, "/party/sync", { method: "PUT", body: JSON.stringify(payload) });
+    },
+    async acceptPartyNoteAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignment: NotesAssignment }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/note-assignments/${assignmentId}/accept`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async declinePartyNoteAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignmentId: string }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/note-assignments/${assignmentId}/decline`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
     async leaveParty(memberId: string, code: string): Promise<void> {
       await authorizedRequest(code, memberId, "/party/leave", { method: "DELETE", body: JSON.stringify({ memberId, partyCode: code }) });

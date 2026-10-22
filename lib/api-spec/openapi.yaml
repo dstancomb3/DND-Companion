@@ -201,6 +201,68 @@ paths:
           description: Missing or incorrect original host capability
         "404":
           description: Party absent or expired
+  /party/{code}/note-assignments/{assignmentId}/accept:
+    put:
+      operationId: acceptPartyNoteAssignment
+      tags: [party]
+      summary: Accept a note assignment using its recipient's member proof
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Recipient operation accepted
+        "400":
+          description: Missing member ID
+        "403":
+          description: Missing member proof or assignment belongs to another recipient
+        "404":
+          description: Party or assignment absent, or session expired
+        "409":
+          description: Assignment transition or runtime revision conflict
+  /party/{code}/note-assignments/{assignmentId}/decline:
+    put:
+      operationId: declinePartyNoteAssignment
+      tags: [party]
+      summary: Decline a note assignment using its recipient's member proof
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Recipient operation accepted
+        "400":
+          description: Missing member ID
+        "403":
+          description: Missing member proof or assignment belongs to another recipient
+        "404":
+          description: Party or assignment absent, or session expired
+        "409":
+          description: Assignment transition or runtime revision conflict
   /party/{code}/combat-state:
     get:
       operationId: getPartyCombatState

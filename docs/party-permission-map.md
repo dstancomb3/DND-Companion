@@ -1,8 +1,8 @@
-# Party route permission map and O02-A1 note-authoring boundary
+# Party route permission map and note authorization boundaries
 
 Inspected baseline: main `55f78ee698b60e058af05ceea619e8b10fcc5bb3`, 2026-10-22.
 Finding: O02 (original party/DM authorization), with U09 as a related dependency.
-This is a route map and one bounded remediation, not an application-wide
+This is a route map and bounded remediations, not an application-wide
 authentication or authorization completion claim.
 
 ## Authority and method
@@ -24,9 +24,9 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After this pass: four handlers have explicit capability proof (sync, leave,
-disband, note creation); three are bootstrap handlers; two are open read handlers;
-24 are open mutation handlers. Counts are declarations, not a security-completion
+After O02-A2: six handlers have explicit capability proof (sync, leave,
+disband, note creation, note accept and decline); three are bootstrap handlers;
+two are open read handlers; 22 are open mutation handlers. Counts are declarations, not a security-completion
 percentage. Some GET/session helpers have writes.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
@@ -53,9 +53,9 @@ percentage. Some GET/session helpers have writes.
 | POST | `/party/:code/events` | Open mutation | Append event with member/metadata labels | Proposed member/host policy with permitted event kinds; labels cannot grant state authority. |
 | POST | `/party/:code/loot-assignments` | Open mutation | DM awards AND player-to-player item transfers | Do not make blindly host-only. Need distinct host award/member-owned transfer proof; server currently lacks complete inventory ownership/debit authority. |
 | PUT | `/party/:code/loot-assignments/:assignmentId/claim` | Open mutation | Mark assignment claimed | Checks target ID, not proof. Prove live recipient; durable claim/save transaction remains I13/U08. |
-| POST | `/party/:code/note-assignments` | Host proof (this pass) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
-| PUT | `/party/:code/note-assignments/:assignmentId/accept` | Open mutation | Mark DM notes accepted | Checks target ID, not proof. Require live recipient proof; local journal save/recovery remains separate. |
-| PUT | `/party/:code/note-assignments/:assignmentId/decline` | Open mutation | Decline/remove assignment | Checks target ID, not proof. Require live target-member proof. |
+| POST | `/party/:code/note-assignments` | Host proof (O02-A1) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
+| PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
+| PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
 | POST | `/party/:code/combat-npcs` | Open mutation | Create/seed NPC or dummy in runtime | Proposed host proof; template vs instance authority needs explicit mapping. |
 | PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Open mutation | Update NPC/dummy state | Proposed host proof and referenced instance/battle scope. |
 | PUT | `/party/:code/combat-npcs/:npcId/gear` | Open mutation | Replace NPC gear | Proposed host proof; canonical effect validation remains separate. |
@@ -105,9 +105,9 @@ there would regress player sending and would not prove inventory ownership.
   by its public code. Delegation, capability recovery and rotation are separate.
 - Existing UI error handling shows the missing-host/delivery error and retains
   the party connection. Private token storage is not put in shareable history.
-- Recipient accept/decline routes, note visibility in open combat-state reads,
-  recipient identity spoofing and local journal/server commit recovery remain
-  open. Protecting creation alone does not make the entire notes workflow safe.
+- O02-A2 subsequently protects recipient accept/decline. Note visibility in open
+  combat-state reads and local journal/server commit recovery remain open.
+  Protecting these routes does not make the entire notes workflow transactional.
 - Authorization and the later session/runtime commit are not one transaction.
   A concurrent disband/recreate/capability change race is not resolved here.
 - Roll back API/client changes together if necessary; reverting the server
@@ -128,3 +128,29 @@ HTTP/browser/mobile, two-client and deployment acceptance remain pending.
 Full regression totals and this pass's files/PR are recorded in the
 [implementation log](implementation-log.md).
 
+
+
+## O02-A2: live recipient proof (2026-10-22)
+
+Accept/decline now validate memberId, verify session existence and the persisted
+member hash for the exact party/member pair before ensureActiveSession activity
+updates, expiration cleanup or runtime hydration. Missing, legacy, removed,
+wrong-party, other-member, body-only and host-substitute proof fail closed with
+party_member_required. A host has no implicit right to accept for a player.
+Existing assignment-target and accepted-state checks still apply after proof.
+An authenticated member requesting another recipient's assignment may refresh
+session activity but cannot mutate that assignment.
+
+The existing member adapter now returns typed authorized responses and merges
+JSON headers with bearer proof. It invalidates credentials on explicit member
+revocation, retains them on network/generic errors, and preserves the current
+caller API. No screen flow or automatic retry was added. No new DB migration;
+existing host/member columns and matching client/API are required. Legacy
+players must rejoin, and old clients cannot accept/decline without proof.
+
+Remaining: public read visibility, concurrent removal/session races and the
+server-ack-before-local-journal-save gap. There is no durable exactly-once
+recipient application receipt. Roll back matching client/server together if
+needed; reverting the server reopens recipient spoofing. No connected DB or
+deployment was changed. Direct-handler tests mock the DB; live PostgreSQL,
+HTTP/browser/mobile and reload/disconnect acceptance remain pending.
