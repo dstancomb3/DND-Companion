@@ -1,0 +1,1709 @@
+{
+  "baselineCommit": "d722086af72272a6f166d90f1b3a79bc09095a73",
+  "scope": "Static candidate inventory of tracked non-test, non-generated TS/TSX sources. Method declarations, syntactic storage write sites and route declarations are not unique operations or proof of semantic coverage.",
+  "contextMethods": [
+    {
+      "file": "artifacts/living-character-sheet/context/AdventureSessionContext.tsx",
+      "line": 28,
+      "interface": "AdventureSessionContextValue",
+      "name": "setActiveSession",
+      "signature": "(input: { sessionId: string; mode: string; title: string; difficulty: string; stylePreset: string; startInCombat: boolean; guidanceText?: string; campaignId?: string; campaignLabel?: string; chapterLabel?: string; }) => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/AdventureSessionContext.tsx",
+      "line": 40,
+      "interface": "AdventureSessionContextValue",
+      "name": "clearActiveSession",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 142,
+      "interface": "CharacterContextType",
+      "name": "loadCharacter",
+      "signature": "(snapshot: CharacterSnapshot) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 143,
+      "interface": "CharacterContextType",
+      "name": "saveCurrentCharacter",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 144,
+      "interface": "CharacterContextType",
+      "name": "clearCharacter",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 147,
+      "interface": "CharacterContextType",
+      "name": "importAll",
+      "signature": "(snapshot: CharacterSnapshot) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 150,
+      "interface": "CharacterContextType",
+      "name": "updateCharacter",
+      "signature": "(updates: Partial<Character>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 151,
+      "interface": "CharacterContextType",
+      "name": "updateHp",
+      "signature": "(delta: number, source?: \"manual\" | \"ai\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 152,
+      "interface": "CharacterContextType",
+      "name": "updateTempHp",
+      "signature": "(value: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 153,
+      "interface": "CharacterContextType",
+      "name": "updateNotes",
+      "signature": "(notes: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 154,
+      "interface": "CharacterContextType",
+      "name": "updateCurrency",
+      "signature": "(change: ProposedCurrencyChange) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 155,
+      "interface": "CharacterContextType",
+      "name": "recordDeathSaveSuccess",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 156,
+      "interface": "CharacterContextType",
+      "name": "recordDeathSaveFailure",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 157,
+      "interface": "CharacterContextType",
+      "name": "stabilizeAtZeroHp",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 158,
+      "interface": "CharacterContextType",
+      "name": "resetDeathSaveTracking",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 161,
+      "interface": "CharacterContextType",
+      "name": "incrementResource",
+      "signature": "(id: string, effectiveMax?: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 162,
+      "interface": "CharacterContextType",
+      "name": "decrementResource",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 163,
+      "interface": "CharacterContextType",
+      "name": "resetResource",
+      "signature": "(id: string, effectiveMax?: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 164,
+      "interface": "CharacterContextType",
+      "name": "applyResourceChanges",
+      "signature": "(changes: ProposedResourceChange[], source?: \"manual\" | \"ai\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 165,
+      "interface": "CharacterContextType",
+      "name": "addResource",
+      "signature": "(resource: Omit<Resource, \"id\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 166,
+      "interface": "CharacterContextType",
+      "name": "upsertResourceByName",
+      "signature": "(name: string, updates: Partial<Omit<Resource, \"id\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 169,
+      "interface": "CharacterContextType",
+      "name": "useSpellEffect",
+      "signature": "(effectId: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 170,
+      "interface": "CharacterContextType",
+      "name": "rechargeSpellEffects",
+      "signature": "(resetOn: \"short_rest\" | \"long_rest\" | \"dawn\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 173,
+      "interface": "CharacterContextType",
+      "name": "useItemEffect",
+      "signature": "(effectId: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 174,
+      "interface": "CharacterContextType",
+      "name": "rechargeItemEffects",
+      "signature": "(resetOn: \"short_rest\" | \"long_rest\" | \"dawn\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 177,
+      "interface": "CharacterContextType",
+      "name": "expendSpellSlot",
+      "signature": "(level: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 178,
+      "interface": "CharacterContextType",
+      "name": "restoreSpellSlot",
+      "signature": "(level: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 179,
+      "interface": "CharacterContextType",
+      "name": "restoreAllSpellSlots",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 180,
+      "interface": "CharacterContextType",
+      "name": "updateSpellSlotTotal",
+      "signature": "(level: number, total: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 183,
+      "interface": "CharacterContextType",
+      "name": "addCondition",
+      "signature": "(cond: Omit<ActiveCondition, \"id\">, source?: \"manual\" | \"ai\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 184,
+      "interface": "CharacterContextType",
+      "name": "removeCondition",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 185,
+      "interface": "CharacterContextType",
+      "name": "applyConditionChanges",
+      "signature": "(changes: ProposedConditionChange[], source?: \"manual\" | \"ai\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 186,
+      "interface": "CharacterContextType",
+      "name": "clearConditionsOnRest",
+      "signature": "(restType: \"short_rest\" | \"long_rest\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 187,
+      "interface": "CharacterContextType",
+      "name": "tickConditions",
+      "signature": "(timing: \"onTargetTurnEnd\" | \"onRoundAdvance\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 188,
+      "interface": "CharacterContextType",
+      "name": "decrementCondition",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 189,
+      "interface": "CharacterContextType",
+      "name": "setConditionDuration",
+      "signature": "(id: string, durationType: ConditionDurationType, value?: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 190,
+      "interface": "CharacterContextType",
+      "name": "removeConditionsByConcentrationLink",
+      "signature": "(spellId: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 193,
+      "interface": "CharacterContextType",
+      "name": "addAttack",
+      "signature": "(attack: Omit<Attack, \"id\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 194,
+      "interface": "CharacterContextType",
+      "name": "updateAttack",
+      "signature": "(id: string, updates: Partial<Attack>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 195,
+      "interface": "CharacterContextType",
+      "name": "removeAttack",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 199,
+      "interface": "CharacterContextType",
+      "name": "addCompanion",
+      "signature": "(companionData: Omit<Companion, \"id\" | \"createdAt\" | \"updatedAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 200,
+      "interface": "CharacterContextType",
+      "name": "updateCompanion",
+      "signature": "(id: string, updates: Partial<Omit<Companion, \"id\" | \"characterId\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 201,
+      "interface": "CharacterContextType",
+      "name": "deleteCompanion",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 202,
+      "interface": "CharacterContextType",
+      "name": "addCompanionFromMonster",
+      "signature": "(monster: CompendiumMonster) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 205,
+      "interface": "CharacterContextType",
+      "name": "addItem",
+      "signature": "(item: Omit<InventoryItem, \"id\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 206,
+      "interface": "CharacterContextType",
+      "name": "removeItem",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 207,
+      "interface": "CharacterContextType",
+      "name": "updateItem",
+      "signature": "(id: string, updates: Partial<InventoryItem>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 208,
+      "interface": "CharacterContextType",
+      "name": "toggleEquipped",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 209,
+      "interface": "CharacterContextType",
+      "name": "splitStackItem",
+      "signature": "(id: string, splitQty: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 210,
+      "interface": "CharacterContextType",
+      "name": "mergeStackItem",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 211,
+      "interface": "CharacterContextType",
+      "name": "dispatchRuleTrigger",
+      "signature": "(currentAction: string, item?: InventoryItem) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 212,
+      "interface": "CharacterContextType",
+      "name": "applyProposedItems",
+      "signature": "(items: ProposedInventoryItem[]) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 213,
+      "interface": "CharacterContextType",
+      "name": "reorderInventory",
+      "signature": "(newOrder: InventoryItem[]) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 214,
+      "interface": "CharacterContextType",
+      "name": "applyHpChange",
+      "signature": "(change: ProposedHpChange, source?: \"manual\" | \"ai\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 215,
+      "interface": "CharacterContextType",
+      "name": "applyResolvedLocalDamage",
+      "signature": "(result: CombatTargetResolutionResult, source?: \"manual\" | \"ai\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 218,
+      "interface": "CharacterContextType",
+      "name": "addNote",
+      "signature": "(note: Omit<Note, \"id\" | \"createdAt\" | \"updatedAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 219,
+      "interface": "CharacterContextType",
+      "name": "updateNote",
+      "signature": "(id: string, updates: Partial<Omit<Note, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 220,
+      "interface": "CharacterContextType",
+      "name": "deleteNote",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 221,
+      "interface": "CharacterContextType",
+      "name": "pinNote",
+      "signature": "(id: string, pinned: boolean) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 225,
+      "interface": "CharacterContextType",
+      "name": "addJournalArc",
+      "signature": "(arc: Omit<JournalArc, \"id\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 226,
+      "interface": "CharacterContextType",
+      "name": "updateJournalArc",
+      "signature": "(id: string, updates: Partial<Omit<JournalArc, \"id\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 227,
+      "interface": "CharacterContextType",
+      "name": "removeJournalArc",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 228,
+      "interface": "CharacterContextType",
+      "name": "appendQuickEntry",
+      "signature": "(text: string, sessionNumber?: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 231,
+      "interface": "CharacterContextType",
+      "name": "addWishlistItem",
+      "signature": "(item: Omit<WishlistItem, \"id\" | \"createdAt\" | \"updatedAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 232,
+      "interface": "CharacterContextType",
+      "name": "updateWishlistItem",
+      "signature": "(id: string, updates: Partial<Omit<WishlistItem, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 233,
+      "interface": "CharacterContextType",
+      "name": "removeWishlistItem",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 234,
+      "interface": "CharacterContextType",
+      "name": "convertWishlistItemToInventory",
+      "signature": "( id: string, options?: { keepAsAcquired?: boolean; archiveAfterConvert?: boolean } ) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 240,
+      "interface": "CharacterContextType",
+      "name": "pinPerson",
+      "signature": "(id: string, pinned: boolean) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 241,
+      "interface": "CharacterContextType",
+      "name": "pinQuest",
+      "signature": "(id: string, pinned: boolean) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 242,
+      "interface": "CharacterContextType",
+      "name": "pinLocation",
+      "signature": "(id: string, pinned: boolean) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 245,
+      "interface": "CharacterContextType",
+      "name": "updateStatistics",
+      "signature": "(updates: Partial<CharacterStatistics>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 246,
+      "interface": "CharacterContextType",
+      "name": "incrementKillCount",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 249,
+      "interface": "CharacterContextType",
+      "name": "addClassFeature",
+      "signature": "(feature: Omit<ClassFeature, \"id\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 250,
+      "interface": "CharacterContextType",
+      "name": "updateClassFeature",
+      "signature": "(id: string, updates: Partial<Omit<ClassFeature, \"id\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 251,
+      "interface": "CharacterContextType",
+      "name": "removeClassFeature",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 252,
+      "interface": "CharacterContextType",
+      "name": "setClassFeatures",
+      "signature": "(features: ClassFeature[]) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 253,
+      "interface": "CharacterContextType",
+      "name": "setPassiveFeatures",
+      "signature": "(features: ClassFeature[]) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 257,
+      "interface": "CharacterContextType",
+      "name": "addSpell",
+      "signature": "(s: Omit<PreparedSpell, \"id\" | \"createdAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 258,
+      "interface": "CharacterContextType",
+      "name": "updateSpell",
+      "signature": "(id: string, updates: Partial<Omit<PreparedSpell, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 259,
+      "interface": "CharacterContextType",
+      "name": "removeSpell",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 260,
+      "interface": "CharacterContextType",
+      "name": "toggleSpellPrepared",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 264,
+      "interface": "CharacterContextType",
+      "name": "addPerson",
+      "signature": "(p: Omit<NpcPerson, \"id\" | \"createdAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 265,
+      "interface": "CharacterContextType",
+      "name": "updatePerson",
+      "signature": "(id: string, updates: Partial<Omit<NpcPerson, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 266,
+      "interface": "CharacterContextType",
+      "name": "deletePerson",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 269,
+      "interface": "CharacterContextType",
+      "name": "addQuest",
+      "signature": "(q: Omit<Quest, \"id\" | \"createdAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 270,
+      "interface": "CharacterContextType",
+      "name": "updateQuest",
+      "signature": "(id: string, updates: Partial<Omit<Quest, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 271,
+      "interface": "CharacterContextType",
+      "name": "deleteQuest",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 274,
+      "interface": "CharacterContextType",
+      "name": "addLocation",
+      "signature": "(l: Omit<CampaignLocation, \"id\" | \"createdAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 275,
+      "interface": "CharacterContextType",
+      "name": "updateLocation",
+      "signature": "(id: string, updates: Partial<Omit<CampaignLocation, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 276,
+      "interface": "CharacterContextType",
+      "name": "deleteLocation",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 279,
+      "interface": "CharacterContextType",
+      "name": "addRealm",
+      "signature": "(r: Omit<Plane, \"id\" | \"createdAt\">) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 280,
+      "interface": "CharacterContextType",
+      "name": "updateRealm",
+      "signature": "(id: string, updates: Partial<Omit<Plane, \"id\" | \"createdAt\">>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 281,
+      "interface": "CharacterContextType",
+      "name": "deleteRealm",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 282,
+      "interface": "CharacterContextType",
+      "name": "pinRealm",
+      "signature": "(id: string, pinned: boolean) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 284,
+      "interface": "CharacterContextType",
+      "name": "applyQuestUpdate",
+      "signature": "( result: QuestUpdateResult, options?: { enableInventoryLinking?: boolean; sourceType?: \"quick_update\" | \"loot_review\" } ) => QuestGraphApplyReport"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 288,
+      "interface": "CharacterContextType",
+      "name": "getReviewBatches",
+      "signature": "() => QuestGraphReviewBatch[]"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 289,
+      "interface": "CharacterContextType",
+      "name": "resolveDeferredOperation",
+      "signature": "(batchId: string, operationId: string, decision: QuestGraphResolutionDecision) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 290,
+      "interface": "CharacterContextType",
+      "name": "resolveBatch",
+      "signature": "(batchId: string, decisions: Array<{ operationId: string; decision: QuestGraphResolutionDecision }>) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 291,
+      "interface": "CharacterContextType",
+      "name": "applyResolvedOperations",
+      "signature": "(batchId: string) => QuestGraphResolutionResult"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 292,
+      "interface": "CharacterContextType",
+      "name": "markBatchArchived",
+      "signature": "(batchId: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 293,
+      "interface": "CharacterContextType",
+      "name": "applyDeferredInventoryLinksForBatch",
+      "signature": "(batchId: string, acceptedItemIds: string[]) => QuestGraphResolutionResult"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 297,
+      "interface": "CharacterContextType",
+      "name": "queueLevelUps",
+      "signature": "(count: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 298,
+      "interface": "CharacterContextType",
+      "name": "decrementPendingLevelUps",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 301,
+      "interface": "CharacterContextType",
+      "name": "addLogNote",
+      "signature": "(entryId: string, note: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 302,
+      "interface": "CharacterContextType",
+      "name": "clearCombatLog",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 303,
+      "interface": "CharacterContextType",
+      "name": "startNewSession",
+      "signature": "(label?: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 307,
+      "interface": "CharacterContextType",
+      "name": "showStatusPill",
+      "signature": "(message: string, tone?: \"positive\" | \"neutral\" | \"negative\") => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CharacterContext.tsx",
+      "line": 308,
+      "interface": "CharacterContextType",
+      "name": "clearStatusPill",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 88,
+      "interface": "CombatContextType",
+      "name": "setSelectedTargetId",
+      "signature": "(id: string | null) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 89,
+      "interface": "CombatContextType",
+      "name": "toggleTargetId",
+      "signature": "(id: string, maxTargets?: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 90,
+      "interface": "CombatContextType",
+      "name": "clearTargetIds",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 95,
+      "interface": "CombatContextType",
+      "name": "setActiveActorOptionId",
+      "signature": "(id: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 97,
+      "interface": "CombatContextType",
+      "name": "dismissActionFeedback",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 99,
+      "interface": "CombatContextType",
+      "name": "dismissRemoteApplyFailure",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 102,
+      "interface": "CombatContextType",
+      "name": "addConcentrationSpell",
+      "signature": "(spell: { id?: string; name: string; rounds: number; casterId?: string }) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 103,
+      "interface": "CombatContextType",
+      "name": "decrementConcentrationRounds",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 104,
+      "interface": "CombatContextType",
+      "name": "breakConcentration",
+      "signature": "(spellId: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 106,
+      "interface": "CombatContextType",
+      "name": "declineReactionWindow",
+      "signature": "(windowId: string) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 108,
+      "interface": "CombatContextType",
+      "name": "toggleCombat",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 109,
+      "interface": "CombatContextType",
+      "name": "useAction",
+      "signature": "(payload?: ActionLogPayload) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 110,
+      "interface": "CombatContextType",
+      "name": "refundAction",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 111,
+      "interface": "CombatContextType",
+      "name": "useBonusAction",
+      "signature": "(payload?: ActionLogPayload) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 112,
+      "interface": "CombatContextType",
+      "name": "refundBonusAction",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 113,
+      "interface": "CombatContextType",
+      "name": "toggleAction",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 114,
+      "interface": "CombatContextType",
+      "name": "toggleBonusAction",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 115,
+      "interface": "CombatContextType",
+      "name": "toggleReaction",
+      "signature": "(payload?: ActionLogPayload) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 116,
+      "interface": "CombatContextType",
+      "name": "toggleObjectInteraction",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 117,
+      "interface": "CombatContextType",
+      "name": "spendMovement",
+      "signature": "(feet: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 118,
+      "interface": "CombatContextType",
+      "name": "refundMovement",
+      "signature": "(feet: number) => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 119,
+      "interface": "CombatContextType",
+      "name": "resolveCombatAction",
+      "signature": "(command: CombatActionCommand) => Promise<CombatActionResult>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/CombatContext.tsx",
+      "line": 120,
+      "interface": "CombatContextType",
+      "name": "endTurn",
+      "signature": "() => void"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 28,
+      "interface": "MutationHistoryContextType",
+      "name": "appendBatch",
+      "signature": "(batch: MutationBatch) => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 30,
+      "interface": "MutationHistoryContextType",
+      "name": "undoLast",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 32,
+      "interface": "MutationHistoryContextType",
+      "name": "undoBatch",
+      "signature": "(id: string) => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 33,
+      "interface": "MutationHistoryContextType",
+      "name": "clearHistory",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 51,
+      "interface": "PartyContextType",
+      "name": "createAndJoinParty",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 52,
+      "interface": "PartyContextType",
+      "name": "joinExistingParty",
+      "signature": "(code: string, initial?: { characterId: string; snapshot: SyncPayload }) => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 53,
+      "interface": "PartyContextType",
+      "name": "leaveCurrentParty",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 54,
+      "interface": "PartyContextType",
+      "name": "refreshMembers",
+      "signature": "() => Promise<void>"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 55,
+      "interface": "PartyContextType",
+      "name": "refreshCombatState",
+      "signature": "(codeOverride?: string) => Promise<PartyCombatState | null>"
+    }
+  ],
+  "storageWrites": [
+    {
+      "file": "artifacts/living-character-sheet/app/(tabs)/sheet.tsx",
+      "line": 329,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "SHEET_HELP_COACHMARK_DISMISSED_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/adventure/session/[sessionId].tsx",
+      "line": 675,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "buildOneOffSessionStateKey(sessionId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/adventure/session/[sessionId].tsx",
+      "line": 1760,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "buildOneOffSessionStateKey(sessionId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-npc.tsx",
+      "line": 358,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_NPCS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-npc.tsx",
+      "line": 381,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_NPCS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-npc.tsx",
+      "line": 386,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_NPC_EDIT_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-npc.tsx",
+      "line": 393,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "DM_NPC_EDIT_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-npc.tsx",
+      "line": 402,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_NPCS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 874,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_WATCH_HISTORY_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 1356,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 1430,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 1461,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 1485,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 1515,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 2591,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/app/dm-party.tsx",
+      "line": 2624,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "DM_WATCH_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/components/sheet/SpellsSection.tsx",
+      "line": 346,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "CUSTOM_SPELLS_STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/AdventureSessionContext.tsx",
+      "line": 181,
+      "receiver": "storage",
+      "method": "setItem",
+      "keyExpression": "ACTIVE_ADVENTURE_SESSION_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/AdventureSessionContext.tsx",
+      "line": 186,
+      "receiver": "storage",
+      "method": "removeItem",
+      "keyExpression": "ACTIVE_ADVENTURE_SESSION_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/AppSettingsContext.tsx",
+      "line": 582,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "SETTINGS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 70,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "storageKey(currentCharacterId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 77,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "storageKey(currentCharacterId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 94,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "storageKey(currentCharacterId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/MutationHistoryContext.tsx",
+      "line": 131,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "storageKey(currentCharacterId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 144,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 310,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 324,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/context/PartyContext.tsx",
+      "line": 420,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmCampaignSessionArchiveStorage.ts",
+      "line": 129,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "CAMPAIGN_ARCHIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmCampaignSessionArchiveStorage.ts",
+      "line": 136,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "CAMPAIGN_ARCHIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmCampaignSessionArchiveStorage.ts",
+      "line": 140,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "CAMPAIGN_ARCHIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmOneOffSessionArchiveStorage.ts",
+      "line": 46,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "ONE_OFF_ARCHIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmOneOffSessionArchiveStorage.ts",
+      "line": 53,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "ONE_OFF_ARCHIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmOneOffSessionArchiveStorage.ts",
+      "line": 57,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "ONE_OFF_ARCHIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmOneOffSubmitJournalStorage.ts",
+      "line": 49,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "ONE_OFF_SUBMIT_JOURNAL_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmOneOffSubmitJournalStorage.ts",
+      "line": 53,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "ONE_OFF_SUBMIT_JOURNAL_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/adventure/aiDmOneOffSubmitJournalStorage.ts",
+      "line": 87,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "ONE_OFF_SUBMIT_JOURNAL_PREFS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/aiQueue.ts",
+      "line": 105,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "QUEUE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/aiQueue.ts",
+      "line": 155,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "QUEUE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/characterStorage.ts",
+      "line": 48,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/characterStorage.ts",
+      "line": 49,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "LAST_ACTIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/characterStorage.ts",
+      "line": 54,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "STORAGE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/characterStorage.ts",
+      "line": 56,
+      "receiver": "AsyncStorage",
+      "method": "removeItem",
+      "keyExpression": "LAST_ACTIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/characterStorage.ts",
+      "line": 68,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "LAST_ACTIVE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/dmNotesStorage.ts",
+      "line": 161,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "DM_NOTES_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/featureFlags.ts",
+      "line": 65,
+      "receiver": "localStorage",
+      "method": "setItem",
+      "keyExpression": "`feature_flag_${name}`"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/featureFlags.ts",
+      "line": 67,
+      "receiver": "localStorage",
+      "method": "removeItem",
+      "keyExpression": "`feature_flag_${name}`"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/featureFlags.ts",
+      "line": 93,
+      "receiver": "localStorage",
+      "method": "removeItem",
+      "keyExpression": "`feature_flag_${flagName}`"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/monsterApi.ts",
+      "line": 174,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "OFFICIAL_MONSTERS_CACHE_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/monsterApi.ts",
+      "line": 175,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "OFFICIAL_MONSTERS_TIMESTAMP_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/monsterApi.ts",
+      "line": 372,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "CUSTOM_MONSTERS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/monsterApi.ts",
+      "line": 396,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "CUSTOM_MONSTERS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/monsterApi.ts",
+      "line": 414,
+      "receiver": "AsyncStorage",
+      "method": "setItem",
+      "keyExpression": "CUSTOM_MONSTERS_KEY"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/partyHostApi.ts",
+      "line": 15,
+      "receiver": "storage",
+      "method": "setItem",
+      "keyExpression": "tokenKey(code)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/partyHostApi.ts",
+      "line": 27,
+      "receiver": "storage",
+      "method": "removeItem",
+      "keyExpression": "tokenKey(code)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/partyMemberApi.ts",
+      "line": 24,
+      "receiver": "storage",
+      "method": "removeItem",
+      "keyExpression": "tokenKey(code, memberId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/partyMemberApi.ts",
+      "line": 34,
+      "receiver": "storage",
+      "method": "setItem",
+      "keyExpression": "tokenKey(code, result.memberId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/partyMemberApi.ts",
+      "line": 35,
+      "receiver": "storage",
+      "method": "setItem",
+      "keyExpression": "identityKey(code, characterId)"
+    },
+    {
+      "file": "artifacts/living-character-sheet/utils/partyMemberApi.ts",
+      "line": 46,
+      "receiver": "storage",
+      "method": "removeItem",
+      "keyExpression": "tokenKey(code, memberId)"
+    }
+  ],
+  "serverRoutes": [
+    {
+      "file": "artifacts/api-server/src/routes/adventure.ts",
+      "line": 1007,
+      "method": "POST",
+      "path": "\"/adventure/oneoff-handoffs\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/adventure.ts",
+      "line": 1041,
+      "method": "POST",
+      "path": "\"/adventure/campaign-scaffolds\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/adventure.ts",
+      "line": 1077,
+      "method": "POST",
+      "path": "\"/adventure/campaign-continuations\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/adventure.ts",
+      "line": 1117,
+      "method": "GET",
+      "path": "\"/adventure/campaign-continuations/:sessionId\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/adventure.ts",
+      "line": 1157,
+      "method": "POST",
+      "path": "\"/adventure/campaign-runtime/turn\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 1150,
+      "method": "POST",
+      "path": "\"/parse-update\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 1417,
+      "method": "POST",
+      "path": "\"/analyze-loot\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 1625,
+      "method": "POST",
+      "path": "\"/generate-loot\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 1712,
+      "method": "POST",
+      "path": "\"/parse-quest-reward\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 1887,
+      "method": "POST",
+      "path": "\"/repair-import\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 2111,
+      "method": "POST",
+      "path": "\"/level-up\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 2228,
+      "method": "POST",
+      "path": "\"/recommend-feat\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 2286,
+      "method": "POST",
+      "path": "\"/generate-class-features\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 2513,
+      "method": "POST",
+      "path": "\"/parse-quest-update\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 2665,
+      "method": "POST",
+      "path": "\"/npc-appearance\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/ai/index.ts",
+      "line": 2752,
+      "method": "POST",
+      "path": "\"/item-properties\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/health.ts",
+      "line": 11,
+      "method": "GET",
+      "path": "\"/healthz\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/health.ts",
+      "line": 12,
+      "method": "GET",
+      "path": "\"/health\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1442,
+      "method": "POST",
+      "path": "\"/party/create\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1474,
+      "method": "POST",
+      "path": "\"/party/join/:code\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1504,
+      "method": "POST",
+      "path": "\"/party/:code/register-member\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1527,
+      "method": "PUT",
+      "path": "\"/party/sync\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1680,
+      "method": "GET",
+      "path": "\"/party/:code/members\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1720,
+      "method": "DELETE",
+      "path": "\"/party/leave\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1772,
+      "method": "POST",
+      "path": "\"/party/:code/disband\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1803,
+      "method": "GET",
+      "path": "\"/party/:code/combat-state\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1843,
+      "method": "POST",
+      "path": "\"/party/:code/initiative/start\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1925,
+      "method": "PUT",
+      "path": "\"/party/:code/initiative/roll\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 1998,
+      "method": "POST",
+      "path": "\"/party/:code/end-turn\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2105,
+      "method": "POST",
+      "path": "\"/party/:code/economy/spend\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2177,
+      "method": "POST",
+      "path": "\"/party/:code/economy/reset\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2216,
+      "method": "POST",
+      "path": "\"/party/:code/combat/apply-outcomes\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2431,
+      "method": "POST",
+      "path": "\"/party/:code/roll-requests\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2496,
+      "method": "PUT",
+      "path": "\"/party/:code/roll-requests/:requestId/respond\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2576,
+      "method": "POST",
+      "path": "\"/party/:code/rest-requests\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2639,
+      "method": "PUT",
+      "path": "\"/party/:code/rest-requests/:requestId\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2679,
+      "method": "PUT",
+      "path": "\"/party/:code/rest-requests/:requestId/ack\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2721,
+      "method": "POST",
+      "path": "\"/party/:code/events\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2752,
+      "method": "POST",
+      "path": "\"/party/:code/loot-assignments\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2879,
+      "method": "PUT",
+      "path": "\"/party/:code/loot-assignments/:assignmentId/claim\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 2925,
+      "method": "POST",
+      "path": "\"/party/:code/note-assignments\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3054,
+      "method": "PUT",
+      "path": "\"/party/:code/note-assignments/:assignmentId/accept\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3100,
+      "method": "PUT",
+      "path": "\"/party/:code/note-assignments/:assignmentId/decline\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3152,
+      "method": "POST",
+      "path": "\"/party/:code/combat-npcs\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3244,
+      "method": "PUT",
+      "path": "\"/party/:code/combat-npcs/:npcId/dummy-state\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3282,
+      "method": "PUT",
+      "path": "\"/party/:code/combat-npcs/:npcId/gear\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3308,
+      "method": "PUT",
+      "path": "\"/party/:code/combat-npcs/:npcId/visible-stats\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3335,
+      "method": "DELETE",
+      "path": "\"/party/:code/combat-npcs/:npcId\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3371,
+      "method": "DELETE",
+      "path": "\"/party/:code/encounters/:battleId\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3430,
+      "method": "POST",
+      "path": "\"/party/:code/encounters/:battleId/participants\""
+    },
+    {
+      "file": "artifacts/api-server/src/routes/party.ts",
+      "line": 3487,
+      "method": "PUT",
+      "path": "\"/party/:code/combat-npcs/:npcId/initiative\""
+    }
+  ]
+}
