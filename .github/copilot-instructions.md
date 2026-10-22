@@ -75,3 +75,13 @@ Playwright config project. Keep both checks when changing TypeScript settings.
 The combat safety test uses `.cts` to match the CommonJS app package; changing
 its module format can break named imports before assertions run. Preserve the
 standard root combat-baseline command and frozen lockfile consistency.
+
+
+## Party Capability Boundary
+
+Party codes and caller-supplied member IDs/DM flags are not credentials.
+Enrollment issues new server member IDs; sync must never insert a missing member
+or claim a legacy row. Keep capability hashes out of public projections and
+client-writable insert schemas. Apply nullable host/member-column migrations
+before deploying the matching client and API. Read docs/party-member-permissions.md
+for cutover and the remaining unauthenticated indirect mutation paths.

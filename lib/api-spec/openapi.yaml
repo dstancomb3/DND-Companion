@@ -66,11 +66,77 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenericObject"
+  /party/{code}/register-member:
+    post:
+      operationId: registerPartyMember
+      tags: [party]
+      summary: Enroll a new member with a server-issued identity and private capability
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      responses:
+        "200":
+          description: New identity and private token, returned once with Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, memberId, memberToken]
+                properties:
+                  code:
+                    type: string
+                  memberId:
+                    type: string
+                    format: uuid
+                  memberToken:
+                    type: string
+                    description: Private bearer capability, never share with the party code
+        "404":
+          description: Party missing or expired
+  /party/leave:
+    delete:
+      operationId: leaveParty
+      tags: [party]
+      summary: Remove a member with their own capability or the original host capability
+      security:
+        - partyCapability: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memberId, partyCode]
+              properties:
+                memberId:
+                  type: string
+                partyCode:
+                  type: string
+      responses:
+        "200":
+          description: Member removed
+        "403":
+          description: Missing or incorrect member or host capability
+  /party/{code}/disband:
+    post:
+      operationId: disbandParty
+      tags: [party]
+      summary: Disband using the original host capability
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      responses:
+        "200":
+          description: Party disbanded
+        "403":
+          description: Missing or incorrect original host capability
   /party/sync:
     put:
       operationId: syncPartyMemberState
       tags: [party]
-      summary: Sync member state into party runtime
+      summary: Sync an existing member using that member's private capability
+      security:
+        - partyCapability: []
       requestBody:
         required: true
         content:
@@ -84,6 +150,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenericObject"
+        "403":
+          description: Missing, revoked or incorrect member capability
         "409":
           description: Sync conflict
           content:
@@ -407,6 +475,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/GenericObject"
 components:
+  securitySchemes:
+    partyCapability:
+      type: http
+      scheme: bearer
+      description: Server-issued private host or member capability, as required by each route
   parameters:
     PartyCode:
       name: code

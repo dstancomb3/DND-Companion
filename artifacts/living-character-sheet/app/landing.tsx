@@ -32,6 +32,7 @@ import {
   startPartyInitiative,
   submitInitiativeRoll,
   syncPartyMember,
+  registerPartyMember,
   type SyncPayload,
 } from "@/utils/partyApi";
 import type { CharacterSnapshot } from "@/types";
@@ -65,16 +66,10 @@ function buildDemoPartyProfiles(): CharacterSnapshot[] {
   return [buildDemoSnapshot()];
 }
 
-function buildPartyMemberId(code: string, characterId: string): string {
-  const safeCode = code.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-  const safeCharacterId = characterId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-  return `member:${safeCode}:${safeCharacterId}`;
-}
-
-function buildDemoSeedSnapshot(partyCode: string, snapshot: CharacterSnapshot, snapshotUpdatedAt: number): SyncPayload {
+function buildDemoSeedSnapshot(partyCode: string, memberId: string, snapshot: CharacterSnapshot, snapshotUpdatedAt: number): SyncPayload {
   const { character, conditions } = snapshot;
   return {
-    memberId: buildPartyMemberId(partyCode, character.id),
+    memberId,
     partyCode,
     characterName: character.name,
     characterClass: character.class + (character.level ? ` ${character.level}` : ""),
@@ -244,14 +239,17 @@ export default function HomeScreen() {
       const demoPartyProfiles = buildDemoPartyProfiles();
       for (let index = 0; index < demoPartyProfiles.length; index += 1) {
         const profileSnapshot = demoPartyProfiles[index];
-        await syncPartyMember(buildDemoSeedSnapshot(code, profileSnapshot, seedBase + index + 1));
+        const { memberId } = await registerPartyMember(code, profileSnapshot.character.id);
+        await syncPartyMember(buildDemoSeedSnapshot(code, memberId, profileSnapshot, seedBase + index + 1));
       }
 
       const localDemoSnapshot = demoPartyProfiles[0] ?? buildDemoSnapshot();
+      const { memberId: demoMemberId } = await registerPartyMember(code, localDemoSnapshot.character.id);
       loadCharacter(localDemoSnapshot);
-      await joinExistingParty(code);
-
-      const demoMemberId = buildPartyMemberId(code, localDemoSnapshot.character.id);
+      await joinExistingParty(code, {
+        characterId: localDemoSnapshot.character.id,
+        snapshot: buildDemoSeedSnapshot(code, demoMemberId, localDemoSnapshot, Date.now()),
+      });
 
       const beast = await addCombatNpc(code, {
         name: "Dire Wolf",

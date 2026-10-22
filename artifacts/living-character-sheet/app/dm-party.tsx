@@ -40,7 +40,7 @@ import {
   endEncounter,
   addToEncounter,
   rollNpcInitiative,
-  leaveParty,
+  removePartyMember,
   disbandParty,
   type PartyMemberSummary,
   type PartyCombatState,
@@ -2548,10 +2548,14 @@ export default function DmPartyScreen() {
     const performRemove = async () => {
       setRemovingMemberId(member.id);
       try {
-        await leaveParty(member.id, watchedCode);
+        await removePartyMember(member.id, watchedCode);
         const result = await fetchMembers(watchedCode);
         setMembers(result);
         await refreshCombat(watchedCode);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to remove player.";
+        if (Platform.OS === "web") window.alert(message);
+        else Alert.alert("Unable to remove player", message);
       } finally {
         setRemovingMemberId(null);
       }

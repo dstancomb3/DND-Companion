@@ -48,3 +48,16 @@ test("storage failure prevents a false successful create", async () => {
   f.storage.setItem = async () => { throw new Error("Storage unavailable"); };
   await assert.rejects(partyHostApi(f.request, f.storage).createParty(), /Storage unavailable/);
 });
+
+test("host removal uses the private host token and never a caller role flag", async () => {
+  const f = fixture(), api = partyHostApi(f.request, f.storage);
+  await api.createParty();
+  await api.removePartyMember("other-member", "PARTY");
+  assert.deepEqual(f.calls[1], { path: "/party/leave", options: {
+    method: "DELETE", headers: { Authorization: "Bearer private-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ memberId: "other-member", partyCode: "PARTY" }),
+  } });
+  assert.equal(f.rows.size, 1);
+  await assert.rejects(api.removePartyMember("other-member", "OTHER"), /Only the device/);
+  assert.equal(f.calls.length, 2);
+});

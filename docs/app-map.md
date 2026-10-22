@@ -109,3 +109,9 @@ See [AI DM + Deterministic Combat Convergence Plan](ai-dm-combat-convergence-pla
 - Server credential hashing: `artifacts/api-server/src/lib/partyHostToken.ts`; route checks remain in `routes/party.ts`.
 - Shared client creation/disband adapter: `artifacts/living-character-sheet/utils/partyHostApi.ts`, wired through `utils/partyApi.ts`.
 - Schema rollout and remaining authorization gaps: [Party host permissions](party-host-permissions.md).
+
+## Party member capabilities (direct sync and leave)
+
+- Server enrollment and proof checks: `artifacts/api-server/src/routes/party.ts`, reusing `src/lib/partyHostToken.ts` cryptography.
+- Client enrollment/credential adapter: `artifacts/living-character-sheet/utils/partyMemberApi.ts`, connected through `utils/partyApi.ts` and `context/PartyContext.tsx`.
+- Required cutover and remaining indirect write paths: [Party member permissions](party-member-permissions.md).

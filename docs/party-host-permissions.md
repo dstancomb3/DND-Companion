@@ -32,9 +32,10 @@ Use HTTPS outside local development.
 
 The updated Drizzle schema selects the new column, so deploying the API before
 the migration will break party database reads. Do not skip the migration.
-Existing sessions have a null hash and cannot be claimed from a code. They can
-continue normal play and expire normally; create a new party to obtain host
-access. Clearing app storage loses the capability. No automatic legacy claim or
+Existing sessions have a null host hash and cannot be claimed from a code.
+The subsequent member-ownership rollout requires players to rejoin for new member
+credentials; see [Member ownership](party-member-permissions.md). Create a new
+party to obtain host access. Clearing app storage loses the capability. No automatic legacy claim or
 ownership reset endpoint is provided.
 
 Rollback API and client together if needed. Leave the nullable column in place;
@@ -42,8 +43,9 @@ older code ignores it. Reverting the server reopens code-only disband access.
 
 ## Current boundary
 
-This is a narrow disband protection, not complete party authentication. Member
-sync/leave ownership, DM mutations, reads, campaign ownership and AI usage limits
+This is a narrow disband protection, not complete party authentication. The
+subsequent [member ownership slice](party-member-permissions.md) protects direct
+sync/leave. Remaining DM mutations, reads, campaign ownership and AI usage limits
 still need authorization. Client `isDmOverride` flags are not credentials.
 Disband's existing multi-step deletion is not yet transactional. Focused tests
 mock the database; real PostgreSQL, HTTP and browser/mobile rollout checks remain

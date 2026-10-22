@@ -11,6 +11,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createParty,
   joinParty,
+  registerPartyMember,
+  hasPartyMemberAccess,
   syncPartyMember,
   fetchPartyMembers,
   fetchPartyCombatState,
@@ -21,6 +23,7 @@ import {
   type PartyRestType,
   type SyncPayload,
   PartyConflictError,
+  PartyMemberAccessError,
 } from "@/utils/partyApi";
 import { useCharacter } from "@/context/CharacterContext";
 import { useAppSettings } from "@/context/AppSettingsContext";
@@ -46,19 +49,13 @@ interface PartyContextType {
   isLoading: boolean;
   error: string | null;
   createAndJoinParty: () => Promise<void>;
-  joinExistingParty: (code: string) => Promise<void>;
+  joinExistingParty: (code: string, initial?: { characterId: string; snapshot: SyncPayload }) => Promise<void>;
   leaveCurrentParty: () => Promise<void>;
   refreshMembers: () => Promise<void>;
   refreshCombatState: (codeOverride?: string) => Promise<PartyCombatState | null>;
 }
 
 const PartyContext = createContext<PartyContextType | null>(null);
-
-function generateMemberId(partyCode: string, characterId: string): string {
-  const safeCode = partyCode.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-  const safeCharacterId = characterId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-  return `member:${safeCode}:${safeCharacterId}`;
-}
 
 function PartyProviderInner({ children }: { children: ReactNode }) {
   const {
@@ -309,6 +306,11 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       try {
         const session: StoredSession = JSON.parse(raw);
         if (!session.partyCode || !session.memberId) return;
+        if (!await hasPartyMemberAccess(session.partyCode, session.memberId)) {
+          await AsyncStorage.removeItem(STORAGE_KEY);
+          setError("Party security was updated. Rejoin your party to register this character.");
+          return;
+        }
         try {
           const result = await fetchPartyMembers(session.partyCode);
           setPartyCode(session.partyCode);
@@ -339,9 +341,16 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     }
     syncDebounceRef.current = setTimeout(async () => {
       if (!currentCodeRef.current || !currentMemberIdRef.current) return;
+      const syncCode = currentCodeRef.current;
+      const syncMemberId = currentMemberIdRef.current;
       try {
-        await syncPartyMember(buildSnapshot(currentMemberIdRef.current, currentCodeRef.current));
+        await syncPartyMember(buildSnapshot(syncMemberId, syncCode));
       } catch (err) {
+        if (err instanceof PartyMemberAccessError) {
+          if (currentCodeRef.current === syncCode && currentMemberIdRef.current === syncMemberId) await handleSessionEnded(err.message);
+          return;
+        }
+        if (!(err instanceof PartyConflictError)) setError(err instanceof Error ? err.message : "Party sync failed.");
         if (err instanceof PartyConflictError) {
           setError("Party sync is stale; pulled latest state.");
           void refreshMembers();
@@ -375,6 +384,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     conditions,
     settings.themeId,
     accentHex,
+    handleSessionEnded,
     buildSnapshot,
     refreshMembers,
     refreshCombatState,
@@ -389,6 +399,11 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       try {
         await syncPartyMember(buildSnapshot(mid, code));
       } catch (err) {
+        if (err instanceof PartyMemberAccessError) {
+          if (currentCodeRef.current === code && currentMemberIdRef.current === mid) await handleSessionEnded(err.message);
+          return;
+        }
+        if (!(err instanceof PartyConflictError)) setError(err instanceof Error ? err.message : "Party sync failed.");
         if (err instanceof PartyConflictError) {
           void refreshMembers();
           void refreshCombatState(code);
@@ -399,7 +414,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     syncNow();
     const id = setInterval(syncNow, POLL_INTERVAL);
     return () => clearInterval(id);
-  }, [buildSnapshot, partyCode, memberId, refreshCombatState, refreshMembers]);
+  }, [buildSnapshot, partyCode, memberId, refreshCombatState, refreshMembers, handleSessionEnded]);
 
   const persistSession = useCallback(async (code: string, mid: string) => {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ partyCode: code, memberId: mid }));
@@ -412,7 +427,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       setCombatState(null);
       latestCombatStateRef.current = { revision: -1, updatedAt: "" };
       const { code } = await createParty();
-      const mid = generateMemberId(code, character.id);
+      const { memberId: mid } = await registerPartyMember(code, character.id);
       await syncPartyMember(buildSnapshot(mid, code));
       const result = await fetchPartyMembers(code);
       setPartyCode(code);
@@ -428,18 +443,18 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [buildSnapshot, persistSession, refreshCombatState, startPolling]);
+  }, [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id]);
 
   const joinExistingParty = useCallback(
-    async (code: string) => {
+    async (code: string, initial?: { characterId: string; snapshot: SyncPayload }) => {
       setIsLoading(true);
       setError(null);
       try {
         setCombatState(null);
         latestCombatStateRef.current = { revision: -1, updatedAt: "" };
         await joinParty(code);
-        const mid = generateMemberId(code, character.id);
-        await syncPartyMember(buildSnapshot(mid, code));
+        const { memberId: mid } = await registerPartyMember(code, initial?.characterId ?? character.id);
+        await syncPartyMember(initial ? { ...initial.snapshot, memberId: mid, partyCode: code } : buildSnapshot(mid, code));
         const result = await fetchPartyMembers(code);
         setPartyCode(code);
         setMemberId(mid);

@@ -12,6 +12,7 @@ export const partySessions = pgTable("party_sessions", {
 export const partyMembers = pgTable("party_members", {
   id: text("id").primaryKey(),
   partyCode: text("party_code").notNull().references(() => partySessions.code, { onDelete: "cascade" }),
+  memberTokenHash: text("member_token_hash"),
   characterName: text("character_name").notNull(),
   characterClass: text("character_class").notNull(),
   currentHp: integer("current_hp").notNull(),
@@ -32,6 +33,7 @@ export const partyRuntimeSnapshots = pgTable("party_runtime_snapshots", {
 
 export const insertPartyMemberSchema = createInsertSchema(partyMembers).omit({
   updatedAt: true,
+  memberTokenHash: true,
 });
 
 export type PartySession = typeof partySessions.$inferSelect;

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { partyHostApi } from "./partyHostApi";
+import { partyMemberApi, PartyMemberAccessError } from "./partyMemberApi";
 import { API_BASE_URL } from "./apiUrl";
 import type { CampaignLocation, NpcPerson, Quest, Companion, InventoryItem } from "@/types";
 import type { CombatTargetResolutionResult } from "@/types/combatOutcome";
@@ -326,8 +327,8 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as Record<string, string> | undefined),
   };
   const res = await fetch(url, {
-    headers: mergedHeaders,
     ...options,
+    headers: mergedHeaders,
   });
   const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
   const isJson = contentType.includes("application/json");
@@ -376,6 +377,9 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
       (raw
         ? `Request failed (${res.status}): ${raw.slice(0, 180).replace(/\s+/g, " ").trim()}`
         : `Request failed: ${res.status}`);
+    if (res.status === 403 && typeof data === "object" && data !== null && (data as { code?: string }).code === "party_member_required") {
+      throw new PartyMemberAccessError(errorMessage);
+    }
     throw new Error(errorMessage);
   }
 
@@ -389,16 +393,17 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
 
 const hostApi = partyHostApi(apiRequest, AsyncStorage);
 export const createParty = hostApi.createParty;
+export const removePartyMember = hostApi.removePartyMember;
+const memberApi = partyMemberApi(apiRequest, AsyncStorage);
+export const registerPartyMember = memberApi.registerPartyMember;
+export const hasPartyMemberAccess = memberApi.hasPartyMemberAccess;
 
 export async function joinParty(code: string): Promise<{ code: string; memberCount: number }> {
   return apiRequest<{ code: string; memberCount: number }>(`/party/join/${code}`, { method: "POST" });
 }
 
 export async function syncPartyMember(payload: SyncPayload): Promise<void> {
-  await apiRequest("/party/sync", {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
+  await memberApi.syncPartyMember(payload);
 }
 
 export async function fetchPartyMembers(code: string): Promise<{ code: string; members: PartyMemberSummary[] }> {
@@ -411,12 +416,7 @@ export async function fetchPartyMembers(code: string): Promise<{ code: string; m
   return { ...response, members };
 }
 
-export async function leaveParty(memberId: string, partyCode: string): Promise<void> {
-  await apiRequest("/party/leave", {
-    method: "DELETE",
-    body: JSON.stringify({ memberId, partyCode }),
-  });
-}
+export const leaveParty = memberApi.leaveParty;
 
 export const disbandParty = hostApi.disbandParty;
 
@@ -739,3 +739,5 @@ export async function declinePartyNoteAssignment(
     body: JSON.stringify(payload),
   });
 }
+
+export { PartyMemberAccessError } from "./partyMemberApi";

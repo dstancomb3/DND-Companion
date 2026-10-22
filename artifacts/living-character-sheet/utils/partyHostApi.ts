@@ -15,6 +15,11 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       await storage.setItem(tokenKey(code), hostToken);
       return { code };
     },
+    async removePartyMember(memberId: string, code: string): Promise<void> {
+      const token = await storage.getItem(tokenKey(code));
+      if (!token) throw new Error("Only the device that created this party can remove another player.");
+      await request("/party/leave", { method: "DELETE", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ memberId, partyCode: code }) });
+    },
     async disbandParty(code: string): Promise<void> {
       const token = await storage.getItem(tokenKey(code));
       if (!token) throw new Error("Only the device that created this party can end it. Older parties must expire or be recreated.");
