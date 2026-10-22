@@ -5,6 +5,15 @@ PR #8). Date: 2026-10-22. This is an implementation audit and backlog, not a
 claim that general rollback exists. No gameplay, schema or connected database
 was changed by this audit.
 
+## Follow-up: H0a containment
+
+The [local undo containment](../local-undo-containment.md) blocks the unsafe
+MutationHistory reversal paths identified here. Existing records are retained and
+refused without writes; usable guarded undo and complete snapshots are still
+pending. The original inventory and probe output below remain evidence at the
+audited commit. `probe-current-undo.cjs` now asserts refusal and writes separate
+[containment results](undo-safety-containment-probes.json).
+
 ## Method and limits
 
 Read the existing undo implementation, character snapshot/load/save code, public

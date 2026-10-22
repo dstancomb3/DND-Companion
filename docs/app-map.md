@@ -119,3 +119,7 @@ See [AI DM + Deterministic Combat Convergence Plan](ai-dm-combat-convergence-pla
 ## Planned DM history and rollback
 
 See [DM history, snapshots and rollback](dm-history-and-rollback-spec.md) for the planned cross-domain history contract and Phase 2 integration. Existing local mutation undo remains limited; no shared restore control is implemented by this documentation change.
+
+## Local history undo containment
+
+`utils/mutationUndoSafety.ts` refuses unverified MutationHistory reversals. Quick Update/Log show the limitation; complete capture and guarded undo remain planned. See [local undo containment](local-undo-containment.md) before re-enabling a path.

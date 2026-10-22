@@ -579,7 +579,7 @@ export default function QuickUpdateScreen() {
     updateHp, updateCurrency, applyResourceChanges, applyProposedItems, applyConditionChanges, applyQuestUpdate, updatePerson, addPerson, incrementKillCount,
   } = useCharacter();
   const { isOnline } = useSync();
-  const { appendBatch, undoLast, history } = useMutationHistory();
+  const { appendBatch } = useMutationHistory();
 
   const [input, setInput] = useState("");
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 });
@@ -1000,6 +1000,24 @@ export default function QuickUpdateScreen() {
       incrementKillCount();
     }
 
+    // Keep diagnostic history even when item review continues in another screen.
+    const appliedDeltas = previewDeltas.filter((d) => isDeltaApproved(d.id));
+    if (appliedDeltas.length > 0 || hasQuestChanges || effectiveConsequences.personDeaths.length > 0 || effectiveConsequences.killCountDelta > 0 || (!hasNewItems && autoApplicableInventoryChanges.length > 0)) {
+      const batch = buildMutationBatch({
+        source: "ai",
+        description: applyInput.slice(0, 80) || "AI update",
+        deltas: appliedDeltas,
+        snapshot: beforeSnapshot,
+      });
+      batch.recordingStage = hasNewItems ? "awaiting_item_review" : "applied";
+      void appendBatch(batch);
+
+      // Explain the current undo limitation without promising a partial reversal.
+      setUndoToastVisible(true);
+      if (undoToastTimer.current) clearTimeout(undoToastTimer.current);
+      undoToastTimer.current = setTimeout(() => setUndoToastVisible(false), 4000);
+    }
+
     if (hasNewItems) {
       // Route to loot-review for item confirmation only.
       // Strip already-applied fields so loot-review doesn't re-apply them.
@@ -1019,23 +1037,6 @@ export default function QuickUpdateScreen() {
         },
       });
       return;
-    }
-
-    // Record mutation history for undo
-    const appliedDeltas = previewDeltas.filter((d) => isDeltaApproved(d.id));
-    if (appliedDeltas.length > 0) {
-      const batch = buildMutationBatch({
-        source: "ai",
-        description: applyInput.slice(0, 80) || "AI update",
-        deltas: appliedDeltas,
-        snapshot: beforeSnapshot,
-      });
-      appendBatch(batch);
-
-      // Show undo toast for 4 seconds
-      setUndoToastVisible(true);
-      if (undoToastTimer.current) clearTimeout(undoToastTimer.current);
-      undoToastTimer.current = setTimeout(() => setUndoToastVisible(false), 4000);
     }
 
     setApplied(true);
@@ -1454,17 +1455,7 @@ export default function QuickUpdateScreen() {
           ]}
         >
           <Feather name="check-circle" size={14} color="#10B981" />
-          <Text style={[styles.undoToastText, { color: c.foreground, fontSize: c.scaleFont(13) }]}>Applied</Text>
-          <TouchableOpacity
-            onPress={() => {
-              undoLast();
-              setUndoToastVisible(false);
-              if (undoToastTimer.current) clearTimeout(undoToastTimer.current);
-            }}
-            style={styles.undoToastBtn}
-          >
-            <Text style={[styles.undoToastBtnText, { color: c.primary, fontSize: c.scaleFont(13) }]}>Undo</Text>
-          </TouchableOpacity>
+          <Text style={[styles.undoToastText, { color: c.foreground, fontSize: c.scaleFont(13) }]}>Applied. Undo unavailable for this update.</Text>
         </View>
       )}
       </ScrollHintScrollView>

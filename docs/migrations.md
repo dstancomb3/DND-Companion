@@ -1105,3 +1105,10 @@ This document tracks all active migration/cutover constraints, deprecated compat
 
 - Added `docs/dm-history-and-rollback-spec.md` and linked it from the convergence plan, app map and status board. Covers durable per-command snapshots/events, coherent checkpoints and reviewed reversal across game domains.
 - Documentation only: no schema migration, persistence change, runtime authority move or new undo button. Implement transactional history with the Phase 2 coordinator after audit fixes; inventory all manual/legacy writers before claiming coverage. Added `docs/audits/undo-snapshot-audit.md`, source inventory/probe evidence, and two read-only audit scripts. Three isolated probes characterize current unsafe undo behavior; no application regression suite or live storage checks were rerun. Rollback this change by reverting the audit/documentation commit.
+
+## 2026-10-22 Local Undo Safety Containment
+
+- Client-only H0a: removed partial snapshot restoration from MutationHistory and return `UndoUnavailable` without writes; preserved legacy records/markers. Quick Update/Log display the limitation, keep diagnostic records before loot handoff and label pending item review. Fixed newest-record ordering.
+- Optional display-only `recordingStage` is additive. No database, authority or saved-character schema migration. Missing stage remains compatible. All existing MutationHistory undo is intentionally unavailable; separate spell/action refund flows are unchanged and unaudited by this slice.
+- Six focused tests and three provider probes verify refusal without mutation; old provider fails the regression. Workspace typecheck and 24 combat safety tests pass. Updated probe writes new containment evidence, preserving the original baseline audit output.
+- H0 is not complete: exact capture, lifecycle side effects, after-state/revision/dependency proof and transactional history are still required before safe undo can return. Scope/rollback: `docs/local-undo-containment.md`. Reverting restores the unsafe behavior; no data rollback is necessary.
