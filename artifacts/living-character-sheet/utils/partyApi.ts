@@ -535,15 +535,7 @@ export async function rollNpcInitiative(
   });
 }
 
-export async function submitInitiativeRoll(
-  code: string,
-  payload: { memberId: string; initiativeRoll: number; initiativeBonus: number }
-): Promise<void> {
-  await apiRequest(`/party/${code}/initiative/roll`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const submitInitiativeRoll = memberApi.submitInitiativeRoll;
 
 export async function endPartyTurn(code: string, memberId?: string): Promise<void> {
   await sendPartyEndTurn(code, memberId ? { memberId } : {});
@@ -634,26 +626,9 @@ export async function createPartyRollRequest(
   });
 }
 
-export async function submitPartyRollResponse(
-  code: string,
-  requestId: string,
-  payload: { memberId: string; roll: number; modifier: number; total: number }
-): Promise<{ ok: true; request: PartyRollRequest }> {
-  return apiRequest<{ ok: true; request: PartyRollRequest }>(`/party/${code}/roll-requests/${requestId}/respond`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const submitPartyRollResponse = memberApi.submitPartyRollResponse;
 
-export async function createPartyRestRequest(
-  code: string,
-  payload: { memberId: string; restType: PartyRestType }
-): Promise<{ ok: true; request: PartyRestRequest }> {
-  return apiRequest<{ ok: true; request: PartyRestRequest }>(`/party/${code}/rest-requests`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+export const createPartyRestRequest = memberApi.createPartyRestRequest;
 
 export async function resolvePartyRestRequest(
   code: string,
@@ -666,16 +641,7 @@ export async function resolvePartyRestRequest(
   });
 }
 
-export async function acknowledgePartyRestRequest(
-  code: string,
-  requestId: string,
-  payload: { memberId: string }
-): Promise<{ ok: true; request: PartyRestRequest }> {
-  return apiRequest<{ ok: true; request: PartyRestRequest }>(`/party/${code}/rest-requests/${requestId}/ack`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const acknowledgePartyRestRequest = memberApi.acknowledgePartyRestRequest;
 
 export async function appendPartyEvent(
   code: string,
@@ -697,16 +663,7 @@ export async function createPartyLootAssignments(
   });
 }
 
-export async function claimPartyLootAssignment(
-  code: string,
-  assignmentId: string,
-  payload: { memberId: string }
-): Promise<{ ok: true; assignment: LootAssignment }> {
-  return apiRequest<{ ok: true; assignment: LootAssignment }>(`/party/${code}/loot-assignments/${assignmentId}/claim`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const claimPartyLootAssignment = memberApi.claimPartyLootAssignment;
 
 export const createPartyNoteAssignments = hostApi.createPartyNoteAssignments;
 

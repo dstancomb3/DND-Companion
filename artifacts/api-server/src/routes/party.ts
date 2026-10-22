@@ -1925,6 +1925,16 @@ router.post("/party/:code/initiative/start", async (req, res) => {
 router.put("/party/:code/initiative/roll", async (req, res) => {
   try {
     const { code } = req.params;
+    const authMemberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+    if (!authMemberId) {
+      res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizePartyMember(code, authMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -2496,6 +2506,16 @@ router.post("/party/:code/roll-requests", async (req, res) => {
 router.put("/party/:code/roll-requests/:requestId/respond", async (req, res) => {
   try {
     const { code, requestId } = req.params;
+    const authMemberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+    if (!authMemberId) {
+      res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizePartyMember(code, authMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -2576,6 +2596,16 @@ router.put("/party/:code/roll-requests/:requestId/respond", async (req, res) => 
 router.post("/party/:code/rest-requests", async (req, res) => {
   try {
     const { code } = req.params;
+    const authMemberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+    if (!authMemberId) {
+      res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizePartyMember(code, authMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -2679,6 +2709,16 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
 router.put("/party/:code/rest-requests/:requestId/ack", async (req, res) => {
   try {
     const { code, requestId } = req.params;
+    const authMemberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+    if (!authMemberId) {
+      res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizePartyMember(code, authMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -2879,6 +2919,16 @@ router.post("/party/:code/loot-assignments", async (req, res) => {
 router.put("/party/:code/loot-assignments/:assignmentId/claim", async (req, res) => {
   try {
     const { code, assignmentId } = req.params;
+    const authMemberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+    if (!authMemberId) {
+      res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+    const access = await authorizePartyMember(code, authMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3062,9 +3112,9 @@ router.post("/party/:code/note-assignments", async (req, res) => {
   }
 });
 
-// Recipient IDs are not credentials. Check live party/member proof before
+// Member IDs are not credentials. Check live party/member proof before
 // ensureActiveSession can refresh activity or remove expired state.
-async function authorizeNoteRecipient(code: string, memberId: string, authorization: string | undefined) {
+async function authorizePartyMember(code: string, memberId: string, authorization: string | undefined) {
   const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
   if (!sessions.length) return { ok: false as const, status: 404, error: "Party session not found", code: "party_not_found" };
   const members = await db.select().from(partyMembers)
@@ -3083,7 +3133,7 @@ router.put("/party/:code/note-assignments/:assignmentId/accept", async (req, res
       res.status(400).json({ error: "memberId is required" });
       return;
     }
-    const access = await authorizeNoteRecipient(code, memberId, req.get("authorization"));
+    const access = await authorizePartyMember(code, memberId, req.get("authorization"));
     if (!access.ok) {
       res.status(access.status).json({ error: access.error, code: access.code });
       return;
@@ -3133,7 +3183,7 @@ router.put("/party/:code/note-assignments/:assignmentId/decline", async (req, re
       res.status(400).json({ error: "memberId is required" });
       return;
     }
-    const access = await authorizeNoteRecipient(code, memberId, req.get("authorization"));
+    const access = await authorizePartyMember(code, memberId, req.get("authorization"));
     if (!access.ok) {
       res.status(access.status).json({ error: access.error, code: access.code });
       return;

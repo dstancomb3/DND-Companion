@@ -1172,3 +1172,10 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Accept/decline require live exact-party/member capability proof before activity/expiry/runtime work. Host substitution and caller IDs/flags are not credentials; existing target and transition checks remain. O02 is still partial: map now has six proof-gated handlers and 22 open mutation handlers.
 - Matching hand-written client uses persisted member proof, merges JSON headers and returns the typed response. Credentials survive transport errors and are removed on explicit member-access rejection. No UI screen or automatic retry changed.
 - No new migration; existing host/member columns and matching API/client required. Legacy players rejoin; old clients fail closed. Server acknowledgement/local journal saving remains nontransactional, with public read and concurrency gaps still open. See permission map and implementation-log pass record for validation and files.
+
+
+## 2026-10-22 O02-A3: member-owned caller-proof gates
+
+- Five additional endpoints require live exact-member proof before activity/expiry/runtime work: initiative roll, roll response, rest request, rest acknowledgement and loot claim. Existing target/reroll/status/total-normalization rules are retained. Body IDs/flags and host proof cannot substitute for member proof.
+- Existing client functions delegate to the persisted member adapter with compatible signatures/results and JSON headers; revoked proof is invalidated, transport failures retain it. No screen, host control or player-transfer authoring policy changed.
+- Existing capability columns and matching client/API required; no new migration or DB writes performed by implementation. Old clients fail closed; legacy members rejoin. O02 remains partial, with 11 proof-gated handlers and 17 open mutation handlers. Public reads, combat/DM controls, dice authority and durable loot/rest recovery remain open. Validation and exact files are recorded in the implementation log.
