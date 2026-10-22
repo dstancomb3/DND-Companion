@@ -1031,3 +1031,13 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Data Migration: Old `quests` freeform text field is not migrated to tags (legacy data simply loads with empty tag arrays). Export text automatically adapts to show "Linked to N quest(s)" format. All legacy NPCs remain readable without breaking; data is augmented on first edit.
 - UI Changes: Quest Tie-In tab now renders four checkbox selector sections (quests, people, locations, planes) pulling data from `useCharacter()` context. Custom checkbox UI uses Feather icons. Landing page NPC list displays tag counts in export summary.
 - Conservative boundary: No changes to storage format or server schema; all changes are client-side UI and state normalization. Backward compatibility guaranteed: missing tag fields default to empty arrays on read.
+
+
+## 2026-10-21 Audit Remediation Slice 1: Party Data Safety
+
+- Files: `artifacts/api-server/src/routes/party.ts`, `artifacts/api-server/src/routes/party.sync-safety.test.ts` (new), `artifacts/api-server/package.json`, `docs/feature-status.md`, `docs/migrations.md`.
+- Moved the existing member freshness/replay guard ahead of member inserts/updates and session activity writes. Rejection and replay return paths no longer mutate these rows.
+- Changed member deduplication from name/class/maxHP/AC matching to member ID identity; no stored records are deleted or migrated. Different IDs representing accidental repeat registrations now remain visible rather than being silently merged.
+- Authority boundary: API party routes only. No client contract, combat authority category, database schema, or legacy field changes.
+- Validation: three new regression tests fail on baseline and pass on the patch; combined sync/remote-apply tests pass (27 tests). API typecheck passes. Workspace validation is blocked by existing client type errors; PostgreSQL integration checks require an unavailable local database.
+- Deferred: transactional member/runtime commits and concurrent sync serialization; campaign persistence recovery; authentication/DM authorization and AI quotas.
