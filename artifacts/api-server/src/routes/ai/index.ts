@@ -1,3 +1,4 @@
+import { validateCreationItem, itemProposalVariantKey, hasUnsupportedDamageResponse } from "../../lib/mechanics/itemProposalValidation";
 import { Router } from "express";
 import multer from "multer";
 import OpenAI from "openai";
@@ -338,6 +339,9 @@ function normalizeItemEffect(raw: unknown): Record<string, unknown> | null {
     ...(statValue != null ? { statValue } : {}),
     ...(attackDamageDice ? { attackDamageDice } : {}),
     ...(attackDamageType ? { attackDamageType } : {}),
+    ...(typeof raw["attackDamageBonus"] === "number" ? { attackDamageBonus: raw["attackDamageBonus"] } : {}),
+    ...(typeof raw["attackToHitBonus"] === "number" ? { attackToHitBonus: raw["attackToHitBonus"] } : {}),
+    ...(typeof raw["actionType"] === "string" && ["action", "bonus_action", "reaction", "free"].includes(raw["actionType"]) ? { actionType: raw["actionType"] } : {}),
     ...(resourceName ? { resourceName } : {}),
     ...(resourceMaxBonus != null ? { resourceMaxBonus } : {}),
     ...(uses != null ? { uses } : {}),
@@ -498,7 +502,7 @@ function repairAndDedupeLootItems(items: Record<string, unknown>[]): Record<stri
   for (const item of items) {
     const category = typeof item["category"] === "string" ? item["category"] : "other";
     const name = typeof item["name"] === "string" ? item["name"].trim() : "Unknown Item";
-    const dedupeKey = `${category}|${name.toLowerCase()}`;
+    const dedupeKey = itemProposalVariantKey(item);
     const existing = mergedByName.get(dedupeKey);
 
     const normalizedExistingEffects = normalizeEquippedEffects(existing?.["equippedEffects"] ?? []);
@@ -521,7 +525,8 @@ function repairAndDedupeLootItems(items: Record<string, unknown>[]): Record<stri
       hasUnresolvedMechanicalClaim ||
       lowConfidenceUnresolvedClaim ||
       contradictoryMechanicalClaim ||
-      effectsWithPromotion.some(effectHasUnresolvedConditionalTrigger);
+      effectsWithPromotion.some(effectHasUnresolvedConditionalTrigger) ||
+      hasUnsupportedDamageResponse(JSON.stringify({ notes, effects: effectsWithPromotion, mechanics: item["mechanics"] }));
 
     const next: Record<string, unknown> = {
       ...(existing ?? item),
@@ -572,6 +577,7 @@ function repairAndDedupeLootItems(items: Record<string, unknown>[]): Record<stri
       next["mechanics"] = existing?.["mechanics"] ?? item["mechanics"];
     }
 
+    if (!Number.isSafeInteger(next["quantity"])) throw new Error("Combined item quantity exceeds safe integer range");
     mergedByName.set(dedupeKey, next);
   }
 
@@ -721,11 +727,21 @@ function coerceItemNotes(input: {
 }
 
 function normalizeProposedItem(item: unknown): Record<string, unknown> | null {
-  if (!isRecord(item)) return null;
+  if (!isRecord(item)) throw new Error("Item proposal must be an object");
+  validateCreationItem(item);
+  if (item["equippedEffects"] != null) {
+    if (!Array.isArray(item["equippedEffects"])) throw new Error("Item effects must be an array");
+    for (const effect of item["equippedEffects"]) {
+      if (!isRecord(effect) || typeof effect["type"] !== "string" || !VALID_EFFECT_TYPES.has(effect["type"])
+        || typeof effect["label"] !== "string" || !effect["label"].trim()) throw new Error("Invalid item effect");
+      if (effect["type"] === "stat_bonus" && (typeof effect["statKey"] !== "string" || !VALID_STAT_KEYS.has(effect["statKey"])
+        || typeof effect["statValue"] !== "number")) throw new Error("Invalid stat bonus effect");
+    }
+  }
 
   const category = sanitizeCategory(item["category"]);
   const isWeapon = category === "weapon";
-  const name = typeof item["name"] === "string" ? item["name"] : "Unknown Item";
+  const name = typeof item["name"] === "string" ? item["name"].trim() : "Unknown Item";
   const damageDice = typeof item["damageDice"] === "string" ? item["damageDice"] : null;
   const damageModifier = typeof item["damageModifier"] === "number" ? item["damageModifier"] : null;
   const damageType = typeof item["damageType"] === "string" ? item["damageType"] : null;
@@ -754,7 +770,11 @@ function normalizeProposedItem(item: unknown): Record<string, unknown> | null {
     category,
     notes,
     confidence: sanitizeConfidence(item["confidence"]),
-    needsReview: typeof item["needsReview"] === "boolean" ? item["needsReview"] : false,
+    needsReview: item["needsReview"] === true || (mechanics != null && mechanics.review.reviewStatus !== "verified")
+      || hasUnsupportedDamageResponse(JSON.stringify(item)),
+    ...(typeof item["value"] === "number" ? { value: item["value"] } : {}),
+    ...(typeof item["weight"] === "number" ? { weight: item["weight"] } : {}),
+    ...(typeof item["subtype"] === "string" ? { subtype: item["subtype"].trim() } : {}),
     ...(tags.length > 0 ? { tags } : {}),
     ...(officialMatch ? { officialMatch } : {}),
     ...(isWeapon && damageDice ? { damageDice } : {}),
@@ -791,7 +811,8 @@ function normalizeInventoryChange(item: unknown): Record<string, unknown> | null
     category,
     notes,
     confidence: sanitizeConfidence(item["confidence"]),
-    needsReview: typeof item["needsReview"] === "boolean" ? item["needsReview"] : false,
+    needsReview: item["needsReview"] === true || (mechanics != null && mechanics.review.reviewStatus !== "verified")
+      || hasUnsupportedDamageResponse(JSON.stringify(item)),
     ...(tags.length > 0 ? { tags } : {}),
     ...(officialMatch ? { officialMatch } : {}),
     ...(mechanics ? { mechanics } : {}),
@@ -1081,7 +1102,8 @@ export function normalizeLootAnalysisResult(parsed: unknown): Record<string, unk
   if (!isRecord(parsed)) {
     throw new Error("AI response is not a JSON object");
   }
-  const rawItems = Array.isArray(parsed["proposedItems"]) ? parsed["proposedItems"] : [];
+  if (!Array.isArray(parsed["proposedItems"]) || parsed["proposedItems"].length > 100) throw new Error("Expected at most 100 proposed items");
+  const rawItems = parsed["proposedItems"];
   const normalizedItems = rawItems.map(normalizeProposedItem).filter((item): item is Record<string, unknown> => item !== null);
   return {
     sourceType: "photo",
