@@ -50,3 +50,10 @@ This file is the authoritative engineering ruleset for this repo. All agents and
 - If code or docs are ambiguous, call it out explicitly in your summary and do not guess.
 - When in doubt, prefer conservative, reversible edits.
 - Always update this file if you discover new repo-specific risks or patterns.
+
+## Campaign Snapshot Persistence Caution
+
+Campaign `clientSavedAt` values are epoch milliseconds: preserve bigint storage
+with numeric API serialization. Older database reads must not replace a newer
+in-process fallback. Fallback success is not proof of durable persistence;
+review `docs/campaign-save-recovery.md` before changing save/recovery behavior.

@@ -208,3 +208,10 @@ It separates what is finished, partial, intentionally limited, and still deferre
   - pnpm --filter @workspace/living-character-sheet exec tsx --test tests/state/monster-cache-plan.test.mts
 - Focused api-server idempotency test:
   - pnpm --filter @workspace/api-server exec tsx --test src/lib/aiIdempotencyStore.test.ts
+
+## 2026-10-21 Audit Remediation: Campaign Snapshot Persistence
+
+- Campaign snapshot reads preserve a newer in-process fallback instead of replacing it with older durable data after an outage or an in-flight read. Older incoming saves no longer downgrade the cache.
+- `campaign_continuation_snapshots.client_saved_at` is now declared as PostgreSQL bigint in numeric Drizzle mode, allowing the client's epoch-millisecond timestamps without a JSON contract change. Existing databases require the explicit widening migration before this schema correction is effective.
+- Rollout, rollback and limitations: [Campaign save recovery](campaign-save-recovery.md). Six focused store/schema tests were added; four fail against baseline and all six pass after the patch.
+- Remaining: memory fallback is still process-local and non-durable, there is no automatic flush, database writes still need version/conflict controls, and clock-skew/equal-timestamp conflict policy remains deferred. This is not full campaign continuity or runtime orchestration.

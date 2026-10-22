@@ -1031,3 +1031,13 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Data Migration: Old `quests` freeform text field is not migrated to tags (legacy data simply loads with empty tag arrays). Export text automatically adapts to show "Linked to N quest(s)" format. All legacy NPCs remain readable without breaking; data is augmented on first edit.
 - UI Changes: Quest Tie-In tab now renders four checkbox selector sections (quests, people, locations, planes) pulling data from `useCharacter()` context. Custom checkbox UI uses Feather icons. Landing page NPC list displays tag counts in export summary.
 - Conservative boundary: No changes to storage format or server schema; all changes are client-side UI and state normalization. Backward compatibility guaranteed: missing tag fields default to empty arrays on read.
+
+
+## 2026-10-21 Audit Remediation Slice 2: Campaign Save Recovery
+
+- Files: `artifacts/api-server/src/lib/campaignContinuationStore.ts`, `artifacts/api-server/src/lib/campaignContinuationStore.test.ts`, `artifacts/api-server/package.json`, `lib/db/src/schema/adventure.ts`, `lib/db/migrations/manual/20261021_campaign_timestamp_bigint.sql`, `docs/campaign-save-recovery.md`, `docs/feature-status.md`, `docs/migrations.md`.
+- Cache selection now compares `clientSavedAt` after database reads and retains a newer fallback. Older save attempts cannot downgrade cached state; database writes remain unchanged.
+- Required schema correction: widen `client_saved_at` from integer to bigint with Drizzle number mapping. The existing client sends `Date.now()` values, which exceed PostgreSQL integer range. Existing values and JSON numeric fields remain compatible. This narrow database change is necessary for the same snapshot-persistence boundary; no gameplay or orchestration authority is moved.
+- Explicit operator migration and rollback procedure are documented in `docs/campaign-save-recovery.md`. No connected database was migrated. Keep bigint on application rollback to preserve valid timestamp data.
+- Six store/schema tests cover outage/read races, old/new ordering, clone isolation and millisecond type mapping; four fail on baseline and all six pass on the patch.
+- Deferred: durable fallback queue/retry, multi-worker conflict control, equal timestamp policy, deletion recovery and client-visible durability status.
