@@ -223,3 +223,12 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Same-key retries remain possible after rollback; a committed receipt handles acknowledgment loss without rewriting the snapshot. Keyed requests require the idempotency table. Other AI routes keep their existing best-effort behavior.
 - API typecheck and 80 focused mocked-boundary/contract tests pass. The route regression fails against the original route (200 instead of 503). Live PostgreSQL, restart, and multi-worker integration testing remain required. Existing client typecheck blockers remain unchanged.
 - Remaining: stale competing snapshot writes, authenticated ownership/DM authority, AI quotas, and rollout of the required database schema. This does not implement a durable client outbox or full campaign runtime.
+
+
+## 2026-10-21 Audit Remediation: Checkpoint Conflict Protection
+
+- Campaign checkpoint HTTP writes now compare the expected prior server submission ID atomically at the database boundary. Missing/null expected token is create-only; stale or deleted versions return 409 without a new receipt or snapshot. Client clock skew does not grant write priority.
+- Server IDs now include UUIDs to avoid same-millisecond version collisions. Version-token reads require the database and return 503 on failure.
+- Session client retains a session-scoped base token, includes it on submit, updates it from its own save response, and preserves local work on conflict. No silent token refresh/retry or automatic merge. Older clients cannot overwrite existing checkpoints without adopting the new contract.
+- 87 focused server tests and 3 client API tests pass. Five new conflict/ID regressions fail on the preceding implementation. API typecheck passes; the same existing client errors still prevent a green workspace baseline. Full React UI, PostgreSQL locking, and two-device QA remain pending.
+- No new schema migration. Authorization/DM roles, AI quotas, party write atomicity and green-baseline repair remain audit work; this is not the planned new combat engine.

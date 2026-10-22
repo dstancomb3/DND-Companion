@@ -1052,3 +1052,14 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Validation: 80 focused tests pass; direct route invocation verifies rollback, retry and replay without sockets. A regression fails against the original route. API typecheck passes. Database boundaries are mocked; live PostgreSQL/HTTP integration and restart acceptance remain pending. Existing client type errors still block workspace baseline.
 - Rollback: revert this slice while leaving bigint storage intact, noting that reverting restores unsafe memory-only save acknowledgments. Preserve the original checkpoint/replay tables and records.
 - Deferred: cross-writer version checks, security/role authority, quotas, offline queue and legacy in-progress receipt recovery.
+
+
+## 2026-10-21 Audit Remediation Slice 4: Campaign Checkpoint Compare-and-Swap
+
+- Server files: campaign snapshot store and checkpoint transaction coordinator, adventure request/response handling, transactional test fixture and commit tests. Client files: session screen, continuation API adapter, focused API test and package command. Documentation: save/recovery guide, status, migration log and engineering caution.
+- Request contract adds optional nullable `expectedSubmissionId`; missing/null means create-only, and a string conditionally replaces a matching server checkpoint. Update uses session ID plus token in one SQL predicate; missing rows cannot be recreated by stale updates. Conflict rolls back the receipt transaction. Replays remain replay-only.
+- Existing server submission field now gets UUID-based identifiers. GET is durable-only because a cached client-clock-ordered snapshot cannot be a trustworthy compare-and-swap base. Failures return 503 instead of cached version data. No database schema change.
+- Client and server must deploy together: older clients can create but cannot update existing checkpoints. Client preserves local work on 409 and requires reopening/review before retry; it does not adopt another writer's token automatically. This narrowly crosses the API/client contract boundary because otherwise updated sessions could no longer save after their first checkpoint.
+- Validation: 87 server tests plus 3 client API tests pass. Five tests fail on prior conflict/ID logic. API typecheck passes. Client typecheck still has existing icon and Playwright Node-type errors. Mocked database tests do not establish real PostgreSQL lock behavior; full UI/two-device acceptance remains pending.
+- Rollback: revert this client/server slice together; no schema rollback needed. Preserve earlier bigint and transactional save prerequisites. Removing this slice reopens lost-update risk.
+- Deferred: authentication/DM permissions, automatic merge/offline queue, party transactional persistence, AI usage controls and workspace baseline errors.
