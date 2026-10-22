@@ -257,3 +257,11 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Required additive SQL and deployment order: [Party host permissions](party-host-permissions.md). Apply the nullable hash column before the updated API. No connected database was modified.
 - This protects disband only. Member/DM authorization, read access, AI quotas and transactional party deletion remain deferred. Clearing device storage loses host access; no recovery flow exists.
 - Validation: workspace typecheck and 24 combat safety tests pass; 34 focused server tests (including 8 host tests) and 4 client host tests pass. The host route suite fails against the prior route implementation. Database and HTTP boundaries remain mocked. This run disabled pnpm dependency auto-install during scripts after the new worktree install stopped at an esbuild build-approval prompt; dependency policy files are unchanged.
+
+## 2026-10-22 Party Member Ownership
+
+- Server-issued member IDs and private capabilities replace caller-derived identity for enrollment. Direct sync requires that member's proof and never inserts missing rows; leave requires member or original-host proof. Public member responses exclude credential hashes.
+- Client credentials survive reload separately from shareable data. Server revocation stops sync with a rejoin message; transient errors preserve credentials. DM removal and demo bootstrap use the new contract.
+- Apply the host migration and new `20261022_party_member_token.sql` before the matching API/client. Legacy players must rejoin; IDs and old encounter/initiative references are not migrated. Prefer a fresh party for cutover. [Rollout and limitations](party-member-permissions.md).
+- Partial authorization only: other party routes can still indirectly mutate character state. DM/action permissions, invite abuse limits, recovery, campaign/AI access and transactional member/runtime updates remain deferred. No connected database was modified.
+- Validation: workspace typecheck, 24 combat safety tests, 56 focused server tests and 12 client capability tests pass. Member regressions fail against the preceding routes. OpenAPI source parses and records bearer requirements; these paths use the hand-written client, with generated bindings left unchanged. PostgreSQL, HTTP, demo/browser and restart QA remain pending.

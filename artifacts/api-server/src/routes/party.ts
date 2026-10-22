@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { partySessions, partyMembers } from "@workspace/db/schema";
@@ -1499,6 +1500,30 @@ router.post("/party/join/:code", async (req, res) => {
   }
 });
 
+// Enrollment is open to invite-code holders, but grants a new server identity only.
+router.post("/party/:code/register-member", async (req, res) => {
+  try {
+    const { code } = req.params;
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+    if (sessions.length === 0 || isExpired(sessions[0].lastActivityAt)) {
+      res.status(404).json({ error: "Party session not found or expired" });
+      return;
+    }
+    const memberId = randomUUID();
+    const { hostToken: memberToken, hostTokenHash: memberTokenHash } = issuePartyHostToken();
+    await db.insert(partyMembers).values({
+      id: memberId, partyCode: code, memberTokenHash,
+      characterName: "Joining player", characterClass: "Unknown",
+      currentHp: 0, maxHp: 1, tempHp: 0, armorClass: 10, conditions: [],
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ code, memberId, memberToken });
+  } catch (err) {
+    req.log?.error({ err }, "Failed to register party member");
+    res.status(500).json({ error: "Failed to register party member" });
+  }
+});
+
 router.put("/party/sync", async (req, res) => {
   try {
     const {
@@ -1527,6 +1552,13 @@ router.put("/party/sync", async (req, res) => {
     const sessions = await db.select().from(partySessions).where(eq(partySessions.code, partyCode));
     if (sessions.length === 0) {
       res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+
+    const existing = await db.select().from(partyMembers)
+      .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode)));
+    if (!hasPartyHostToken(req.get("authorization"), existing[0]?.memberTokenHash)) {
+      res.status(403).json({ code: "party_member_required", error: "Member access is missing or expired. Leave locally and rejoin this party." });
       return;
     }
 
@@ -1578,9 +1610,6 @@ router.put("/party/sync", async (req, res) => {
       }
     }
 
-    const existing = await db.select().from(partyMembers)
-      .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode)));
-
     const memberData = {
       id: memberId,
       partyCode,
@@ -1594,12 +1623,14 @@ router.put("/party/sync", async (req, res) => {
       updatedAt: new Date(),
     };
 
-    if (existing.length === 0) {
-      await db.insert(partyMembers).values(memberData);
-    } else {
-      await db.update(partyMembers).set(memberData).where(
-        and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))
-      );
+    // Never recreate a removed member, even if removal races this sync.
+    const updated = await db.update(partyMembers).set(memberData).where(
+      and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode),
+        eq(partyMembers.memberTokenHash, existing[0].memberTokenHash!))
+    ).returning({ id: partyMembers.id });
+    if (updated.length === 0) {
+      res.status(403).json({ code: "party_member_required", error: "Member access has ended. Rejoin this party." });
+      return;
     }
 
     await db.update(partySessions).set({ lastActivityAt: new Date() })
@@ -1670,7 +1701,7 @@ router.get("/party/:code/members", async (req, res) => {
     const state = await getOrHydrateCombatState(code);
     const members = dedupeMembersWithState(rawMembers, state);
     rebuildTurnOrder(state, members.map((m) => m.id));
-    const membersWithStats = members.map((member) => ({
+    const membersWithStats = members.map(({ memberTokenHash: _privateHash, ...member }) => ({
       ...member,
       coreStats: state.memberStatsById[member.id] ?? null,
       damageResistances: state.memberDefensesById[member.id]?.damageResistances ?? [],
@@ -1695,6 +1726,16 @@ router.delete("/party/leave", async (req, res) => {
       return;
     }
 
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, partyCode));
+    const existing = await db.select().from(partyMembers)
+      .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode)));
+    const header = req.get("authorization");
+    const isHost = hasPartyHostToken(header, sessions[0]?.hostTokenHash);
+    const isMember = hasPartyHostToken(header, existing[0]?.memberTokenHash);
+    if (!isHost && !isMember) {
+      res.status(403).json({ code: "party_member_required", error: "Only this member or the original host can remove a player." });
+      return;
+    }
     await db.delete(partyMembers).where(
       and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))
     );

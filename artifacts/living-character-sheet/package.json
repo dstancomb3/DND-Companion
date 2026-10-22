@@ -16,7 +16,7 @@
     "test:campaign-checkpoints": "pnpm exec tsx --test tests/state/campaign-checkpoint-api.test.mts",
     "test:state-regression": "pnpm exec tsx --test tests/state/mutation-sync-hardening.test.mts tests/state/party-event-history.test.mts tests/state/encounter-setup-handoff.test.mts tests/state/character-import-export-contract.test.mts tests/combat/resolveCombatAction.safety.test.cts",
     "test:regression": "pnpm run test:state-regression && pnpm run test:smoke",
-    "test:party-host": "node --import tsx --test tests/state/party-host-api.test.cts"
+    "test:party-host": "node --import tsx --test tests/state/party-host-api.test.cts tests/state/party-member-api.test.cts"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

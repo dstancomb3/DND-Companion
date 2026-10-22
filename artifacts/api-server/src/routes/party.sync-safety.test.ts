@@ -4,6 +4,8 @@ import test from "node:test";
 process.env.DATABASE_URL ??= "postgres://local:local@localhost:5432/local";
 const { db } = await import("@workspace/db");
 const { partySessions, partyMembers, partyRuntimeSnapshots } = await import("@workspace/db/schema");
+const { issuePartyHostToken } = await import("../lib/partyHostToken");
+const { hostToken, hostTokenHash } = issuePartyHostToken();
 const { default: router, dedupeMembersWithState } = await import("./party");
 
 for (const [label, timestamp] of [["older snapshot", 99], ["timestamp collision", 100]] as const) {
@@ -19,7 +21,7 @@ for (const [label, timestamp] of [["older snapshot", 99], ["timestamp collision"
       const rows = table === partySessions
         ? [{ code, lastActivityAt: now }]
         : table === partyRuntimeSnapshots ? [snapshot]
-        : table === partyMembers ? [{ id: "member", currentHp: 20 }] : [];
+        : table === partyMembers ? [{ id: "member", currentHp: 20, memberTokenHash: hostTokenHash }] : [];
       return { where: () => Object.assign(Promise.resolve(rows), { limit: async () => rows }) };
     } })) as never);
     for (const method of ["insert", "update", "delete"] as const) {
@@ -38,6 +40,7 @@ for (const [label, timestamp] of [["older snapshot", 99], ["timestamp collision"
       json(body: typeof responseBody) { responseBody = body; return this; },
     };
     await route.stack[0].handle({
+      get: () => `Bearer ${hostToken}`,
       body: { partyCode: code, memberId: "member", currentHp: 1, snapshotUpdatedAt: timestamp },
     }, response);
     assert.equal(statusCode, 409);
