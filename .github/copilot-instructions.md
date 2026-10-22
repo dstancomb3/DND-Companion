@@ -61,3 +61,8 @@ review `docs/campaign-save-recovery.md` before changing save/recovery behavior.
 Campaign checkpoint POST must acknowledge only after its snapshot and keyed replay
 receipt transaction commits. Do not route this path back through the compatibility
 memory-only save helper, or swallow transaction-scoped persistence errors.
+
+Checkpoint HTTP updates must compare the prior server submission ID atomically;
+client timestamps are not version authority. Missing tokens are create-only.
+Read version tokens from durable storage and never silently retry a conflict
+with another writer's token. Deploy the matching client contract with the server.

@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import OpenAI from "openai";
+import { randomUUID } from "node:crypto";
 
 import { startAICallIdempotency, completeAICallIdempotency } from "../lib/aiIdempotencyStore";
 import { computeAICallRequestHash } from "../lib/aiIdempotencyHash";
 import {
-  loadCampaignContinuationSnapshot,
+  loadDurableCampaignContinuationSnapshot,
   type CampaignContinuationSnapshotRecord,
 } from "../lib/campaignContinuationStore";
 
@@ -113,6 +114,7 @@ const campaignContinuationIngestRequestSchema = z.object({
   continuation: campaignContinuationPayloadSchema,
   recapLines: z.array(z.string().min(1)).max(40),
   clientSavedAt: z.number().int().positive(),
+  expectedSubmissionId: z.string().min(1).nullable().optional(),
 });
 
 const campaignRuntimeTurnRequestSchema = z.object({
@@ -821,7 +823,7 @@ export function buildCampaignContinuationIngestResponse(input: CampaignContinuat
   return {
     ok: true,
     ingested: true,
-    submissionId: `continuation_${now}`,
+    submissionId: `continuation_${randomUUID()}`,
     ingestTraceId: `ingest_${now}_${Math.random().toString(36).slice(2, 8)}`,
     receivedAt: new Date().toISOString(),
     continuation: {
@@ -1093,6 +1095,7 @@ router.post("/adventure/campaign-continuations", async (req, res) => {
         submissionId: responseBody.submissionId,
       },
       responseBody,
+      expectedSubmissionId: parsed.value.expectedSubmissionId ?? null,
       idempotencyKey: getIdempotencyKey(req.get("Idempotency-Key")),
       endpoint: CAMPAIGN_CONTINUATION_INGEST_ENDPOINT,
       requestHash,
@@ -1122,7 +1125,19 @@ router.get("/adventure/campaign-continuations/:sessionId", async (req, res) => {
   }
 
   const sessionId = parsedSessionId.data;
-  const snapshot = await loadCampaignContinuationSnapshot(sessionId);
+  let snapshot: CampaignContinuationSnapshotRecord | null;
+  try {
+    snapshot = await loadDurableCampaignContinuationSnapshot(sessionId);
+  } catch (error) {
+    req.log?.error({ err: error }, "Campaign checkpoint read failed");
+    res.setHeader("Retry-After", "3");
+    res.status(503).json({
+      code: "campaign_checkpoint_unavailable",
+      error: "The latest checkpoint could not be loaded from the server. Keep this session open and retry.",
+      retryable: true,
+    });
+    return;
+  }
   if (!snapshot) {
     res.status(404).json({
       error: "No campaign continuation snapshot found for this session.",

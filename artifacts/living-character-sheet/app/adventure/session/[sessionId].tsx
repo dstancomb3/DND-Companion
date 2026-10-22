@@ -415,6 +415,9 @@ export default function AdventureSessionPlaceholderScreen() {
   const [outcomeState, setOutcomeState] = useState(createInitialOneOffOutcomeState());
   const [isHandoffApproved, setIsHandoffApproved] = useState(false);
   const [campaignSubmitStatus, setCampaignSubmitStatus] = useState<string>("");
+  const [checkpointBase, setCheckpointBase] = useState<{ sessionId: string; submissionId: string | null } | null>(null);
+  const checkpointSessionRef = useRef(sessionId);
+  checkpointSessionRef.current = sessionId;
   const [campaignContinuationSubmitStatus, setCampaignContinuationSubmitStatus] = useState<string>("");
   const [campaignContinuationHydrateStatus, setCampaignContinuationHydrateStatus] = useState<string>("");
   const [campaignRuntimeStatus, setCampaignRuntimeStatus] = useState<string>("");
@@ -858,12 +861,14 @@ export default function AdventureSessionPlaceholderScreen() {
   ]);
 
   async function refreshCampaignContinuationSnapshot(options?: { silentNotFound?: boolean }) {
-    if (!isCampaignScaffold || isCampaignHydrating) return;
+    if (!isCampaignScaffold) return;
     setIsCampaignHydrating(true);
     setCampaignContinuationHydrateStatus("Loading continuation snapshot...");
     try {
       const outcome = await fetchCampaignContinuationSnapshot({ sessionId });
+      if (checkpointSessionRef.current !== sessionId) return;
       if (!outcome.found) {
+        setCheckpointBase({ sessionId, submissionId: null });
         if (options?.silentNotFound) {
           setCampaignContinuationHydrateStatus("No continuation snapshot found yet for this session.");
         } else {
@@ -873,16 +878,18 @@ export default function AdventureSessionPlaceholderScreen() {
       }
 
       const snapshot = outcome.response.snapshot;
+      setCheckpointBase({ sessionId, submissionId: snapshot.submissionId });
       const summary = snapshot.progressSummary.slice(0, 120);
       const summarySuffix = snapshot.progressSummary.length > 120 ? "..." : "";
       setCampaignContinuationHydrateStatus(
         `Continuation snapshot loaded: checkpoint ${snapshot.checkpointIndex} (${snapshot.continuityStatus}) - ${summary}${summarySuffix}`,
       );
     } catch (error) {
+      if (checkpointSessionRef.current !== sessionId) return;
       const message = error instanceof Error ? error.message : "Unknown error";
       setCampaignContinuationHydrateStatus(`Continuation snapshot read failed: ${message}`);
     } finally {
-      setIsCampaignHydrating(false);
+      if (checkpointSessionRef.current === sessionId) setIsCampaignHydrating(false);
     }
   }
 
@@ -1812,6 +1819,10 @@ export default function AdventureSessionPlaceholderScreen() {
 
   async function handleSubmitCampaignContinuation() {
     if (!isCampaignScaffold || isCampaignContinuationSubmitting) return;
+    if (!checkpointBase || checkpointBase.sessionId !== sessionId) {
+      setCampaignContinuationSubmitStatus("Load the latest checkpoint before saving. If loading failed, reopen this session and try again.");
+      return;
+    }
     setIsCampaignContinuationSubmitting(true);
     setCampaignContinuationSubmitStatus("Submitting campaign continuation checkpoint...");
 
@@ -1850,12 +1861,15 @@ export default function AdventureSessionPlaceholderScreen() {
         },
         recapLines: recapLines.length > 0 ? recapLines : ["Campaign continuation checkpoint submitted."],
         clientSavedAt: Date.now(),
+        expectedSubmissionId: checkpointBase.submissionId,
       });
 
+      if (checkpointSessionRef.current !== sessionId) return;
+      setCheckpointBase({ sessionId, submissionId: outcome.response.submissionId });
       const base = outcome.replayed ? "Campaign continuation replay acknowledged." : "Campaign continuation submitted.";
       const withTrace = outcome.response.ingestTraceId ? `${base} [trace ${outcome.response.ingestTraceId}]` : base;
       setCampaignContinuationSubmitStatus(withTrace);
-      await refreshCampaignContinuationSnapshot();
+      setCampaignContinuationHydrateStatus("Current checkpoint saved to the server.");
     } catch (error) {
       if (error instanceof SubmitCampaignContinuationError) {
         setCampaignContinuationSubmitStatus(`Campaign continuation submit failed: ${error.message}`);

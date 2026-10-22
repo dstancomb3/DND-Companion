@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { campaignContinuationSnapshots, type CampaignContinuationSnapshot } from "@workspace/db/schema";
 
@@ -73,10 +73,7 @@ async function loadFromDatabase(sessionId: string): Promise<CampaignContinuation
   return toSnapshotRecord(rows[0]);
 }
 
-export async function saveCampaignContinuationToDatabase(
-  snapshot: CampaignContinuationSnapshotRecord,
-  database: Pick<typeof db, "insert"> = db,
-): Promise<void> {
+function buildCampaignContinuationRow(snapshot: CampaignContinuationSnapshotRecord) {
   const now = new Date();
   const row = {
     sessionId: snapshot.continuation.sessionId,
@@ -96,9 +93,17 @@ export async function saveCampaignContinuationToDatabase(
     createdAt: now,
     updatedAt: now,
   };
+  return row;
+}
+
+export async function saveCampaignContinuationToDatabase(
+  snapshot: CampaignContinuationSnapshotRecord,
+  database: Pick<typeof db, "insert"> = db,
+): Promise<void> {
+  const row = buildCampaignContinuationRow(snapshot);
   const updateRow = {
     ...row,
-    updatedAt: now,
+    updatedAt: row.updatedAt,
   };
   delete (updateRow as Partial<typeof row>).createdAt;
 
@@ -109,6 +114,32 @@ export async function saveCampaignContinuationToDatabase(
       target: campaignContinuationSnapshots.sessionId,
       set: updateRow,
     });
+}
+
+/** Compare-and-swap using the server-issued receipt identity, not client clocks. */
+export async function compareAndSaveCampaignContinuation(
+  snapshot: CampaignContinuationSnapshotRecord,
+  expectedSubmissionId: string | null,
+  database: Pick<typeof db, "insert" | "update"> = db,
+): Promise<boolean> {
+  const row = buildCampaignContinuationRow(snapshot);
+  if (expectedSubmissionId === null) {
+    const inserted = await database.insert(campaignContinuationSnapshots).values(row)
+      .onConflictDoNothing().returning({ sessionId: campaignContinuationSnapshots.sessionId });
+    return inserted.length === 1;
+  }
+  const { createdAt: _createdAt, ...updateRow } = row;
+  const updated = await database.update(campaignContinuationSnapshots).set(updateRow)
+    .where(and(
+      eq(campaignContinuationSnapshots.sessionId, row.sessionId),
+      eq(campaignContinuationSnapshots.submissionId, expectedSubmissionId),
+    )).returning({ sessionId: campaignContinuationSnapshots.sessionId });
+  return updated.length === 1;
+}
+
+// Version-token reads must never fall back to cached, clock-ordered data.
+export async function loadDurableCampaignContinuationSnapshot(sessionId: string): Promise<CampaignContinuationSnapshotRecord | null> {
+  return loadFromDatabase(sessionId);
 }
 
 export async function loadCampaignContinuationSnapshot(sessionId: string): Promise<CampaignContinuationSnapshotRecord | null> {

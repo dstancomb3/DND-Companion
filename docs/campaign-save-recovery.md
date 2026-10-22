@@ -20,6 +20,36 @@ success is sent before the transaction resolves. Snapshot, receipt-completion,
 and commit failures are not swallowed. Retrying the same key after rollback can
 commit; retrying after a lost commit acknowledgment returns the prior receipt.
 
+## Checkpoint conflict contract
+
+Checkpoint writes use the existing server-issued `submissionId` as a compare-and-
+swap token. The request includes `expectedSubmissionId`: null (or omitted for
+legacy clients) means create only; a string means replace exactly that existing
+server checkpoint. The database performs either an insert-on-conflict-do-nothing
+or an update conditioned on both session ID and submission ID. This avoids a
+read-then-write race and does not rely on device clocks. Missing/deleted rows and
+stale tokens return 409 `campaign_checkpoint_conflict`; the transaction rolls
+back its receipt reservation along with the rejected write. Committed same-key
+replays still return the original response without rewriting newer state.
+
+New server checkpoint IDs use UUIDs rather than millisecond-only identifiers.
+GET reads used for version tokens are database-only. Database outages return 503,
+not a cached token or a false not-found result. Compatibility cache helpers still
+exist, but are not the checkpoint HTTP authority path.
+
+The session client loads the base token before saving, sends it unchanged, and
+advances it only to the token returned by its own successful save. A conflict
+preserves local work and does not silently adopt the competing checkpoint token,
+merge, or retry. Reopen and review the latest checkpoint before resubmission.
+Save completion no longer triggers a background read that could adopt another
+device's token unnoticed. Fetch results from a previous session cannot supply the
+active session's base token.
+
+Deploy client and server together. Older clients can create a checkpoint, but
+updates without a base token are intentionally rejected instead of silently
+overwriting it. This is a required compatibility tightening. Tokens are not
+credentials and do not replace authentication or DM permissions.
+
 ## Deployment
 
 1. Back up the intended database and confirm both campaign_continuation_snapshots
@@ -47,13 +77,19 @@ restart; resubmit it while the old process is still running before deployment.
 There is no offline outbox or automatic client retry. Checkpoint submissions
 without an idempotency key are durable but do not gain replay deduplication.
 
-Existing unconditional snapshot upserts still need version/conflict controls for
-competing writers. Timestamp comparison is not server-authoritative versioning;
-clock skew and equal-timestamp conflicts remain open. Failed deletes and cached
-deleted-row reconciliation are unchanged. Legacy processing receipts are not
-silently cleared; investigate those individually or wait for existing expiration.
+The compatibility writer still has an unconditional upsert, but the checkpoint
+HTTP path now uses compare-and-swap. No automatic merge, outbox or role-based
+access model is added. Existing anonymous callers with a current token are still
+able to write; authorization remains a separate audit task. Failed deletes and
+cached deleted-row reconciliation outside the durable API path are unchanged.
+Legacy processing receipts are not silently cleared.
 
 ## Rollback
+
+Revert client and server conflict-guard changes together if needed. This removes
+stale-write protection, so avoid concurrent checkpoint edits after rollback. No
+schema change is introduced by the version-token guard.
+
 
 Revert the durable-checkpoint commit if needed and leave the widened column in place.
 Doing so restores memory-only success acknowledgments and non-atomic receipts.
@@ -69,10 +105,16 @@ out-of-order cache updates, in-flight reads, cloning, newer durable data, and th
 Drizzle timestamp mapping. Live PostgreSQL migration and restart testing remain
 deployment acceptance steps.
 
-Focused validation passed: 80 tests across campaign persistence, member sync
-guards, remote-apply safety, AI parser/idempotency contracts, non-HTTP adventure contracts, and transactional checkpoint/retry behavior. HTTP endpoint tests were excluded because this environment
+Focused validation passed: 87 server tests plus 3 client API tests across campaign persistence, member sync
+guards, remote-apply safety, AI parser/idempotency contracts, non-HTTP adventure contracts, and transactional checkpoint/retry behavior, stale-token conflicts and durable token reads. HTTP endpoint tests were excluded because this environment
 cannot bind test sockets; PostgreSQL integration was not run.
 
 Shared-library build and API typecheck pass. Client typecheck still reports the
 pre-existing unsupported Feather `sword` icon and missing Node types/`__dirname`
 in Playwright configs. The full combat-baseline gate therefore remains blocked.
+
+Five conflict/ID regressions fail on the prior implementation. Session UI
+interaction, real concurrent PostgreSQL transactions, and two-device browser
+checks remain manual/deployment acceptance steps; database boundaries were
+mocked. Client API tests verify token transmission and non-retrying conflict
+handling, not full screen interaction.

@@ -51,6 +51,7 @@ export type SubmitCampaignContinuationErrorCode =
   | "invalid_handoff_payload"
   | "campaign_continuation_not_found"
   | "invalid_response_payload"
+  | "campaign_checkpoint_conflict"
   | "request_failed";
 
 export class SubmitCampaignContinuationError extends Error {
@@ -130,6 +131,7 @@ function parsePossiblyJson(raw: string): unknown {
 }
 
 function mapErrorCode(rawCode: unknown): SubmitCampaignContinuationErrorCode {
+  if (rawCode === "campaign_checkpoint_conflict") return "campaign_checkpoint_conflict";
   if (rawCode === "idempotency_in_progress") return "idempotency_in_progress";
   if (rawCode === "idempotency_payload_mismatch") return "idempotency_payload_mismatch";
   if (rawCode === "invalid_handoff_payload") return "invalid_handoff_payload";
@@ -202,6 +204,7 @@ export async function submitCampaignContinuationDetailed(input: {
   };
   recapLines: string[];
   clientSavedAt: number;
+  expectedSubmissionId?: string | null;
 }): Promise<{ response: SubmitCampaignContinuationResponse; replayed: boolean }> {
   const idempotencyKey = `campaign-continuation:${input.continuation.sessionId}:${input.clientSavedAt}`;
 
