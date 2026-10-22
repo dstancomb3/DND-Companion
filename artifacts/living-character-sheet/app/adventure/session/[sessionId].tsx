@@ -2145,7 +2145,7 @@ export default function AdventureSessionPlaceholderScreen() {
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterToolsHeaderRow}>
-              <Feather name="sword" size={16} color={c.primary} />
+              <Feather name="crosshair" size={16} color={c.primary} />
               <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Encounter Actions</Text>
             </View>
 

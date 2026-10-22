@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["playwright.smoke.config.ts", "playwright.combat-qa.config.ts"]
+}

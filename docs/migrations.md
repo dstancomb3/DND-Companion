@@ -1072,3 +1072,13 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Validation: 87 server tests plus 3 client API tests pass. Five tests fail on prior conflict/ID logic. API typecheck passes. Client typecheck still has existing icon and Playwright Node-type errors. Mocked database tests do not establish real PostgreSQL lock behavior; full UI/two-device acceptance remains pending.
 - Rollback: revert this client/server slice together; no schema rollback needed. Preserve earlier bigint and transactional save prerequisites. Removing this slice reopens lost-update risk.
 - Deferred: authentication/DM permissions, automatic merge/offline queue, party transactional persistence, AI usage controls and workspace baseline errors.
+
+
+## 2026-10-22 Validation Baseline Repair
+
+- Files: client session screen (supported glyph only), client package scripts/dev dependency, client app/tooling TypeScript configs, combat safety test filename, lockfile, baseline/status docs, persistence guide and engineering caution.
+- Replaced unsupported Feather `sword` with `crosshair`. Playwright config files are excluded from the Expo compilation and checked in an additional Node-aware TypeScript project; this avoids dropping their validation.
+- Lockfile correction aligns the catalog/shared API client with already-locked React Query 5.100.10 instead of an incompatible catalog entry at 5.99.0. Added already-locked Node type dependency for tooling. All package records and transitive snapshots remain unchanged.
+- Renamed combat safety `.mts` to `.cts` because this package is CommonJS. Test bytes/assertions are unchanged; the standard safety script invokes Node with the tsx loader directly. Other package references to this file were updated; historical migration entries retain their historical paths.
+- Verified frozen install, root validation/combat baseline (workspace typecheck plus 24 tests), 90 focused API tests and 3 client API tests. No database schema, save-data or gameplay changes. Full browser/live PostgreSQL/Windows QA remains pending.
+- Rollback: revert these files and rename the test back with its package scripts; that restores the prior validation blockers. No database rollback is involved.

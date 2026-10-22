@@ -109,9 +109,9 @@ Focused validation passed: 87 server tests plus 3 client API tests across campai
 guards, remote-apply safety, AI parser/idempotency contracts, non-HTTP adventure contracts, and transactional checkpoint/retry behavior, stale-token conflicts and durable token reads. HTTP endpoint tests were excluded because this environment
 cannot bind test sockets; PostgreSQL integration was not run.
 
-Shared-library build and API typecheck pass. Client typecheck still reports the
-pre-existing unsupported Feather `sword` icon and missing Node types/`__dirname`
-in Playwright configs. The full combat-baseline gate therefore remains blocked.
+Workspace typecheck and the standard combat baseline now pass after the
+2026-10-22 validation repair. See [Runtime baseline](runtime-baseline.md) for
+current commands, results, and remaining manual checks.
 
 Five conflict/ID regressions fail on the prior implementation. Session UI
 interaction, real concurrent PostgreSQL transactions, and two-device browser
