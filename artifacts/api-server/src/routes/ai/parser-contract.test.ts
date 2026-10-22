@@ -158,7 +158,7 @@ test("loot normalization merges duplicate items and sums quantity", () => {
         quantity: 3,
         category: "gear",
         notes: "Travel-ready food.",
-        tags: ["consumable"],
+        tags: ["consumable", "common"],
       },
     ],
   }) as Record<string, unknown>;
@@ -284,7 +284,7 @@ test("loot normalization keeps low-confidence unresolved mechanical claims in re
   assert.equal(effects.length, 0);
 });
 
-test("loot normalization merged duplicates keeps highest confidence and review escalation", () => {
+test("loot normalization keeps incompatible mechanics and their review evidence separate", () => {
   const normalized = normalizeLootAnalysisResult({
     summary: "Mixed confidence duplicate parse rows",
     proposedItems: [
@@ -319,17 +319,12 @@ test("loot normalization merged duplicates keeps highest confidence and review e
   }) as Record<string, unknown>;
 
   const items = normalized["proposedItems"] as Record<string, unknown>[];
-  assert.equal(items.length, 1);
-  assert.equal(items[0]?.["quantity"], 3);
-  assert.equal(items[0]?.["confidence"], "high");
-  assert.equal(items[0]?.["needsReview"], true);
-
-  const effects = (items[0]?.["equippedEffects"] ?? []) as Record<string, unknown>[];
-  assert.equal(effects.length, 2);
-  const statPairs = effects
-    .map((effect) => `${String(effect["statKey"])}:${String(effect["statValue"])}`)
-    .sort();
-  assert.deepEqual(statPairs, ["armorClass:1", "initiative:1"]);
+  assert.equal(items.length, 2);
+  assert.deepEqual(items.map(item => item["quantity"]), [1, 2]);
+  assert.deepEqual(items.map(item => item["confidence"]), ["high", "low"]);
+  assert.equal(items[1]?.["needsReview"], true);
+  assert.equal((items[0]?.["equippedEffects"] as Record<string, unknown>[])[0]?.["statKey"], "initiative");
+  assert.equal((items[1]?.["equippedEffects"] as Record<string, unknown>[])[0]?.["statKey"], "armorClass");
 });
 
 test("loot normalization promotes explicit once-per-rest spell usage text", () => {

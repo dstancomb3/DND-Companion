@@ -64,6 +64,26 @@ function extractKindAndBlock(raw: unknown): { mode?: ParserMechanicsResultKind; 
   return { parserNotes: [], mechanicsRaw: raw };
 }
 
+
+// Structural admission only, not proof that the runtime supports every declared effect.
+// Model output never grants verified status. A full discriminated shared schema remains planned.
+function isMechanicCandidate(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value) || value["schemaVersion"] !== "v1"
+    || typeof value["mechanicId"] !== "string" || !value["mechanicId"].trim()
+    || typeof value["name"] !== "string" || !value["name"].trim()) return false;
+  const definition = value["kind"] === "action" ? value["action"] : value["kind"] === "passive" ? value["passive"] : null;
+  if (!isRecord(definition) || !Array.isArray(definition["effects"])) return false;
+  if (value["kind"] === "action" && (!isRecord(definition["target"]) || !isRecord(definition["resolution"]))) return false;
+  const payloadKeys: Record<string, string> = {
+    damage: "damage", healing: "heal", apply_condition: "condition", remove_condition: "removeCondition",
+    grant_advantage: "modifier", grant_disadvantage: "modifier", modify_resource: "resourceDelta",
+    forced_movement: "movement", movement_modifier: "modifier", create_aura: "aura",
+    summon_entity: "summon", create_light: "light", narrative_only: "narrative", unsupported: "unsupported",
+  };
+  return definition["effects"].every(effect => isRecord(effect) && typeof effect["effectType"] === "string"
+    && Object.hasOwn(payloadKeys, effect["effectType"]) && isRecord(effect[payloadKeys[effect["effectType"]]!]));
+}
+
 export function normalizeParserItemMechanics(raw: unknown): ItemMechanicsBlockCompat | null {
   if (raw == null) return null;
 
@@ -72,7 +92,13 @@ export function normalizeParserItemMechanics(raw: unknown): ItemMechanicsBlockCo
     return fallbackMechanicsBlock(raw, mode, parserNotes);
   }
 
-  const mechanicsArray = Array.isArray(mechanicsRaw["mechanics"]) ? (mechanicsRaw["mechanics"] as unknown[]).filter(isRecord) : [];
+  if (mechanicsRaw["schemaVersion"] !== "v1" || mechanicsRaw["ownerType"] !== "item"
+    || !Array.isArray(mechanicsRaw["mechanics"]) || !mechanicsRaw["mechanics"].every(isMechanicCandidate)) {
+    return fallbackMechanicsBlock(raw, "unsupported", ["Invalid item mechanics quarantined; raw input retained for review"]);
+  }
+  const mechanicsArray = mechanicsRaw["mechanics"].map(mechanic => ({
+    ...mechanic, review: { ...(isRecord(mechanic["review"]) ? mechanic["review"] : {}), reviewStatus: "needs_review" },
+  }));
   const baseFallbackStatus = mode === "unsupported" ? "unsupported" : "needs_review";
   const review = normalizeReviewState(mechanicsRaw["review"], baseFallbackStatus, parserNotes);
   const coercedStatus = normalizeReviewStatusForMode(review.reviewStatus, mode);
@@ -99,7 +125,7 @@ export function normalizeParserItemMechanics(raw: unknown): ItemMechanicsBlockCo
     mechanics: mechanicsArray,
     review: {
       ...review,
-      reviewStatus: coercedStatus,
+      reviewStatus: coercedStatus === "verified" ? "needs_review" : coercedStatus,
       ...(normalizedUnsupported.length > 0 ? { unsupportedSegments: normalizedUnsupported } : {}),
     },
     ...(references.length > 0 ? { references } : {}),
