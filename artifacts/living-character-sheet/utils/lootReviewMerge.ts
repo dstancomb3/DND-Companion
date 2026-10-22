@@ -1,7 +1,12 @@
+import { buildInventoryStackKey } from "./equipment/inventoryStacks";
 import type { ProposedInventoryItem } from "@/types";
 
-function normalizeName(name: string): string {
-  return name.toLowerCase().trim().replace(/^the\s+/i, "");
+// Reuse inventory identity: proposal confidence and scan IDs are evidence, not item identity.
+function proposalStackKey(item: ProposedInventoryItem): string {
+  return buildInventoryStackKey({
+    ...item, equipped: false, pinned: false,
+    sourceTag: item.sourceTag ?? (item.officialMatch ? "official" : "custom"),
+  });
 }
 
 function mergeMechanicsBlock(
@@ -28,6 +33,9 @@ function mergeMechanicsBlock(
 }
 
 export function mergeProposedItems(base: ProposedInventoryItem, extra: ProposedInventoryItem): ProposedInventoryItem {
+  if (proposalStackKey(base) !== proposalStackKey(extra)) {
+    throw new Error("Cannot merge incompatible item variants");
+  }
   const noteA = base.notes?.trim() ?? "";
   const noteB = extra.notes?.trim() ?? "";
   const combinedNotes =
@@ -87,17 +95,17 @@ export function deduplicateItems(incoming: ProposedInventoryItem[], existing: Pr
   const deduped: ProposedInventoryItem[] = [];
 
   for (const item of incoming) {
-    const normalItem = normalizeName(item.name);
+    const normalItem = proposalStackKey(item);
 
     const existIdx = updatedExisting.findIndex(
-      (e) => normalizeName(e.name) === normalItem,
+      (e) => proposalStackKey(e) === normalItem,
     );
     if (existIdx >= 0) {
       updatedExisting[existIdx] = mergeProposedItems(updatedExisting[existIdx], item);
       continue;
     }
 
-    const dedupIdx = deduped.findIndex((e) => normalizeName(e.name) === normalItem);
+    const dedupIdx = deduped.findIndex((e) => proposalStackKey(e) === normalItem);
     if (dedupIdx >= 0) {
       deduped[dedupIdx] = mergeProposedItems(deduped[dedupIdx], item);
     } else {

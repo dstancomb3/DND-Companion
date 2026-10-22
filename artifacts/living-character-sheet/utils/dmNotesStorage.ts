@@ -94,6 +94,12 @@ function normalizePlane(input: Partial<Plane>): Plane {
 
 function normalizeItem(input: Partial<DmCampaignItem>): DmCampaignItem {
   return {
+    equippedEffects: input.equippedEffects,
+    consumptionEffects: input.consumptionEffects,
+    mechanics: input.mechanics,
+    damageDice: input.damageDice,
+    damageModifier: input.damageModifier,
+    damageType: input.damageType,
     id: input.id || makeId("item"),
     name: (input.name || "Unnamed Item").trim(),
     quality: input.quality?.trim() || undefined,

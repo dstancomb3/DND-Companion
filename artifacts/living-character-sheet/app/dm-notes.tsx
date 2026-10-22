@@ -2174,6 +2174,7 @@ export default function DmNotesScreen() {
                   return;
                 }
                 void upsertDmItem({
+                  ...editingItem,
                   id: editingItem?.id,
                   name: itName,
                   description: itDescription,

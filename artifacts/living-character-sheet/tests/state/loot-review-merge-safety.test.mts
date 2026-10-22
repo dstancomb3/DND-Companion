@@ -21,7 +21,7 @@ function makeItem(overrides: Partial<ProposedInventoryItem> = {}): ProposedInven
   };
 }
 
-test("mergeProposedItems keeps highest confidence and preserves needsReview", () => {
+test("incompatible mechanics cannot be merged into a hybrid", () => {
   const high = makeItem({
     id: "ring_a",
     confidence: "high",
@@ -37,19 +37,15 @@ test("mergeProposedItems keeps highest confidence and preserves needsReview", ()
     equippedEffects: [{ id: "eff_ac", type: "stat_bonus", label: "AC Bonus", statKey: "armorClass", statValue: 1 }],
   });
 
-  const merged = mergeProposedItems(high, low);
-
-  assert.equal(merged.confidence, "high");
-  assert.equal(merged.needsReview, true);
-  assert.equal(merged._mergedCount, 2);
-
-  const labels = (merged.equippedEffects ?? []).map((e) => e.label).sort();
-  assert.deepEqual(labels, ["AC Bonus", "Initiative Bonus"]);
+  assert.throws(() => mergeProposedItems(high, low), /incompatible/);
+  const result = deduplicateItems([high, low]);
+  assert.equal(result.deduped.length, 2);
+  assert.deepEqual(result.deduped.map(i => i.equippedEffects?.[0].label), ["Initiative Bonus", "AC Bonus"]);
 });
 
-test("deduplicateItems merges duplicate names into existing entries", () => {
+test("deduplicateItems merges identical variants into existing entries", () => {
   const existing = [
-    makeItem({ id: "existing_1", name: "The Ring of Steady Aim", quantity: 1, confidence: "high" }),
+    makeItem({ id: "existing_1", name: "Ring of Steady Aim", quantity: 1, confidence: "high" }),
   ];
   const incoming = [
     makeItem({ id: "incoming_1", name: "Ring of Steady Aim", quantity: 2, confidence: "low", needsReview: true }),
@@ -65,7 +61,7 @@ test("deduplicateItems merges duplicate names into existing entries", () => {
   assert.equal(result.updatedExisting[0]?.needsReview, true);
 });
 
-test("deduplicateItems keeps sourceTag official if any side is official", () => {
+test("deduplicateItems keeps different provenance separate", () => {
   const incoming = [
     makeItem({ id: "a", name: "Moon Charm", sourceTag: "custom", officialMatch: false }),
     makeItem({ id: "b", name: "Moon Charm", sourceTag: "official", officialMatch: true }),
@@ -74,6 +70,6 @@ test("deduplicateItems keeps sourceTag official if any side is official", () => 
   const result = deduplicateItems(incoming);
 
   assert.equal(result.updatedExisting.length, 0);
-  assert.equal(result.deduped.length, 1);
-  assert.equal(result.deduped[0]?.sourceTag, "official");
+  assert.equal(result.deduped.length, 2);
+  assert.deepEqual(result.deduped.map(i => i.sourceTag), ["custom", "official"]);
 });

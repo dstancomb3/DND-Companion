@@ -1,5 +1,6 @@
 import React, { useState, useCallback, createContext, useContext, useEffect, useRef } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   View, Text, ScrollView, TouchableOpacity, TextInput,
@@ -878,6 +879,17 @@ export default function DmItemScreen() {
     setSaveToNotesBusy(true);
     try {
       const input: Partial<DmCampaignItem> = {
+        equippedEffects: (!item.category || isEquippableCategory(item.category)) ? item.equippedEffects : undefined,
+        consumptionEffects: item.category && isConsumptionCategory(item.category as ItemCategory) ? item.equippedEffects : undefined,
+        mechanics: (item as ItemState & { mechanics?: ItemMechanicsBlock }).mechanics
+          ?? (item.equippedEffects.length ? legacyItemToItemMechanicsBlock({
+            name: item.name, equippedEffects: item.equippedEffects,
+            notes: item.properties || item.notes || undefined,
+          }) : undefined),
+        ...(item.category === "weapon" ? (() => {
+          const attack = item.equippedEffects.find(effect => effect.type === "attack_damage");
+          return { damageDice: attack?.attackDamageDice, damageModifier: attack?.attackDamageBonus, damageType: attack?.attackDamageType };
+        })() : {}),
         id: savedToNotesId ?? undefined,
         name: item.name.trim(),
         quality: item.quality || undefined,
@@ -900,7 +912,7 @@ export default function DmItemScreen() {
       const saved = await upsertDmItem(input);
       setSavedToNotesId(saved.id);
     } catch {
-      // ignore
+      Alert.alert("Item not saved", "Could not save this item. Please try again.");
     } finally {
       setSaveToNotesBusy(false);
     }
