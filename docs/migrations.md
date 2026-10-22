@@ -1254,3 +1254,17 @@ byte-identical .cts copies for the CommonJS package. Legacy HTTP smoke fixtures
 still use pre-capability enrollment/authorization and need a separate fixture
 migration; this pass does not claim they or browser/mobile/real DB acceptance pass.
 Validation details and exact files are in the [implementation log](implementation-log.md).
+
+
+## AI API usage audit / MiniLM decision (2026-10-22)
+
+User-requested [usage audit](audits/ai-api-usage-minilm-audit.md) is documentation
+only: twelve model-calling handlers, nine AI endpoints with first-party callers plus the
+Adventure runtime, two unreferenced implemented routes, and one disconnected
+help hook. Existing local progression, item property text, identity matching and
+combat rules should remain deterministic. Recommend measurement and an explicit
+Quick Update grammar before considering optional MiniLM retrieval. No embedding
+runtime/model, parser fast path, telemetry, new authority or schema change ships
+in this pass. No migration/deployment required. O02/O05 and notes/status live QA
+remain open as tracked; this audit does not claim measured savings or device
+performance. Findings AIU01–AIU08 and proposed acceptance gates are in the audit.

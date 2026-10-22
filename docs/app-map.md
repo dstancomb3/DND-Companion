@@ -166,3 +166,11 @@ from local journal save. See the implementation log's QA-N01/QA-N02 pass.
 and end. `utils/partyHostApi.ts` carries existing creator credentials for shared
 DM/demo/AI DM client exports. The [permission map](party-permission-map.md) records
 all call sites, the joined-device restriction and remaining ungated workflows.
+
+
+## AI API usage and MiniLM evaluation
+
+[AI API usage and MiniLM suitability audit](audits/ai-api-usage-minilm-audit.md)
+maps twelve model-calling handlers, existing deterministic bypasses, client
+callers, context/replay gaps and a conditional retrieval plan. It adds no model,
+parser, telemetry or runtime authority. Keep gameplay resolution in code.
