@@ -1082,3 +1082,12 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - Renamed combat safety `.mts` to `.cts` because this package is CommonJS. Test bytes/assertions are unchanged; the standard safety script invokes Node with the tsx loader directly. Other package references to this file were updated; historical migration entries retain their historical paths.
 - Verified frozen install, root validation/combat baseline (workspace typecheck plus 24 tests), 90 focused API tests and 3 client API tests. No database schema, save-data or gameplay changes. Full browser/live PostgreSQL/Windows QA remains pending.
 - Rollback: revert these files and rename the test back with its package scripts; that restores the prior validation blockers. No database rollback is involved.
+
+## 2026-10-22 Party Disband Host Capability
+
+- Added nullable `party_sessions.host_token_hash` and manual `20261022_party_host_token.sql`; existing rows stay null. Apply before the updated API because Drizzle reads include the new column. No connected database was migrated.
+- Party creation issues a cryptographically random capability once, saves only its hash, and disables response caching. Disband rejects missing/wrong capabilities before deletions, including legacy sessions. No invite-code claim or role-flag bypass.
+- Matching client stores the capability separately before creation succeeds and sends it on disband; all creation entry points already share this adapter. UI reports failures without disconnecting. Client/schema/API changes are jointly necessary for durable host proof; no gameplay authority moves.
+- Rollout, limitations and rollback: `docs/party-host-permissions.md`. Keep the nullable column on rollback; reverting server code restores the old authorization hole. Existing party play remains supported, but legacy disband and old clients' disband are intentionally refused.
+- Deferred: remaining party/DM authorization, campaign/AI access controls, recovery/device transfer and transactional deletion. Live database/browser/restart acceptance remains pending.
+- Validation: workspace typecheck and 24 combat safety tests pass; 34 focused server tests (including 8 host tests) and 4 client host tests pass. The host route suite fails against the prior route implementation. Database and HTTP boundaries remain mocked. This run disabled pnpm dependency auto-install during scripts after the new worktree install stopped at an esbuild build-approval prompt; dependency policy files are unchanged.

@@ -2604,7 +2604,14 @@ export default function DmPartyScreen() {
 
     const doEndParty = async () => {
       const code = watchedCode;
-      await disbandParty(code);
+      try {
+        await disbandParty(code);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to end party.";
+        if (Platform.OS === "web") window.alert(message);
+        else Alert.alert("Unable to end party", message);
+        return;
+      }
       stopPolling();
       codeRef.current = null;
       setWatchedCode(null);

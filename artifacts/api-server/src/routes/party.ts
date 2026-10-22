@@ -14,6 +14,8 @@ import {
 } from "../lib/partyRuntimeStore";
 import { decideMemberSync, type MemberSyncClock } from "../lib/partySyncGuard";
 
+import { issuePartyHostToken, hasPartyHostToken } from "../lib/partyHostToken";
+
 const router: IRouter = Router();
 
 const ENVIRONMENT_TURN_ID = "environment";
@@ -1451,13 +1453,16 @@ router.post("/party/create", async (req, res) => {
       attempts++;
     }
 
+    const { hostToken, hostTokenHash } = issuePartyHostToken();
     await db.insert(partySessions).values({
       code,
+      hostTokenHash,
       createdAt: new Date(),
       lastActivityAt: new Date(),
     });
 
-    res.json({ code });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ code, hostToken });
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     req.log?.error({ err }, "Failed to create party session");
@@ -1734,6 +1739,11 @@ router.post("/party/:code/disband", async (req, res) => {
     const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
     if (sessions.length === 0) {
       res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+
+    if (!hasPartyHostToken(req.get("authorization"), sessions[0].hostTokenHash)) {
+      res.status(403).json({ error: "Only the original party host can disband this party. Older parties must expire or be recreated.", code: "party_host_required" });
       return;
     }
 

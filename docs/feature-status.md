@@ -249,3 +249,11 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - The existing combat safety test is now `.cts` to match the app package and runs through `node --import tsx --test`; all 24 original assertions/tests pass without editing test contents. Current package scripts reference the renamed file.
 - `pnpm run validate:combat-baseline`, `pnpm install --frozen-lockfile`, 90 focused server tests and 3 checkpoint client API tests pass. Details: [Runtime baseline](runtime-baseline.md). This resolves the previously recorded typecheck/install blockers; it does not establish full browser, live database or mobile QA.
 - User app save/reload/restart testing remains pending. Authentication/DM permissions, AI usage controls and party transactional writes remain audit work.
+
+## 2026-10-22 Party Disband Host Capability
+
+- New parties receive a private host capability, persisted locally by the shared creation adapter; the database stores its hash. Disband requires the matching bearer token. Code-only, other-party and unclaimed legacy requests fail before writes.
+- Existing sessions remain unclaimed and cannot disband until naturally expired/recreated; no code-based ownership takeover is allowed. The DM screen shows authorization/storage errors and stays connected after a failed end-party attempt.
+- Required additive SQL and deployment order: [Party host permissions](party-host-permissions.md). Apply the nullable hash column before the updated API. No connected database was modified.
+- This protects disband only. Member/DM authorization, read access, AI quotas and transactional party deletion remain deferred. Clearing device storage loses host access; no recovery flow exists.
+- Validation: workspace typecheck and 24 combat safety tests pass; 34 focused server tests (including 8 host tests) and 4 client host tests pass. The host route suite fails against the prior route implementation. Database and HTTP boundaries remain mocked. This run disabled pnpm dependency auto-install during scripts after the new worktree install stopped at an esbuild build-approval prompt; dependency policy files are unchanged.
