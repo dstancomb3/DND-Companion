@@ -1,0 +1,124 @@
+{
+  "baseline": "d4cacecb75bc408f13fc90809e9f364e7899f805",
+  "method": "Actual route handlers/normalizers; SDK transport mocked; network blocked; no AI or database calls. Assertions characterize current gaps.",
+  "results": [
+    {
+      "probe": "empty model object normalizes as success-shaped empty loot",
+      "output": {
+        "sourceType": "photo",
+        "summary": "Loot analyzed",
+        "confidence": "medium",
+        "rawAnalysis": null,
+        "proposedItems": [],
+        "proposedCurrencyChange": null
+      }
+    },
+    {
+      "probe": "invalid creation quantities survive",
+      "quantities": [
+        -2,
+        0.5
+      ]
+    },
+    {
+      "probe": "weapon strings are not dice/rules validation",
+      "output": {
+        "id": "item",
+        "name": "Sword",
+        "quantity": 1,
+        "category": "weapon",
+        "notes": "An iron sword.",
+        "confidence": "high",
+        "needsReview": false,
+        "damageDice": "not-dice",
+        "damageType": "invented-type",
+        "officialMatch": false
+      }
+    },
+    {
+      "probe": "different same-name weapon variants merge and confidence/provenance promote",
+      "output": {
+        "id": "fire",
+        "name": "Sword",
+        "quantity": 2,
+        "category": "weapon",
+        "notes": "An iron sword.",
+        "confidence": "high",
+        "needsReview": false,
+        "officialMatch": true,
+        "damageDice": "1d6",
+        "damageType": "fire"
+      }
+    },
+    {
+      "probe": "proposed-item normalization omits supplied metadata",
+      "dropped": [
+        "value",
+        "weight",
+        "subtype",
+        "attunement"
+      ]
+    },
+    {
+      "probe": "immunity/reflection prose remains unimplemented without required review",
+      "output": {
+        "id": "item",
+        "name": "Fire Ward",
+        "quantity": 1,
+        "category": "magic",
+        "notes": "Negates fire damage and reflects 1d8 fire damage to its source.",
+        "confidence": "high",
+        "needsReview": false,
+        "officialMatch": false
+      }
+    },
+    {
+      "probe": "text generation provenance becomes photo",
+      "sourceType": "photo"
+    },
+    {
+      "probe": "bad envelope and arbitrary mechanic object retain verified review label",
+      "output": {
+        "schemaVersion": "v1",
+        "ownerType": "item",
+        "mechanics": [
+          {
+            "nonsense": true
+          }
+        ],
+        "review": {
+          "reviewStatus": "verified",
+          "confidence": "high",
+          "unsupportedSegments": [
+            {
+              "rawText": "{\"schemaVersion\":\"v999\",\"ownerType\":\"other\"}",
+              "reason": "missing_required_detail"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "probe": "generation constraints and repeated request key are not enforced",
+      "status": 200,
+      "category": "weapon",
+      "tags": [
+        "Legendary"
+      ],
+      "modelCalls": 2
+    },
+    {
+      "probe": "item-properties omits supplied effects and accepts empty flavor/unchecked mechanical prose",
+      "status": 200,
+      "effectsPresentInPrompt": false,
+      "body": {
+        "properties": "Reflects 99d99 damage",
+        "description": ""
+      }
+    },
+    {
+      "probe": "missing request body throws before route validation",
+      "threw": true
+    }
+  ]
+}

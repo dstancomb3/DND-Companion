@@ -1,0 +1,42 @@
+{
+  "baseline": "d4cacecb75bc408f13fc90809e9f364e7899f805",
+  "method": "Actual client store/dedupe/provider functions; React hooks and AsyncStorage mocked; no device or network calls. Assertions characterize existing gaps.",
+  "results": [
+    {
+      "probe": "DM notes save/load preserves prose but drops structured mechanics",
+      "idPreserved": true,
+      "properties": "Negates fire; reflects 1d8",
+      "hasMechanics": false,
+      "hasEquippedEffects": false
+    },
+    {
+      "probe": "client dedupe merges different categories by name and uses max quantity",
+      "output": {
+        "id": "weapon",
+        "name": "Twin",
+        "quantity": 1,
+        "category": "weapon",
+        "confidence": "high",
+        "needsReview": false,
+        "notes": "Iron",
+        "damageDice": "1d6",
+        "officialMatch": true,
+        "_mergedCount": 2,
+        "sourceTag": "official",
+        "tags": []
+      }
+    },
+    {
+      "probe": "inventory application merges same names across categories and keeps old weapon fields",
+      "quantity": 2,
+      "category": "weapon",
+      "damageDice": "1d6"
+    },
+    {
+      "probe": "reapplying the same proposal ID adds again and metadata is omitted",
+      "quantity": 2,
+      "weightPresent": false,
+      "subtypePresent": false
+    }
+  ]
+}

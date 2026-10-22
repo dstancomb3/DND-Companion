@@ -1119,3 +1119,9 @@ This document tracks all active migration/cutover constraints, deprecated compat
 - CharacterContext normal/reorder saves and load now preserve these maps. Shared snapshot normalization/import/export and Edit Character use the same validation; paste import delegates to the existing shared adapter. This is one client snapshot boundary, with no gameplay resolution or server authority move.
 - Sixteen new codec/provider tests plus undo/compatibility/combat checks pass; fourteen initial regressions fail against previous code. Mocked React/persistence tests do not establish browser/disk behavior. Full checkpoints, autosave, concentration/reaction state, transactional history and usable undo remain deferred.
 - Rollback the client contract/context/adapter/UI slice together; older code drops or resets the new counts. No database rollback. Details: `docs/snapshot-effect-usage.md`.
+
+## 2026-10-22 Item Creation Audit
+
+- Added `docs/audits/item-creation-api-audit.md`, API/client probe evidence and two reproducible audit scripts. Covers API/consumer validation, incompatible merges, dropped mechanics/metadata, misleading review/provenance, idempotency, persistence and reliability.
+- No application code, dependency manifest, schema migration or authority change. Eleven actual API-boundary and four client-boundary probes characterize existing gaps; sixteen existing API contract tests pass. Live AI/storage/browser acceptance remains pending.
+- Implementation gates are recorded in the audit. Rollback by reverting this audit-only commit; no data rollback required.

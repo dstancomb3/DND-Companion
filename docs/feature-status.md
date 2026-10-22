@@ -284,3 +284,9 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Character saves now include limited-use spell/item remaining-count maps, including exhausted zero values. Normal save, reorder, load, full/bare import and portable/Edit Character export paths preserve them. Present malformed usage data is rejected before load instead of treated as fresh charges.
 - Legacy absent counts remain unknown and retain old defaults; no data is reconstructed. Character clearing still resets usage. This does not add per-action autosave, complete combat snapshots or safe undo; H0a refusal remains in place.
 - Sixteen new tests, six undo tests, eight existing compatibility tests, workspace typecheck and 24 combat safety tests pass. Provider/persistence boundaries are mocked; browser/device save/reload and import interaction remain pending. [Scope and rollback](snapshot-effect-usage.md).
+
+## 2026-10-22 Item Creation API Audit
+
+- [Item creation audit](audits/item-creation-api-audit.md) traces description/generation/photo/text/quest APIs through DM storage, drafts, review and inventory application. Twenty findings define validation, mechanics preservation, variant identity, provenance, acceptance and operational work.
+- Eleven API and four client probes reproduce current gaps with mocked SDK/React/storage boundaries; sixteen existing API contracts pass. No real AI, browser, database or concurrency acceptance was performed.
+- Audit only: no item behavior, schema or connected data changed. A single canonical validated proposal contract and lossless adapters are priorities; model changes alone cannot solve field loss or duplicate application.

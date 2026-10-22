@@ -127,3 +127,7 @@ See [DM history, snapshots and rollback](dm-history-and-rollback-spec.md) for th
 ## Limited-use snapshot coverage
 
 `utils/mechanics/snapshotEffectUsage.ts` validates limited-use count maps at the existing character snapshot boundary. Context save/load and import/export preserve these maps; this is partial snapshot coverage. See [snapshot usage coverage](snapshot-effect-usage.md).
+
+## Item creation API reliability
+
+See [item creation audit](audits/item-creation-api-audit.md) for the actual proposal→draft/review→store/inventory paths, field-preservation gaps and prioritized fixes. Item Designer's description API and functional item application are separate authority boundaries today.
