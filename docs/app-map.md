@@ -115,3 +115,7 @@ See [AI DM + Deterministic Combat Convergence Plan](ai-dm-combat-convergence-pla
 - Server enrollment and proof checks: `artifacts/api-server/src/routes/party.ts`, reusing `src/lib/partyHostToken.ts` cryptography.
 - Client enrollment/credential adapter: `artifacts/living-character-sheet/utils/partyMemberApi.ts`, connected through `utils/partyApi.ts` and `context/PartyContext.tsx`.
 - Required cutover and remaining indirect write paths: [Party member permissions](party-member-permissions.md).
+
+## Planned DM history and rollback
+
+See [DM history, snapshots and rollback](dm-history-and-rollback-spec.md) for the planned cross-domain history contract and Phase 2 integration. Existing local mutation undo remains limited; no shared restore control is implemented by this documentation change.

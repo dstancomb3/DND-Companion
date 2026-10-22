@@ -1,0 +1,43 @@
+{
+  "method": "Actual MutationHistoryProvider.undoBatch with mocked React hooks, character adapter and storage; no browser or database. Current HP 15, GP 30, resource r 2.",
+  "results": [
+    {
+      "label": "temp HP and conditions are captured but produce no restore calls",
+      "calls": []
+    },
+    {
+      "label": "restoring an old HP snapshot overwrites later HP",
+      "calls": [
+        [
+          "hp",
+          -5
+        ]
+      ]
+    },
+    {
+      "label": "an unrelated HP-only batch can restore all captured currency/resources",
+      "calls": [
+        [
+          "currency",
+          {
+            "cp": 0,
+            "sp": 0,
+            "ep": 0,
+            "gp": -20,
+            "pp": 0
+          }
+        ],
+        [
+          "resources",
+          [
+            {
+              "resourceId": "r",
+              "resourceName": "R",
+              "delta": 3
+            }
+          ]
+        ]
+      ]
+    }
+  ]
+}

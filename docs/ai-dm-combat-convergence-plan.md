@@ -154,6 +154,8 @@ A creature casts Fireball at a player wearing a custom item that grants fire imm
 
 **P2.4 Recovery and concurrency.** Session-level optimistic concurrency, duplicate turn handling, crash recovery, resumable pending actions and deterministic replay. Separate model retry from game mutation retry.
 
+**P2.5 Durable history and reviewed rollback.** Follow [DM history, snapshots and rollback](dm-history-and-rollback-spec.md). Atomically record immutable affected-entity before/after snapshots and typed events with every supported command, then add coherent full/named checkpoints, Undo Last DM Change and Restore Checkpoint. Cover NPCs, quests, people, items and combat as each domain converges. Preserve original history, take a safety checkpoint before restoration, check dependencies and revisions, require current DM authority, and never silently overwrite later player changes. This is a prerequisite for broad reversible mechanics, not a claim that existing continuation snapshots provide it.
+
 **Acceptance:** AI DM cannot mutate state through text; each command has one commit or explicit rejection; two devices cannot double-apply; model failure after commit can regenerate narration from event log without rerolling.
 
 ### Phase 3: Combat authority convergence
