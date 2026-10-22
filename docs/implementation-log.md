@@ -4,7 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
-Subsequent passes are appended below; latest recorded pass: O02-A5 ([PR #22](https://github.com/dstancomb3/DND-Companion/pull/22)).
+Subsequent passes are appended below; latest recorded pass: AI usage / MiniLM audit ([PR #23](https://github.com/dstancomb3/DND-Companion/pull/23)).
 
 ## Read this before choosing more work
 
@@ -100,6 +100,8 @@ Documentation/audit PRs #2/#9/#12 delivered plans/evidence, not runtime features
 | [PR #20](https://github.com/dstancomb3/DND-Companion/pull/20) · 2026-10-22 · O02-A4 | Original O02 / related U09 | Require original-host proof before rest approval/denial side effects; transport stored proof and stamp DM origin server-side. | 194 focused server/client tests, workspace typechecks, 24 combat tests; 10 new tests fail on prior source, including all eight denied-caller cases. Strict YAML and all 33 mapped routes checked. | No new migration; existing host column and matching API/client required. Twelve gated handlers, 16 open mutations; rest recovery/concurrency and live acceptance remain open. |
 | [PR #21](https://github.com/dstancomb3/DND-Companion/pull/21) · 2026-10-22 · live QA | QA-N01 scoped fix / QA-N02 open | Add standalone journal note selection, host-authorized transport and local journal application; refresh saved DM payload before sending and show quest status. | 203 focused tests, workspace typecheck and 24 combat tests; three new server regressions fail on previous code. | No new migration; matching API/client. Quest completion report not reproduced or declared fixed. Local receipt recovery and graph remapping remain open. |
 | [PR #22](https://github.com/dstancomb3/DND-Companion/pull/22) · 2026-10-22 · O02-A5 | Original O02 / related U09 | Original-host proof before initiative start, encounter add/end side effects; shared DM/demo/AI DM adapter transport and visible DM start errors. Caller/role map recorded. | 254 focused tests, workspace typechecks, 24 combat tests; 22 existing encounter tests via temporary .cts copies. All 24 new denied-caller regressions fail on previous code. | No new migration; matching API/client and creator-device capability required. Fifteen proof-gated handlers, 13 open mutations; full AI orchestration and delegated roles remain open. |
+| [PR #23](https://github.com/dstancomb3/DND-Companion/pull/23) · 2026-10-22 · usage audit | AIU01–AIU08 / related O05 | Inventory twelve model-calling handlers; assess deterministic bypass, retrieval, cache/replay and MiniLM fit. Documentation only. | Source/caller inventory, primary model/runtime docs, local links/IDs and whitespace checked; workspace typechecks and 24 combat tests pass. | No model download, paid call, runtime change or migration. Savings/latency unknown. Prefer measured exact-command bypass before conditional embedding retrieval. |
+
 
 
 
@@ -173,6 +175,29 @@ no broad item-finding closure is inferred from a passing probe or merged adapter
 | I19 | P1: Read-failure overwrite, hidden save errors and split delivery/history | Partial | [PR #13](https://github.com/dstancomb3/DND-Companion/pull/13), [PR #15](https://github.com/dstancomb3/DND-Companion/pull/15) | Designer save failures now visible and delivery field loss repaired. Read failures still look empty; serialized durable writes, claim/save receipts and complete item history remain open (U08/U17). |
 | I20 | P1/P2: Missing rules/edition/input context; body/zero/default bugs | Partial | [PR #14](https://github.com/dstancomb3/DND-Companion/pull/14), [PR #15](https://github.com/dstancomb3/DND-Companion/pull/15) | Zero metadata retained in creation/delivery; canonical-only draft defaults avoided. Rules/edition/attunement/equip policy, item-properties input validation and zero context remain open. |
 
+## Later audit: AI API usage and MiniLM
+
+User explicitly requested this audit after O02-A5. Source:
+[AI API usage and MiniLM suitability audit](audits/ai-api-usage-minilm-audit.md),
+baseline `35e2441e72c3da43a0f9c3c337e461d23959ec6d`.
+These findings are separate from the original audit and later U/I scopes.
+All are documented opportunities/gaps, not implemented fixes or measured savings.
+
+| ID | Finding | State / next evidence |
+| --- | --- | --- |
+| AIU01 | No provider token/cost usage ledger in inspected routes | Open: measure requests/usage/attempts and latency before economic claims. |
+| AIU02 | Explicit bookkeeping still calls generative parse-update | Proposed: evaluate a bounded full-input grammar using existing proposal/review paths. |
+| AIU03 | Some mechanics/data work is already local or redundantly generated | Open opportunity: retain deterministic progression/JSON import; stop generating discarded item mechanics prose where appropriate. |
+| AIU04 | Context retrieval may improve candidate lists/memory | Conditional: compare lexical baseline and MiniLM, preserve mandatory state and access scope. |
+| AIU05 | Retry/idempotency gaps can duplicate upstream work | Open: stable logical operations/context-aware replay; separate from semantic similarity and game mutation receipts. |
+| AIU06 | Implemented routes and actual callers differ | Open evidence gap: two model routes have no first-party caller found; unused help hook requests a missing route. |
+| AIU07 | No embedding runtime; web/native integration is unmeasured | Conditional: disabled-by-default retrieval experiment only after benefit/device gates; no dependency added. |
+| AIU08 | Similarity does not establish game semantics or authority | Open boundary: exact IDs/rules/review and O05 caller/usage controls remain required. |
+
+MiniLM is recommended only as a possible ranking/retrieval component. No direct
+replacement for structured mutation parsing, vision, narration or deterministic
+combat is proposed. The next implementation scope is not activated by this audit.
+
 ## AI DM and deterministic combat roadmap
 
 [PR #2](https://github.com/dstancomb3/DND-Companion/pull/2) added the supplied
@@ -225,6 +250,7 @@ HTTP commits fail closed. These behaviors must not be conflated.
 | This implementation-log backfill | Documentation only | Coverage of PRs #1–#15, U01–U17, I01–I20 and H0–H7; evidence/links checked; workspace typecheck and 24-test combat baseline rerun for this documentation change. Full historical suites not rerun. No new runtime fix or migration. |
 | Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. Thirteen mutation handlers and read privacy remain open; next audit roll-prompt authoring/NPC instance callers for a bounded gate. AI caller/usage controls are unchanged. |
 | New claim-recovery proposal | Open, not activated by this backfill | U08/I13/I19 specify the gap. Durable receipt/state ownership, failure matrix and priority decision required before implementation. |
+| AI usage / MiniLM decision | Audit complete; implementation not started | PR #23 inventories twelve model-calling handlers. Recommend usage/attempt baseline and deterministic Quick Update grammar before conditional retrieval experiment; no claimed percentage/cost saving. User decision on the next implementation slice remains pending. |
 | Live notes/status QA | QA-N01 live retest pending / QA-N02 open | User deferred retesting PR #21 and authorized the encounter-control pass. Do not claim the reported Active-to-Completed behavior fixed without source/sent/local status evidence. |
 | Full undo / combat engine / AI DM | Planned or partial as above | Continue the existing roadmap with its authority/acceptance gates, not a parallel implementation track. |
 
@@ -293,6 +319,16 @@ HTTP commits fail closed. These behaviors must not be conflated.
 - **Additional checks/limits:** frozen install, workspace typechecks and 24 combat safety tests pass. Twenty-two existing campaign runtime/integration/one-off bridge tests pass through byte-identical temporary .cts copies, cleaned afterward, for the existing CommonJS/module-format limitation. Strict unique-key YAML, three bearer contracts, exact 33-route map/13 open mutation rows, local links and diff checks pass. DB/storage mocked; no new HTTP/browser/mobile/real DB or concurrency acceptance. Four legacy combat HTTP smoke files still send pre-capability setup/authorization and need a bounded fixture migration; do not label them a passing release gate.
 - **Rollout/rollback:** no new migration; existing host column and matching API/client required. Operator verified the configured DB column in the preceding rollout, not all environments. Old clients and legacy unclaimed parties fail closed. Missing local proof stops the request; network/server errors retain credentials for explicit retry. Roll back matching client/API together if necessary, leaving columns intact; server rollback reopens these controls. No deployment or connected DB write performed.
 - **Remaining/next:** O02 partial: 15 proof-gated handlers, 3 bootstrap, 2 open reads and 13 open mutations. Authorize-to-commit races, delegation/recovery, read privacy, turn/economy/remote outcome gates, NPC and roll-prompt/loot/event authoring remain. A reused campaign battle can still reach ungated NPC/roll routes without initiative-start gating; this is not full AI orchestration security. NPC creation also serves player companions, so no blind host-only extension. Next inspect roll-prompt authoring and NPC-instance caller ownership for the next bounded original-audit pass. O05, REC-01 and full history/combat/AI DM completion unchanged.
+
+
+## Pass record: 2026-10-22 AI usage / MiniLM audit (PR #23)
+
+- **Scope decision:** user asked whether MiniLM can reduce semantic/deterministic work sent to APIs and requested an audit before replacement. This pass documents AIU01–AIU08; it does not silently activate a new model integration or replace the queued original permission work. O02 remains partial (13 open mutations), O05 open, QA-N01 retest pending and QA-N02 unresolved.
+- **Evidence:** inspected all eleven AI model-call routes plus Adventure runtime helper/route, production client URL references, local progression/item properties/combat/identity matching, context assembly, keyed replay and active live-response retry. Twelve handlers have model-call paths; nine AI endpoints plus Adventure have first-party callers found, while recommend-feat/generate-class-features have none found. useWhatsThis has no production consumer or mounted endpoint found. Party/persistence/Open5e APIs are distinguished from paid generation. No deployed environment or traffic frequency is inferred from source defaults.
+- **Conclusion:** MiniLM sentence embeddings can rank rules/entities/context, not generate change JSON, inspect images, narrate campaigns or decide damage/reflection/identity. First measure provider usage/attempts and evaluate exact full-input bookkeeping grammar. Preserve existing deterministic bypasses and review/authority; consider optional retrieval only after lexical/quality/device gates. No savings percentage/dollars or latency claimed. Backend embedding still uses the app API; browser/native/offline deployment is a separate measured choice.
+- **Files:** new `docs/audits/ai-api-usage-minilm-audit.md`; `docs/app-map.md`; `docs/feature-status.md`; `docs/migrations.md`; this log. No runtime, schema, dependency, model asset, credential or lockfile change. Primary model/runtime references linked in the audit, checked 2026-10-22.
+- **Validation/limits:** static inventory verifies eleven AI model calls plus one Adventure helper call, all eleven AI route rows, eight AIU IDs, local links and diff whitespace. Workspace typechecks and 24 combat safety tests pass after frozen install. No paid AI calls, embedding downloads/inference, provider billing/traffic inspection, device benchmarks or connected DB writes. Historical broad suites are not rerun for a documentation-only pass; no new runtime tests written.
+- **Rollout/rollback:** documentation only, no migration or deployment; revert docs if needed without runtime effect. Implementation suggestions require a separate bounded pass and benchmark/acceptance decision. Exact parsing must abstain on unrecognized/mixed input without partial effects; embeddings must not auto-apply changes or merge identities, bypass permissions or omit required live state. No original/later audit finding is marked runtime-fixed by this pass.
 
 ## Keep this log current
 
