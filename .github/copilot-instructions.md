@@ -5,7 +5,7 @@ This file is the authoritative engineering ruleset for this repo. All agents and
 
 ## Research-Before-Edit Workflow
 
-- **Always read**: This file, `docs/app-map.md`, `docs/feature-status.md`, and `AGENTS.md` before making any change.
+- **Always read**: This file, `docs/app-map.md`, `docs/feature-status.md`, `docs/implementation-log.md`, and `AGENTS.md` before making any change.
 - **Map the code**: Identify the real module, context, or route you intend to change. Do not guess based on filenames or old docs.
 - **Verify authority**: Determine which layer (client, server, adapter, schema, context) is authoritative for the logic you are touching. Do not move or duplicate authority without explicit justification.
 - **Check migration/cutover state**: If the area is in migration or cutover (see `docs/mechanics-convergence.md`, `docs/migrations.md`), do not make broad changes. Work incrementally and document all edits.

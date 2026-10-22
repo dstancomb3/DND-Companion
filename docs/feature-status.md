@@ -3,6 +3,11 @@
 This is the canonical status board for the current codebase.
 It separates what is finished, partial, intentionally limited, and still deferred.
 
+For current audit remediation, scope and merged evidence, read the
+[implementation log](implementation-log.md). Historical phase summaries below do
+not override its dated containment and rollout limits; MutationHistory undo is
+currently disabled, and general shared rollback is not implemented.
+
 ## Finished
 
 - Workspace validation baseline:
@@ -22,7 +27,7 @@ It separates what is finished, partial, intentionally limited, and still deferre
   - Homebrew registry validation hardening.
   - Defense/immunity editing and portability support in character flows.
 - State/sync/mutation hardening (Phase 7):
-  - Resource undo roundtrip implemented.
+  - Historical resource-undo helpers exist; current MutationHistory undo is disabled pending exact capture and guarded commit (PR #10).
   - AI queue idempotency key + dedupe behavior implemented.
   - Party sync stale snapshot rejection implemented (stale_member_snapshot).
   - Condition immunities included in party sync/runtime paths.
@@ -315,3 +320,10 @@ It separates what is finished, partial, intentionally limited, and still deferre
 - Flagged/low-confidence items and unverified canonical blocks require explicit DM review acknowledgement before assigning. Effects and descriptions are shown; acknowledgement is draft-local, resets on content edits, does not promote verified status and retains a warning in delivered notes. Category/weapon controls linked to existing structured effects are read-only; the adapter also rejects conflicting programmatic edits. Metadata/count/target edits remain supported. General canonical effect editing is deferred.
 - Client orchestration boundary only. No server authorization, database schema, claim receipt, combat execution or undo change. Existing server assignment route passes full snapshots through; it does not deeply validate them or establish exactly-once inventory commits. Lost-response/claim-before-local-save recovery and durable acceptance receipts remain open. API description URL/stale-response fixes and complete shared schemas remain audit follow-ups.
 - Validation: 11 new draft/serialization tests, 5 existing transfer tests (temporary byte-identical .cts copy), 44 API contract/validation/idempotency tests, storage/provider verification scripts, workspace typecheck and 24 combat safety tests. The delivery provider probe exercises proposal→draft→JSON→actual addItem with mocked React; it does not run server/DB/browser/device claim acceptance. No live AI calls. Revert this client slice together to roll back; already delivered snapshots retain their existing wire format, while older DM code strips rich data again.
+
+
+## 2026-10-22 Implementation log backfill
+
+- Added a cross-linked log of all 15 merged implementation/planning/audit PRs, each of the 17 undo findings and 20 item findings, roadmap gates, validation limits and operator-reported rollout evidence.
+- Original audit reconstruction recovers five significant findings and a testing observation from prior conversation, corroborated by PRs. A reliable original numbered 15-item artifact remains unrecovered (REC-01); no completion percentage is asserted.
+- Documentation/process only. No new runtime fix, deployment, DB write or gameplay change. Future slices must name their finding IDs and update the log.
