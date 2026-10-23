@@ -438,3 +438,29 @@ runtime/model, parser fast path, telemetry, new authority or schema change ships
 in this pass. No migration/deployment required. O02/O05 and notes/status live QA
 remain open as tracked; this audit does not claim measured savings or device
 performance. Findings AIU01–AIU08 and proposed acceptance gates are in the audit.
+
+
+## O02-A6 roll-prompt authoring proof (2026-10-22)
+
+Roll-prompt creation now requires persisted original-host proof before session
+activity/expiry/runtime work, reusing the existing host helper. DM and AI DM
+callers share the host adapter and retain compatible signatures/results. Client
+missing proof prevents a request; server denies member/role/body substitution.
+DM manual prompt errors now surface in its error state. Existing live target
+filtering, normalization and initiative prompt rules remain. Player responses
+still require recipient member proof. See [caller map](party-permission-map.md).
+
+No new schema migration. Existing host column and matching client/API required;
+old clients and unclaimed legacy sessions fail closed. Rollback both together,
+leaving columns intact; server rollback reopens prompt spoofing. No deployment or
+connected DB write by this pass. O02 remains partial with 12 open mutations,
+open reads, authorization/commit races and NPC ownership policies unresolved.
+NPC creation also serves player companions and remains open. An existing campaign
+battle can create its NPC before a later roll-prompt failure; this is not a full
+orchestration transaction. No new battle/target or stat-key validation is claimed.
+
+User deferred lightweight-model exploration and resumed original permission
+work. No MiniLM, reasoning model, parser optimization or API telemetry is added.
+QA-N01 live notes retest and QA-N02 quest-status report remain pending/open.
+Tests mock DB/storage; live HTTP/device/real DB/concurrency acceptance and legacy
+HTTP smoke fixture migration remain separate. Details are in the implementation log.

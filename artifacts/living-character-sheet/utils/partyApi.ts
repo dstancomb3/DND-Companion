@@ -595,15 +595,7 @@ export async function applyRemoteCombatOutcomes(
   );
 }
 
-export async function createPartyRollRequest(
-  code: string,
-  payload: { statKey: PartyStatKey; label?: string; targetMemberIds: string[]; battleId?: string }
-): Promise<{ ok: true; request: PartyRollRequest }> {
-  return apiRequest<{ ok: true; request: PartyRollRequest }>(`/party/${code}/roll-requests`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+export const createPartyRollRequest = hostApi.createPartyRollRequest;
 
 export const submitPartyRollResponse = memberApi.submitPartyRollResponse;
 

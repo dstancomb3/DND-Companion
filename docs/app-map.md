@@ -174,3 +174,11 @@ all call sites, the joined-device restriction and remaining ungated workflows.
 maps twelve model-calling handlers, existing deterministic bypasses, client
 callers, context/replay gaps and a conditional retrieval plan. It adds no model,
 parser, telemetry or runtime authority. Keep gameplay resolution in code.
+
+
+## Roll-prompt authoring capability
+
+Shared createPartyRollRequest now uses partyHostApi and the server host proof
+helper. DM and Adventure/campaign AI DM callers require original-host proof;
+member response proof is unchanged. [Caller map](party-permission-map.md) also
+records NPC/companion routes still requiring a separate ownership policy.

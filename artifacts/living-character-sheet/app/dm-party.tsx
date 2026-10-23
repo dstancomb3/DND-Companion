@@ -1959,6 +1959,7 @@ export default function DmPartyScreen() {
     if (!watchedCode || turnSelectedTargets.length === 0 || !selectedStat) return;
     setSendingRollPrompt(true);
     try {
+      setError(null);
       const label = formatRollLabel(selectedStat);
       await createPartyRollRequest(watchedCode, {
         statKey: selectedStat,
@@ -1967,6 +1968,8 @@ export default function DmPartyScreen() {
         battleId: resolveBattleIdForTab("turn"),
       });
       await refreshCombat(watchedCode);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create roll prompt.");
     } finally {
       setSendingRollPrompt(false);
     }
