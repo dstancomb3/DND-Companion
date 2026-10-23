@@ -459,60 +459,19 @@ export async function addCombatNpc(
   });
 }
 
-export async function updateCombatNpcVisibleStats(
-  code: string,
-  npcId: string,
-  payload: { visibleStatKeys: CombatNpcStatKey[] }
-): Promise<{ ok: true; npc: CombatNpc }> {
-  return apiRequest<{ ok: true; npc: CombatNpc }>(`/party/${code}/combat-npcs/${npcId}/visible-stats`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const updateCombatNpcVisibleStats = hostApi.updateCombatNpcVisibleStats;
 
-export async function updateCombatNpcDummyState(
-  code: string,
-  npcId: string,
-  payload: Partial<CombatNpcDummyState>
-): Promise<{ ok: true; npc: CombatNpc }> {
-  return apiRequest<{ ok: true; npc: CombatNpc }>(`/party/${code}/combat-npcs/${npcId}/dummy-state`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const updateCombatNpcDummyState = hostApi.updateCombatNpcDummyState;
 
-export async function updateCombatNpcGear(
-  code: string,
-  npcId: string,
-  payload: { gear: CombatNpcGearItem[] }
-): Promise<{ ok: true; npc: CombatNpc }> {
-  return apiRequest<{ ok: true; npc: CombatNpc }>(`/party/${code}/combat-npcs/${npcId}/gear`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+export const updateCombatNpcGear = hostApi.updateCombatNpcGear;
 
-export async function removeCombatNpc(code: string, npcId: string): Promise<void> {
-  await apiRequest(`/party/${code}/combat-npcs/${npcId}`, {
-    method: "DELETE",
-  });
-}
+export const removeCombatNpc = hostApi.removeCombatNpc;
 
 export const endEncounter = hostApi.endEncounter;
 
 export const addToEncounter = hostApi.addToEncounter;
 
-export async function rollNpcInitiative(
-  code: string,
-  npcId: string,
-  initiativeRoll: number,
-  initiativeBonus?: number
-): Promise<{ initiativeTotal: number }> {
-  return apiRequest(`/party/${code}/combat-npcs/${npcId}/initiative`, {
-    method: "PUT",
-    body: JSON.stringify({ initiativeRoll, initiativeBonus }),
-  });
-}
+export const rollNpcInitiative = hostApi.rollNpcInitiative;
 
 export const submitInitiativeRoll = memberApi.submitInitiativeRoll;
 

@@ -3463,6 +3463,11 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
 router.put("/party/:code/combat-npcs/:npcId/dummy-state", async (req, res) => {
   try {
     const { code, npcId } = req.params;
+    const access = await authorizePartyHost(code, req.get("authorization"), "manage NPC instances");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3501,6 +3506,11 @@ router.put("/party/:code/combat-npcs/:npcId/dummy-state", async (req, res) => {
 router.put("/party/:code/combat-npcs/:npcId/gear", async (req, res) => {
   try {
     const { code, npcId } = req.params;
+    const access = await authorizePartyHost(code, req.get("authorization"), "manage NPC instances");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3527,6 +3537,11 @@ router.put("/party/:code/combat-npcs/:npcId/gear", async (req, res) => {
 router.put("/party/:code/combat-npcs/:npcId/visible-stats", async (req, res) => {
   try {
     const { code, npcId } = req.params;
+    const access = await authorizePartyHost(code, req.get("authorization"), "manage NPC instances");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3554,6 +3569,11 @@ router.put("/party/:code/combat-npcs/:npcId/visible-stats", async (req, res) => 
 router.delete("/party/:code/combat-npcs/:npcId", async (req, res) => {
   try {
     const { code, npcId } = req.params;
+    const access = await authorizePartyHost(code, req.get("authorization"), "manage NPC instances");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3718,6 +3738,11 @@ router.post("/party/:code/encounters/:battleId/participants", async (req, res) =
 router.put("/party/:code/combat-npcs/:npcId/initiative", async (req, res) => {
   try {
     const { code, npcId } = req.params;
+    const access = await authorizePartyHost(code, req.get("authorization"), "manage NPC instances");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });

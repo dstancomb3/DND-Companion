@@ -1313,3 +1313,22 @@ Rollback matching pair together; reverting server reopens spoofing. Six NPC
 mutation routes remain open, with creation/companion ownership separate from
 instance controls. O02 stays partial; open reads, races, full combat validation,
 O05/model work and live QA remain deferred. See implementation log for tests.
+
+
+## O02-A8 NPC instance controls (2026-10-23)
+
+Five direct NPC instance routes now require original-host proof before session/
+runtime/instance side effects: state, gear, visibility, deletion and initiative.
+Matching host adapter transport preserves current DM and creator-device AI DM
+callers. DM state/gear errors and AI initiative failure are surfaced; encounter
+state remains active on automation failure. Existing normalizers and party-local
+instance checks retained, including deletion reference cleanup.
+
+Existing host column and matching API/client required, no new migration or DB
+write. Roll back the pair together; server rollback reopens instance spoofing.
+O02 remains partial: 27 proof-gated handlers, one open NPC creation mutation,
+three bootstrap handlers and two open reads. Player-companion creation/ownership
+is separately deferred, with no inferred rights from owner metadata. Creation
+can still affect battle order; visibility flags do not secure public reads.
+Proof-to-commit races, full command/dice authority, inventory debit, model work,
+O05, REC-01 and real-device/database acceptance remain open.
