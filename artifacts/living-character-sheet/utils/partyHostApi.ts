@@ -1,4 +1,4 @@
-import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey } from "./partyApi";
+import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem } from "./partyApi";
 
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
@@ -60,6 +60,15 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       await request(`/party/${code}/encounters/${battleId}/participants`, {
         method: "POST", headers: await encounterHeaders(code), body: JSON.stringify({ memberIds, npcIds }),
       });
+    },
+    async sendPartyEndTurn(code: string, payload: EndPartyTurnPayload = {}): Promise<void> {
+      await request(`/party/${code}/end-turn`, { method: "POST", headers: await encounterHeaders(code), body: JSON.stringify(payload) });
+    },
+    async appendPartyEvent(code: string, payload: { type: string; message: string; memberId?: string; metadata?: Record<string, unknown> }): Promise<void> {
+      await request(`/party/${code}/events`, { method: "POST", headers: await encounterHeaders(code), body: JSON.stringify(payload) });
+    },
+    async createPartyLootAssignments(code: string, payload: { targetMemberIds: string[]; items: LootAssignmentItem[]; assignedBy?: string }): Promise<{ ok: true; assignments: LootAssignment[] }> {
+      return request(`/party/${code}/loot-assignments`, { method: "POST", headers: await encounterHeaders(code), body: JSON.stringify(payload) });
     },
     async disbandParty(code: string): Promise<void> {
       const token = await storage.getItem(tokenKey(code));

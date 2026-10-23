@@ -423,11 +423,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenericObject"
-  /party/{code}/combat/apply-outcomes:
+  /party/{code}/end-turn:
     post:
-      operationId: applyRemoteCombatOutcomes
+      operationId: endPartyTurn
       tags: [party]
-      summary: Apply bounded remote-authoritative combat outcomes
+      summary: Advance own battle turn or host override
+      description: Live current member in own battle, or original host. Body DM flags are not authority.
+      security:
+        - partyCapability: []
       parameters:
         - $ref: "#/components/parameters/PartyCode"
       requestBody:
@@ -437,6 +440,135 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       responses:
+        "200":
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Missing or invalid action input
+        "403":
+          description: Missing live caller proof or caller not permitted
+        "404":
+          description: Party not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/economy/spend:
+    post:
+      operationId: spendPlayerEconomy
+      tags: [party]
+      summary: Spend own member economy
+      description: Exact live member bearer required. Out-of-turn reactions remain supported; client limits are not proof of fair combat.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Missing or invalid action input
+        "403":
+          description: Missing live caller proof or caller not permitted
+        "404":
+          description: Party not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/economy/reset:
+    post:
+      operationId: resetPlayerEconomy
+      tags: [party]
+      summary: Manually reset own member economy
+      description: Exact live member bearer required. Preserves existing self-reset semantics; does not prove reset eligibility.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Missing or invalid action input
+        "403":
+          description: Missing live caller proof or caller not permitted
+        "404":
+          description: Party not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/loot-assignments:
+    post:
+      operationId: createPartyLootAssignments
+      tags: [party]
+      summary: Author a host award or member transfer
+      description: Original host proof stamps dm origin. Member proof must match assignedBy sender. Inventory ownership, debit and delivery atomicity remain separate.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Missing or invalid action input
+        "403":
+          description: Missing live caller proof or caller not permitted
+        "404":
+          description: Party not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/combat/apply-outcomes:
+    post:
+      operationId: applyRemoteCombatOutcomes
+      tags: [party]
+      summary: Apply bounded remote-authoritative combat outcomes
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "400":
+          description: Missing or unsupported action input
+        "403":
+          description: Missing live caller proof or action not permitted for caller
+        "404":
+          description: Party not found
         "200":
           description: Outcomes applied
           content:
@@ -454,6 +586,8 @@ paths:
       operationId: postPartyEvent
       tags: [party]
       summary: Append a party event
+      security:
+        - partyCapability: []
       parameters:
         - $ref: "#/components/parameters/PartyCode"
       requestBody:
@@ -463,6 +597,12 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       responses:
+        "400":
+          description: Missing or unsupported action input
+        "403":
+          description: Missing live caller proof or action not permitted for caller
+        "404":
+          description: Party not found
         "200":
           description: Event accepted
           content:

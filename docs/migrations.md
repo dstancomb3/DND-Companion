@@ -1294,3 +1294,22 @@ work. No MiniLM, reasoning model, parser optimization or API telemetry is added.
 QA-N01 live notes retest and QA-N02 quest-status report remain pending/open.
 Tests mock DB/storage; live HTTP/device/real DB/concurrency acceptance and legacy
 HTTP smoke fixture migration remain separate. Details are in the implementation log.
+
+
+## O02-A7 non-NPC mutation proof (2026-10-23)
+
+Six routes now require live caller proof before activity/expiry/runtime writes:
+end-turn, economy spend/reset, remote apply, action reports and loot authoring.
+Member end-turn checks the current turn in that member's own battle instead of
+the legacy primary-battle projection; host override requires actual host proof.
+Member economy/source proof cannot be replaced by host proof. Out-of-turn
+reactions and own manual reset behavior remain; fairness is not established.
+Reports accept the seven observed action kinds, bind attribution and cannot forge
+server receipts. Host awards are stamped dm; player transfers retain member
+proof and full snapshots. Inventory ownership/debit remains unverified.
+
+Matching client/API and existing capability columns required, no new migration.
+Rollback matching pair together; reverting server reopens spoofing. Six NPC
+mutation routes remain open, with creation/companion ownership separate from
+instance controls. O02 stays partial; open reads, races, full combat validation,
+O05/model work and live QA remain deferred. See implementation log for tests.

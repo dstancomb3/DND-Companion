@@ -1,4 +1,4 @@
-import type { NotesAssignment, LootAssignment, PartyRollRequest, PartyRestRequest, PartyRestType } from "./partyApi";
+import type { NotesAssignment, LootAssignment, PartyRollRequest, PartyRestRequest, PartyRestType, EndPartyTurnPayload, PlayerTurnEconomy, ApplyRemoteCombatOutcomesPayload, LootAssignmentItem } from "./partyApi";
 
 interface MemberStorage {
   getItem(key: string): Promise<string | null>;
@@ -63,6 +63,26 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
     },
     async declinePartyNoteAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignmentId: string }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/note-assignments/${assignmentId}/decline`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async sendPartyEndTurn(code: string, payload: EndPartyTurnPayload & { memberId: string }): Promise<void> {
+      await authorizedRequest(code, payload.memberId, `/party/${code}/end-turn`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async spendPlayerEconomy(code: string, memberId: string, slot: "action" | "bonusAction" | "reaction" | "movement", amount?: number, options?: { actionLimit?: number; bonusActionLimit?: number }): Promise<PlayerTurnEconomy> {
+      const result = await authorizedRequest<{ ok: true; economy: PlayerTurnEconomy }>(code, memberId, `/party/${code}/economy/spend`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId, slot, amount, actionLimit: options?.actionLimit, bonusActionLimit: options?.bonusActionLimit }) });
+      return result.economy;
+    },
+    async resetPlayerEconomy(code: string, memberId: string): Promise<PlayerTurnEconomy> {
+      const result = await authorizedRequest<{ ok: true; economy: PlayerTurnEconomy }>(code, memberId, `/party/${code}/economy/reset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId }) });
+      return result.economy;
+    },
+    async applyRemoteCombatOutcomes(code: string, payload: ApplyRemoteCombatOutcomesPayload): Promise<{ ok: true; appliedCount: number; replayed: boolean }> {
+      return authorizedRequest(code, payload.sourceMemberId, `/party/${code}/combat/apply-outcomes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async appendPartyEvent(code: string, payload: { type: string; message: string; memberId: string; metadata?: Record<string, unknown> }): Promise<void> {
+      await authorizedRequest(code, payload.memberId, `/party/${code}/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async createPartyLootAssignments(code: string, payload: { targetMemberIds: string[]; items: LootAssignmentItem[]; assignedBy: string }): Promise<{ ok: true; assignments: LootAssignment[] }> {
+      return authorizedRequest(code, payload.assignedBy, `/party/${code}/loot-assignments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
     async leaveParty(memberId: string, code: string): Promise<void> {
       await authorizedRequest(code, memberId, "/party/leave", { method: "DELETE", body: JSON.stringify({ memberId, partyCode: code }) });

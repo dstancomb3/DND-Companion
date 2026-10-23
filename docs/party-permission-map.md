@@ -24,12 +24,9 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A6: sixteen handlers have explicit capability proof (sync, leave,
-disband, note creation/accept/decline, member initiative, roll response, rest
-request/approval/acknowledgement, loot claim, initiative start, encounter end,
-participant addition and roll-prompt creation); three are bootstrap handlers; two are
-open read handlers; 12 are open mutation handlers. Counts are declarations, not a security-completion
-percentage. Some GET/session helpers have writes.
+After O02-A7: 22 handlers have explicit capability proof; three are bootstrap
+handlers; two are open reads; six are open mutations (NPC creation and five
+instance controls). Counts describe declarations, not security completion.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
 | --- | --- | --- | --- | --- |
@@ -43,17 +40,17 @@ percentage. Some GET/session helpers have writes.
 | GET | `/party/:code/combat-state` | Open read | Read/hydrate runtime; refresh activity | No caller proof; read privacy and pre-auth activity/expiry side effects remain open. |
 | POST | `/party/:code/initiative/start` | Host proof (O02-A5) | Start initiative/change participants and order | Live original-host proof before activity/runtime work; AI DM uses the same host capability. |
 | PUT | `/party/:code/initiative/roll` | Member proof | Submit member initiative | Live own-member proof before activity/runtime work; existing member/reroll checks retained. DM override is not granted by this route. |
-| POST | `/party/:code/end-turn` | Open mutation | Advance battle turn; optional isDmOverride | Proposed current-actor member proof or host; caller DM flag is not authority. |
-| POST | `/party/:code/economy/spend` | Open mutation | Spend member turn economy | Proposed own-current-actor proof and existing economy validation. |
-| POST | `/party/:code/economy/reset` | Open mutation | Reset member turn economy | Requires explicit reset/host policy; memberId alone is not proof. |
-| POST | `/party/:code/combat/apply-outcomes` | Open mutation | Apply bounded remote HP/temp HP/conditions | Existing source/turn/target checks are business validation, not caller authentication. Prove source ownership or explicit host authority. |
+| POST | `/party/:code/end-turn` | Member or host proof (O02-A7) | Advance battle turn; optional isDmOverride | Own current turn in own requested/default battle; host proof required for override. Global compatibility turn is not authority. |
+| POST | `/party/:code/economy/spend` | Member proof (O02-A7) | Spend member turn economy | Exact live member proof; existing spend rules preserved, including out-of-turn reactions. Does not prove honest client limits. |
+| POST | `/party/:code/economy/reset` | Member proof (O02-A7) | Reset member turn economy | Own-member manual reset only; host cannot substitute. Reset eligibility/turn rules remain separate engine work. |
+| POST | `/party/:code/combat/apply-outcomes` | Source-member proof (O02-A7) | Apply bounded remote HP/temp HP/conditions | Exact live source proof before runtime/replay; existing turn/target/outcome checks retained. Does not validate the originating combat command. |
 | POST | `/party/:code/roll-requests` | Host proof (O02-A6) | Create roll prompts | Persisted original-host proof before activity/runtime work. AI DM uses the same capability; target membership is not author authority. |
 | PUT | `/party/:code/roll-requests/:requestId/respond` | Target-member proof | Record/replace target member roll response | Live exact-member proof plus existing request-target check. Dice/modifier fairness and durable roll authority remain separate. |
 | POST | `/party/:code/rest-requests` | Member proof | Request rest for member | Live requester proof; existing party-wide rest request semantics retained. Host proof is required on the separate approval route. |
 | PUT | `/party/:code/rest-requests/:requestId` | Host proof (O02-A4) | Approve/deny rest | Original-host proof before activity/expiry/runtime work; server stamps resolvedBy as dm. |
 | PUT | `/party/:code/rest-requests/:requestId/ack` | Target-member proof | Acknowledge recipient rest application | Live exact-member proof plus approved-state/target checks; local/server receipt atomicity remains U08. |
-| POST | `/party/:code/events` | Open mutation | Append event with member/metadata labels | Proposed member/host policy with permitted event kinds; labels cannot grant state authority. |
-| POST | `/party/:code/loot-assignments` | Open mutation | DM awards AND player-to-player item transfers | Do not make blindly host-only. Need distinct host award/member-owned transfer proof; server currently lacks complete inventory ownership/debit authority. |
+| POST | `/party/:code/events` | Member or host proof (O02-A7) | Append event with member/metadata labels | Seven supported client action report types only. Server-derived attribution and reportedBy; authoritative receipt kinds rejected even for host. |
+| POST | `/party/:code/loot-assignments` | Member or host proof (O02-A7) | DM awards AND player-to-player item transfers | Host award stamped dm; member transfer stamped authenticated sender. Server inventory ownership/debit and exactly-once delivery remain open. |
 | PUT | `/party/:code/loot-assignments/:assignmentId/claim` | Recipient member proof | Mark assignment claimed | Live exact-member proof plus target check. Claim-first/local-inventory-save recovery remains open (I13/U08). |
 | POST | `/party/:code/note-assignments` | Host proof (O02-A1) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
@@ -298,3 +295,35 @@ together if needed, leaving columns intact; reverting server proof reopens promp
 spoofing. DB/storage are mocked in focused tests; device/HTTP/real DB and concurrent
 capability/session changes remain unverified. There are 16 proof-gated handlers,
 3 bootstrap, 2 open reads and 12 open mutation handlers. Original O02 stays partial.
+
+## O02-A7: remaining non-NPC mutation proof (2026-10-23)
+
+The twelve previously open handlers include six NPC routes. This pass covers
+only the six non-NPC handlers. NPC instance controls follow separately;
+NPC creation/player companion ownership remain a distinct policy decision.
+
+End-turn permits the authenticated current member in that member's own battle,
+or the original host. A body isDmOverride flag never grants host rights. Member
+defaults select that member's battle, and the check uses currentTurnIdByBattle,
+fixing the old primary-battle/global-turn check. Economy spend/reset and remote
+apply require exact live member/source proof; a host cannot impersonate a player.
+Self reset preserves the existing manual API contract; fairness and eligibility
+are not established by proof. Out-of-turn reaction spending remains supported.
+
+Mixed event/loot operations check persisted host proof or exact live member
+proof before session activity, expiry cleanup or runtime work. Member IDs select
+which credential to check; they never establish permission themselves. Generic
+events allow the seven observed player action report kinds, stamp reportedBy,
+and reject server-owned receipt kinds even for the host. Host reports do not
+impersonate a supplied member ID. Reports remain caller-written descriptions,
+not validated combat facts. CombatContext catches report transport failures.
+Host loot origin is always dm; player transfers retain the authenticated sender.
+Full supported inventory snapshots remain intact. There is no server inventory
+ledger, so authorship does not prove item ownership, debit or atomic delivery.
+
+Matching client/API required with existing host/member columns; no new migration
+or connected DB write. Old clients fail closed. Roll back client/server together,
+leaving columns; API rollback reopens these spoofing paths. No deployment.
+Read privacy, concurrency between proof and commit, combat truth and receipts,
+NPC routes, companion ownership, O05 and REC-01 remain open. Focused tests use
+mock DB/storage; PostgreSQL/HTTP/browser/mobile/restart acceptance is pending.

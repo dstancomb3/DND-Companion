@@ -319,7 +319,9 @@ function CombatInner({ children }: { children: ReactNode }) {
   const appendActionEvent = useCallback(
     (type: string, message: string, metadata?: Record<string, unknown>) => {
       if (!isInParty || !partyCode || !memberId) return;
-      void appendPartyEvent(partyCode, { type, message, memberId, metadata });
+      void appendPartyEvent(partyCode, { type, message, memberId, metadata }).catch(error => {
+        console.warn("Party action report was not saved", error);
+      });
     },
     [isInParty, partyCode, memberId]
   );

@@ -2030,33 +2030,42 @@ router.put("/party/:code/initiative/roll", async (req, res) => {
 router.post("/party/:code/end-turn", async (req, res) => {
   try {
     const { code } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
-    }
 
     const requestedMemberId = typeof req.body?.memberId === "string" && req.body.memberId.trim().length > 0
       ? req.body.memberId.trim()
       : null;
     const isDmOverride = req.body?.isDmOverride === true;
 
+    const access = await authorizePartyActor(code, requestedMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    if (isDmOverride && access.role !== "host") {
+      res.status(403).json({ error: "Only the original party host can override turns", code: "party_host_required" });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
+      return;
+    }
+
     const members = await getLiveMembers(code);
     const state = await getOrHydrateCombatState(code);
     rebuildTurnOrder(state, members.map((m) => m.id));
 
-    // Phase 2: enforce turn ownership when caller identifies themselves.
-    if (requestedMemberId && !isDmOverride) {
-      const activeTurnId = state.currentTurnId;
-      if (activeTurnId && activeTurnId !== requestedMemberId) {
-        res.status(403).json({ error: "Not your turn" });
-        return;
-      }
-    }
-
     const requestedBattleId = typeof req.body?.battleId === "string" && req.body.battleId.trim().length > 0
       ? req.body.battleId.trim()
-      : orderedBattleIdsFromParticipants(state.participantBattleById, Object.keys(state.participantBattleById))[0] ?? null;
+      : (access.role === "member" && requestedMemberId ? state.participantBattleById[requestedMemberId] : undefined) ?? orderedBattleIdsFromParticipants(state.participantBattleById, Object.keys(state.participantBattleById))[0] ?? null;
+
+    // Member proof grants only the current turn in that member's own battle.
+    if (access.role === "member" && (!requestedMemberId || !requestedBattleId ||
+      state.participantBattleById[requestedMemberId] !== requestedBattleId ||
+      state.currentTurnIdByBattle[requestedBattleId] !== requestedMemberId)) {
+      res.status(403).json({ error: "Not your turn in this battle" });
+      return;
+    }
 
     if (!requestedBattleId) {
       state.currentTurnId = null;
@@ -2137,17 +2146,23 @@ router.post("/party/:code/end-turn", async (req, res) => {
 router.post("/party/:code/economy/spend", async (req, res) => {
   try {
     const { code } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
-    }
 
     const memberId = typeof req.body?.memberId === "string" && req.body.memberId.trim().length > 0
       ? req.body.memberId.trim()
       : null;
     if (!memberId) {
       res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+
+    const access = await authorizePartyMember(code, memberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
       return;
     }
 
@@ -2209,17 +2224,23 @@ router.post("/party/:code/economy/spend", async (req, res) => {
 router.post("/party/:code/economy/reset", async (req, res) => {
   try {
     const { code } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
-    }
 
     const memberId = typeof req.body?.memberId === "string" && req.body.memberId.trim().length > 0
       ? req.body.memberId.trim()
       : null;
     if (!memberId) {
       res.status(400).json({ error: "memberId is required" });
+      return;
+    }
+
+    const access = await authorizePartyMember(code, memberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
       return;
     }
 
@@ -2248,11 +2269,6 @@ router.post("/party/:code/economy/reset", async (req, res) => {
 router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
   try {
     const { code } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
-    }
 
     const commandId = typeof req.body?.commandId === "string" ? req.body.commandId.trim() : "";
     const sourceMemberId = typeof req.body?.sourceMemberId === "string" ? req.body.sourceMemberId.trim() : "";
@@ -2265,6 +2281,17 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
 
     if (targetResults.length === 0) {
       res.status(400).json({ error: "targetResults are required" });
+      return;
+    }
+
+    const access = await authorizePartyMember(code, sourceMemberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
       return;
     }
 
@@ -2799,15 +2826,29 @@ router.put("/party/:code/rest-requests/:requestId/ack", async (req, res) => {
 router.post("/party/:code/events", async (req, res) => {
   try {
     const { code } = req.params;
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
+
+    const { type, message, metadata } = req.body ?? {};
+    const memberId = typeof req.body?.memberId === "string" ? req.body.memberId.trim() || null : null;
+    const access = await authorizePartyActor(code, memberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    if (typeof type !== "string" || typeof message !== "string" || type.length === 0 || message.length === 0) {
+      res.status(400).json({ error: "type and message are required" });
       return;
     }
 
-    const { type, message, memberId, metadata } = req.body ?? {};
-    if (typeof type !== "string" || typeof message !== "string" || type.length === 0 || message.length === 0) {
-      res.status(400).json({ error: "type and message are required" });
+    // Reports are not receipts for server-owned actions, even when posted by a host.
+    const reportTypes = ["player_action_used", "player_bonus_action_used", "player_reaction_used",
+      "player_object_interaction_used", "player_movement_used", "player_attack_used", "player_spell_cast"];
+    if (!reportTypes.includes(type)) {
+      res.status(400).json({ error: "This event type must be emitted by its authoritative action route" });
+      return;
+    }
+    const session = await ensureActiveSession(code);
+    if (!session.ok) {
+      res.status(session.status).json({ error: session.error });
       return;
     }
 
@@ -2815,8 +2856,8 @@ router.post("/party/:code/events", async (req, res) => {
     appendEvent(state, {
       type,
       message,
-      memberId: typeof memberId === "string" ? memberId : undefined,
-      metadata: typeof metadata === "object" && metadata ? metadata : undefined,
+      memberId: access.role === "member" && memberId ? memberId : undefined,
+      metadata: { ...(typeof metadata === "object" && metadata && !Array.isArray(metadata) ? metadata : {}), reportedBy: access.role },
     });
     await persistRuntimeState(code, state);
 
@@ -2830,17 +2871,25 @@ router.post("/party/:code/events", async (req, res) => {
 router.post("/party/:code/loot-assignments", async (req, res) => {
   try {
     const { code } = req.params;
+
+    const targetMemberIds: string[] = Array.isArray(req.body?.targetMemberIds)
+      ? req.body.targetMemberIds.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const requestedAuthor = typeof req.body?.assignedBy === "string" ? req.body.assignedBy.trim() : "";
+    const memberId = requestedAuthor && requestedAuthor !== "dm" ? requestedAuthor : null;
+    const access = await authorizePartyActor(code, memberId, req.get("authorization"));
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    const assignedBy = access.role === "host" ? "dm" : memberId!;
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
       return;
     }
 
-    const targetMemberIds: string[] = Array.isArray(req.body?.targetMemberIds)
-      ? req.body.targetMemberIds.filter((id: unknown): id is string => typeof id === "string")
-      : [];
-    const items = Array.isArray(req.body?.items) ? req.body.items : [];
-    const assignedBy = typeof req.body?.assignedBy === "string" ? req.body.assignedBy : undefined;
 
     if (targetMemberIds.length === 0 || items.length === 0) {
       res.status(400).json({ error: "targetMemberIds and items are required" });
@@ -2933,7 +2982,7 @@ router.post("/party/:code/loot-assignments", async (req, res) => {
       state.lootAssignments = state.lootAssignments.slice(0, 400);
     }
 
-    const assignmentSource = assignedBy ? "A party member" : "DM";
+    const assignmentSource = access.role === "host" ? "DM" : "A party member";
     appendEvent(state, {
       type: "loot_assigned",
       message: `${assignmentSource} assigned ${normalizedItems.length} loot item(s) to ${validTargets.length} player(s).`,
@@ -3184,6 +3233,20 @@ async function authorizePartyHost(code: string, authorization: string | undefine
     return { ok: false as const, status: 403, code: "party_host_required", error: `Only the original party host can ${action}. Run DM or AI DM controls from the device that created this party.` };
   }
   return { ok: true as const };
+}
+
+// Mixed host/member operations authenticate the origin, never a body role flag.
+async function authorizePartyActor(code: string, memberId: string | null, authorization: string | undefined) {
+  const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+  if (!sessions.length) return { ok: false as const, status: 404, code: "party_not_found", error: "Party session not found" };
+  if (hasPartyHostToken(authorization, sessions[0].hostTokenHash)) return { ok: true as const, role: "host" as const };
+  if (!memberId) return { ok: false as const, status: 403, code: "party_host_required", error: "Original party host proof is required for this action." };
+  const members = await db.select().from(partyMembers)
+    .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, code)));
+  if (!hasPartyHostToken(authorization, members[0]?.memberTokenHash)) {
+    return { ok: false as const, status: 403, code: "party_member_required", error: "Member access is missing or expired. Rejoin this party." };
+  }
+  return { ok: true as const, role: "member" as const };
 }
 
 // Member IDs are not credentials. Check live party/member proof before
