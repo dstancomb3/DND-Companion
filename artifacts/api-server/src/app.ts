@@ -6,7 +6,10 @@ import { logger } from "./lib/logger";
 import { RuntimeConflictError } from "./routes/party";
 import { logAIIdempotencyHealthCheck } from "./lib/aiIdempotencyHealthCheck";
 
+import { createCloudPreview } from "./lib/cloudPreview";
+
 const app: Express = express();
+const cloudPreview = createCloudPreview();
 
 app.use(
   pinoHttp({
@@ -27,11 +30,13 @@ app.use(
     },
   }),
 );
-app.use(cors());
+cloudPreview?.protect(app);
+if (!cloudPreview) app.use(cors());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
 app.use("/api", router);
+cloudPreview?.serve(app);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

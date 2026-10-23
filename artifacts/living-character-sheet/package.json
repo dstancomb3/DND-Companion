@@ -19,7 +19,8 @@
     "test:party-notes": "node --import tsx --test tests/state/party-notes-delivery.test.cts",
     "test:party-host": "node --import tsx --test tests/state/party-host-api.test.cts tests/state/party-member-api.test.cts tests/state/party-encounter-api.test.cts tests/state/party-roll-prompt-api.test.cts tests/state/party-mutation-api.test.cts tests/state/party-npc-instance-api.test.cts tests/state/party-npc-creation-api.test.cts",
     "test:undo-safety": "node --import tsx --test tests/state/mutation-undo-safety.test.cts tests/state/mutation-history-containment.test.cts",
-    "test:snapshot-usage": "node --import tsx --test tests/state/snapshot-effect-usage.test.cts tests/state/character-effect-usage-lifecycle.test.cts"
+    "test:snapshot-usage": "node --import tsx --test tests/state/snapshot-effect-usage.test.cts tests/state/character-effect-usage-lifecycle.test.cts",
+    "build:web": "expo export --platform web --max-workers 2"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

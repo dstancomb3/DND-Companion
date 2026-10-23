@@ -1,5 +1,5 @@
-const rawDomain = process.env["EXPO_PUBLIC_DOMAIN"];
-const rawApiUrl = process.env["EXPO_PUBLIC_API_URL"] || process.env["EXPO_PUBLIC_API_BASE_URL"];
+const rawDomain = process.env.EXPO_PUBLIC_DOMAIN;
+const rawApiUrl = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_BASE_URL;
 
 const formatHost = (value: string) => {
   if (/^https?:\/\//.test(value)) {
@@ -9,7 +9,9 @@ const formatHost = (value: string) => {
   return value.includes("localhost") ? `http://${value}` : `https://${value}`;
 };
 
-export const API_BASE_URL = rawDomain
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_SAME_ORIGIN === "true" && typeof window !== "undefined"
+  ? window.location.origin
+  : rawDomain
   ? (() => {
       if (rawApiUrl) return formatHost(rawApiUrl);
 

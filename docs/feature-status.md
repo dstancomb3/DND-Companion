@@ -545,3 +545,27 @@ protection is added. Owner leave/rejoin detach/recovery and player combat comman
 rights remain the next distinct boundary. O02/O05, public reads, proof-to-commit
 races, REC-01 and deferred models remain unchanged. Rollback matching API/client
 together; removing A10 restores duplicate/reset exposure. No deployment or DB write.
+
+
+## DEP01 private cloud phone preview preparation (2026-10-23)
+
+User requested phone-browser cloud testing and authorized preparation. Added a
+single-service Render recipe, separate Expo browser export/build wrapper and
+opt-in password/cookie gate before all app/API routes. Party Bearer credentials
+remain independent. Same-origin browser routing and the hardcoded DM item AI
+URL are corrected. Normal native/local mode retains its prior behavior. The
+native Expo Go build script remains separate and unchanged.
+
+This prepares a private test deployment, not full O05 account/quota protection.
+Existing capability/schema provisioning and a test DB remain prerequisites; no
+schema push, DB write, cloud service creation or deployment was performed.
+Runtime secrets never use EXPO_PUBLIC values. /healthz is process liveness only.
+Matching API/client/config required. Rollback must disable the hosted instance or
+keep a protective perimeter; reverting code alone does not remove cloud resources.
+
+Browser build and compiled HTTP smoke pass, along with focused tests and the
+combat/typecheck baseline recorded in the implementation log. Chromium download
+failed, so real browser/phone, Render HTTPS/cookies, DB/AI and multi-device
+acceptance remain pending. [Setup and limits](cloud-phone-preview.md).
+Companion lifecycle A11 remains queued, paused for this user-requested testing
+setup. O02, O05, REC-01 and deferred models retain their previous status.

@@ -6,7 +6,11 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "validate:combat-baseline": "pnpm run typecheck && pnpm --filter @workspace/living-character-sheet run test:combat-safety"
+    "validate:combat-baseline": "pnpm run typecheck && pnpm --filter @workspace/living-character-sheet run test:combat-safety",
+    "build:preview": "node scripts/build-cloud-preview.cjs",
+    "start:preview": "node --enable-source-maps scripts/start-cloud-preview.cjs",
+    "test:cloud-preview": "node --import tsx --test artifacts/api-server/src/lib/cloudPreview.test.ts artifacts/living-character-sheet/tests/state/api-url-preview.test.cts",
+    "test:preview-build": "node scripts/test-cloud-preview.cjs"
   },
   "private": true,
   "devDependencies": {

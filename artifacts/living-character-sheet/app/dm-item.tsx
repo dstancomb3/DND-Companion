@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/utils/apiUrl";
 import React, { useState, useCallback, createContext, useContext, useEffect, useRef } from "react";
 import {
   Alert,
@@ -617,7 +618,7 @@ export default function DmItemScreen() {
   const generateItemPropertiesWithAi = useCallback(async (itemToGenerate: ItemState) => {
     setIsGeneratingAi(true);
     try {
-      const response = await fetch("http://localhost:3000/api/ai/item-properties", {
+      const response = await fetch(`${API_BASE_URL}/api/ai/item-properties`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
