@@ -436,28 +436,23 @@ export interface PartyInitiativeStartResult {
 
 export const startPartyInitiative = hostApi.startPartyInitiative;
 
-export async function addCombatNpc(
-  code: string,
-  payload: {
-    name: string;
-    sourceType?: "dm-npc" | "character" | "manual" | "monster";
-    sourceId?: string;
-    disposition: CombatNpcDisposition;
-    initiativeTotal?: number;
-    battleId?: string;
-    coreStats?: Partial<CombatNpcCoreStats>;
-    dummyState?: Partial<CombatNpcDummyState>;
-    visibleStatKeys?: CombatNpcStatKey[];
-    gear?: CombatNpcGearItem[];
-    conditions?: CombatConditionSummary[];
-    projection?: CombatNpcProjectionMetadata;
-  }
-): Promise<{ ok: true; npc: CombatNpc }> {
-  return apiRequest<{ ok: true; npc: CombatNpc }>(`/party/${code}/combat-npcs`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+export type CreateCombatNpcPayload = {
+  name: string;
+  sourceType?: "dm-npc" | "character" | "manual" | "monster";
+  sourceId?: string;
+  disposition: CombatNpcDisposition;
+  initiativeTotal?: number;
+  battleId?: string;
+  coreStats?: Partial<CombatNpcCoreStats>;
+  dummyState?: Partial<CombatNpcDummyState>;
+  visibleStatKeys?: CombatNpcStatKey[];
+  gear?: CombatNpcGearItem[];
+  conditions?: CombatConditionSummary[];
+  projection?: CombatNpcProjectionMetadata;
+};
+
+export const addCombatNpc = hostApi.addCombatNpc;
+export const projectPartyCompanion = memberApi.projectPartyCompanion;
 
 export const updateCombatNpcVisibleStats = hostApi.updateCombatNpcVisibleStats;
 

@@ -1,4 +1,4 @@
-import type { NotesAssignment, LootAssignment, PartyRollRequest, PartyRestRequest, PartyRestType, EndPartyTurnPayload, PlayerTurnEconomy, ApplyRemoteCombatOutcomesPayload, LootAssignmentItem } from "./partyApi";
+import type { NotesAssignment, LootAssignment, PartyRollRequest, PartyRestRequest, PartyRestType, EndPartyTurnPayload, PlayerTurnEconomy, ApplyRemoteCombatOutcomesPayload, LootAssignmentItem, CreateCombatNpcPayload, CombatNpc } from "./partyApi";
 
 interface MemberStorage {
   getItem(key: string): Promise<string | null>;
@@ -63,6 +63,11 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
     },
     async declinePartyNoteAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignmentId: string }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/note-assignments/${assignmentId}/decline`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async projectPartyCompanion(code: string, payload: CreateCombatNpcPayload): Promise<{ ok: true; npc: CombatNpc }> {
+      const memberId = payload.projection?.ownerMemberId;
+      if (!memberId || !payload.projection?.companionId) throw new Error("Companion and owner member IDs are required");
+      return authorizedRequest(code, memberId, `/party/${code}/combat-npcs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
     async sendPartyEndTurn(code: string, payload: EndPartyTurnPayload & { memberId: string }): Promise<void> {
       await authorizedRequest(code, payload.memberId, `/party/${code}/end-turn`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

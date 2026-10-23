@@ -24,9 +24,10 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A8: 27 handlers have explicit capability proof; three are bootstrap
-handlers; two are open reads; one is an open mutation (NPC creation, including
-player companion projection). Counts describe declarations, not security completion.
+After O02-A9: 28 handlers have explicit capability proof; three are bootstrap
+handlers and two are open reads. No non-bootstrap mutation declaration remains
+without proof. This count does not establish full authorization, read privacy,
+validated combat/companion ownership, transaction safety or abuse protection.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
 | --- | --- | --- | --- | --- |
@@ -55,7 +56,7 @@ player companion projection). Counts describe declarations, not security complet
 | POST | `/party/:code/note-assignments` | Host proof (O02-A1) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
 | PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
-| POST | `/party/:code/combat-npcs` | Open mutation | Create/seed NPC, dummy or player companion | Needs separate host creation and member-owned companion projection policy. Supplied projection.ownerMemberId is metadata, not proof. |
+| POST | `/party/:code/combat-npcs` | Host or companion submitter proof (O02-A9) | Create/seed NPC, dummy or player companion | Ordinary NPCs require host proof; companion admission requires exact live member proof and own-battle scope. Character/creature ownership and stats remain client claims. |
 | PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Host proof (O02-A8) | Update NPC/dummy state | Host proof plus party-local instance lookup; existing HP/action normalization retained. |
 | PUT | `/party/:code/combat-npcs/:npcId/gear` | Host proof (O02-A8) | Replace NPC gear | Host proof plus party-local instance lookup; canonical effect validation remains separate. |
 | PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Host proof (O02-A8) | Choose NPC stats visible to players | Host proof plus party-local instance lookup; public reads still expose full data. |
@@ -354,3 +355,37 @@ instance editing. Proof/commit races, public stat privacy (visibility settings
 are not a read-security filter), inventory/combat truth, recovery and live
 PostgreSQL/HTTP/browser/mobile/restart acceptance remain open. Tests mock DB and
 storage. Original O02 remains partial; O05/model work and REC-01 unchanged.
+
+## O02-A9: host creation and companion submitter proof (2026-10-22)
+
+The final non-bootstrap creation route now authenticates before session activity,
+expiry cleanup or runtime access. Ordinary DM/demo/AI NPC creation requires the
+original host capability. Companion projections instead require the live bearer
+for projection.ownerMemberId; host proof cannot impersonate an owner. Supplied
+IDs select which persisted credential to check and grant no rights themselves.
+
+The player sheet uses the explicit projectPartyCompanion member adapter. The
+existing addCombatNpc export now always uses host proof. Both retain typed
+payload/results, JSON headers and existing credential retention/revocation rules.
+Errors on the companion sheet show the actual permission/transport message.
+
+Member admission requires nonempty companion/member IDs, character source with
+sourceId matching companionId, friendly disposition, and no supplied gear,
+conditions or initiative override. It derives the battle from that member's
+server runtime mapping; another explicit battle is rejected. An owner without a
+battle creates an unassigned projection, never one in another member's first
+battle. Generic NPC controls remain host-only. No new companion edit/remove
+rights, automatic retry or source-of-truth subsystem is introduced.
+
+The server has no character/companion roster. This establishes authenticated
+submission, not ownership of a real saved companion, approved stats or trusted
+ownerCharacterId. Duplicates/retry receipts, legacy projection reconciliation,
+owner removal/rejoin, canonical source validation and permission transfer remain
+separate. See [companion boundary](companion-projection-permissions.md).
+
+Matching API/client and existing capability columns required; no new migration
+or connected DB write. Rollback both together; API rollback reopens creation
+spoofing. All twelve previously open non-bootstrap mutations now check proof,
+but O02 remains partial: open reads still have activity/expiry side effects,
+invitation bootstrap is public, and proof-to-commit races, gameplay truth and
+companion ownership remain open. O05, REC-01 and deferred models are unchanged.

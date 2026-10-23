@@ -1332,3 +1332,25 @@ is separately deferred, with no inferred rights from owner metadata. Creation
 can still affect battle order; visibility flags do not secure public reads.
 Proof-to-commit races, full command/dice authority, inventory debit, model work,
 O05, REC-01 and real-device/database acceptance remain open.
+
+
+## O02-A9 NPC creation caller proof (2026-10-22)
+
+Ordinary NPC creation now requires original-host proof. Player companions use
+an explicit member adapter and exact live submitter proof, with a constrained
+friendly character-source payload and server-derived own-battle placement.
+Host proof cannot impersonate a companion owner; members cannot use ordinary
+host NPC creation. Existing instance controls remain host-only.
+
+This authenticates a submitter, not companion ownership or stats: the server has
+no canonical companion roster. Retry duplicates, legacy reconciliation and owner
+leave/rejoin remain open. See companion-projection-permissions.md for the exact
+boundary and deferred acceptance. Existing capability columns plus matching
+API/client required, no new migration. Rollback the pair together; API rollback
+reopens creation spoofing. No deployment or connected DB write.
+
+All twelve previously open non-bootstrap mutations now check caller proof:
+28 proof-gated handlers, three public bootstrap handlers and two open reads.
+O02 stays partial because read side effects/privacy, bootstrap abuse, ownership,
+proof-to-commit races and gameplay truth remain open. O05/model work, REC-01
+and live notes QA are unchanged. Tests and touched files are in the log.
