@@ -140,3 +140,22 @@ References checked during preparation:
 - https://render.com/docs/infrastructure-as-code
 - https://docs.expo.dev/guides/publishing-websites/
 - https://docs.expo.dev/guides/environment-variables/
+
+
+## Startup memory failure follow-up (DEP02)
+
+The first hosted attempt exported the web app and bundled API successfully, but
+the deployment reported exceeding 512 MiB. Its startup log also showed Corepack
+fetching pnpm 12.15.0 and dependency downloads near port scans. This does not
+establish that the API itself needs more than 512 MiB.
+
+The service now starts the protected wrapper directly with Node, bypassing
+Corepack/pnpm at runtime. The root packageManager field pins pnpm 10.33.0 for
+build tooling. Build dependencies are still installed only by the build command;
+the start wrapper never installs or builds anything.
+
+After Blueprint sync, verify Settings → Start Command is exactly:
+node --enable-source-maps scripts/start-cloud-preview.cjs
+Then inspect the new deployment logs. If memory failure persists, capture runtime
+logs/metrics before changing instance size. This change removes an observed
+startup tool-version problem; it is not proof of hosted memory acceptance.
