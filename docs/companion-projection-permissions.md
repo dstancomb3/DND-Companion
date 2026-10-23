@@ -76,3 +76,38 @@ unauthenticated creation. No connected DB migration or deployment performed.
 Tests mock DB/storage and do not establish PostgreSQL, HTTP, browser/mobile,
 restart or concurrent lifecycle acceptance. Read privacy, command truth and
 proof-to-commit races remain separate in the [route map](party-permission-map.md).
+
+
+## O02-A11 preparation: guarded member departure
+
+The user paused cloud setup and resumed this development boundary. Inspection
+shows DELETE /party/leave currently deletes the member first, then only cleans
+runtime state when combatStates already contains a warm cache entry. Cleanup
+does not detach server-stamped companion instances. A runtime conflict or write
+failure can therefore occur after membership deletion. A cold server can skip
+cleanup entirely. These are implementation findings, not deployed fixes.
+
+The next implementation must use one database transaction for capability
+revalidation, membership removal and revision-guarded durable runtime cleanup.
+Read the durable snapshot inside that transaction; never use warm cache as the
+condition for cleanup or publish cache changes before commit. On conflict/failure,
+roll back membership and runtime together and return a conflict/error without a
+success acknowledgement. The existing snapshot store uses the global DB client,
+so its load/save operations need an explicit transaction-scoped executor, with
+normal non-transaction callers preserved.
+
+Detach only companions with server-stamped companion-admission.v1 binding to
+the departing member. Preserve their live combat data and admission provenance
+for host review/history, while removing encounter/order/economy participation.
+Unstamped legacy owner labels confer no relationship. Keep retained instances
+host-managed; a newly enrolled member must not reclaim them by name,
+ownerCharacterId or companion ID. Explicit rebind/recovery is separate work.
+
+Acceptance must cover member self-leave and host removal, invalid/revoked proof,
+cold cache, stale cache, unrelated NPC/member preservation, spent/damaged
+companion retention, durable failure and revision-conflict rollback, retry after
+lost acknowledgement, and new-member rejoin without automatic ownership.
+PostgreSQL integration evidence is required before claiming transaction behavior
+verified against a real database. No new owner instance-control rights, recovery
+endpoint, source-roster verification or canonical combat behavior is introduced
+by this preparation.

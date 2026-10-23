@@ -494,6 +494,39 @@ or password/party authority change. Revert only with preview protection retained
 Status: DEP01 hosting acceptance remains pending, O05 open, O02 partial,
 REC-01 unverified. Companion lifecycle and existing QA follow-ups remain queued.
 
+## Development resumption after cloud setup pause
+
+2026-10-23: user explicitly paused cloud setup due to setup burden and requested
+return to the previous development track. No further cloud account setup,
+database provisioning or paid hosting change is part of the active task. Existing
+Render service is not asserted shut down; no external resource was changed here.
+
+User evidence updates DEP01/DEP02: service started and browser login succeeded
+after the startup change. Desktop screenshots show missing icon glyphs; that
+font-rendering defect remains open. Party creation reaches the API but fails
+with PostgreSQL ECONNREFUSED. User identified localhost:5432/character_companion,
+with a separate PORT=3000 line, as the supplied configuration. Cloud DB
+connectivity and phone/multiplayer acceptance remain unverified. Do not call
+cloud rollout complete or repeat database setup as the next development task.
+
+Active boundary resumes original O02-A11, separate from DM NPC instance controls.
+Audited DELETE /party/leave deletes membership before runtime persistence,
+cleans only warm cached state, and does not detach admitted companions. The
+existing runtime store has a global DB executor, so an atomic fix requires an
+explicit transaction-scoped storage path, durable snapshot/revision checks and
+cache publication only after commit. Partial delete-then-detach is not a safe
+implementation. The companion permission document records exact scope and
+failure/rejoin acceptance. This is preparation evidence, not an implemented
+lifecycle fix.
+
+Files: docs/companion-projection-permissions.md, docs/implementation-log.md.
+Validation: inspected leave authorization/deletion, runtime hydration/save/CAS,
+server admission identity and lifecycle policy; documentation whitespace checked.
+No runtime code, schema, DB write or authority changed in this preparation;
+no test rerun claimed. Next implementation is atomic member departure and
+companion detach/retention. Explicit rebind/recovery remains separate.
+O02 partial, O05 open, REC-01 unverified; notes QA and icon defect remain open.
+
 ## Keep this log current
 
 1. Before selecting a task, read this log and the source audit. State the existing
