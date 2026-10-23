@@ -528,10 +528,8 @@ export async function endPartyTurnForBattle(code: string, battleId?: string, isD
 }
 
 export async function sendPartyEndTurn(code: string, payload?: EndPartyTurnPayload): Promise<void> {
-  await apiRequest(`/party/${code}/end-turn`, {
-    method: "POST",
-    body: JSON.stringify(payload ?? {}),
-  });
+  if (payload?.memberId) return memberApi.sendPartyEndTurn(code, { ...payload, memberId: payload.memberId });
+  return hostApi.sendPartyEndTurn(code, payload);
 }
 
 export function getMemberEconomyFromCombatState(
@@ -542,39 +540,8 @@ export function getMemberEconomyFromCombatState(
   return state.playerEconomyByMember?.[memberId] ?? null;
 }
 
-export async function spendPlayerEconomy(
-  code: string,
-  memberId: string,
-  slot: "action" | "bonusAction" | "reaction" | "movement",
-  amount?: number,
-  options?: { actionLimit?: number; bonusActionLimit?: number }
-): Promise<PlayerTurnEconomy> {
-  const res = await apiRequest<{ ok: true; economy: PlayerTurnEconomy }>(
-    `/party/${code}/economy/spend`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        memberId,
-        slot,
-        amount,
-        actionLimit: options?.actionLimit,
-        bonusActionLimit: options?.bonusActionLimit,
-      }),
-    }
-  );
-  return res.economy;
-}
-
-export async function resetPlayerEconomy(
-  code: string,
-  memberId: string
-): Promise<PlayerTurnEconomy> {
-  const res = await apiRequest<{ ok: true; economy: PlayerTurnEconomy }>(
-    `/party/${code}/economy/reset`,
-    { method: "POST", body: JSON.stringify({ memberId }) }
-  );
-  return res.economy;
-}
+export const spendPlayerEconomy = memberApi.spendPlayerEconomy;
+export const resetPlayerEconomy = memberApi.resetPlayerEconomy;
 
 export interface ApplyRemoteCombatOutcomesPayload {
   commandId: string;
@@ -582,18 +549,7 @@ export interface ApplyRemoteCombatOutcomesPayload {
   targetResults: CombatTargetResolutionResult[];
 }
 
-export async function applyRemoteCombatOutcomes(
-  code: string,
-  payload: ApplyRemoteCombatOutcomesPayload,
-): Promise<{ ok: true; appliedCount: number; replayed: boolean }> {
-  return apiRequest<{ ok: true; appliedCount: number; replayed: boolean }>(
-    `/party/${code}/combat/apply-outcomes`,
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    },
-  );
-}
+export const applyRemoteCombatOutcomes = memberApi.applyRemoteCombatOutcomes;
 
 export const createPartyRollRequest = hostApi.createPartyRollRequest;
 
@@ -609,20 +565,18 @@ export async function appendPartyEvent(
   code: string,
   payload: { type: string; message: string; memberId?: string; metadata?: Record<string, unknown> }
 ): Promise<void> {
-  await apiRequest(`/party/${code}/events`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  if (payload.memberId) return memberApi.appendPartyEvent(code, { ...payload, memberId: payload.memberId });
+  return hostApi.appendPartyEvent(code, payload);
 }
 
 export async function createPartyLootAssignments(
   code: string,
   payload: { targetMemberIds: string[]; items: LootAssignmentItem[]; assignedBy?: string }
 ): Promise<{ ok: true; assignments: LootAssignment[] }> {
-  return apiRequest<{ ok: true; assignments: LootAssignment[] }>(`/party/${code}/loot-assignments`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  if (payload.assignedBy && payload.assignedBy !== "dm") {
+    return memberApi.createPartyLootAssignments(code, { ...payload, assignedBy: payload.assignedBy });
+  }
+  return hostApi.createPartyLootAssignments(code, payload);
 }
 
 export const claimPartyLootAssignment = memberApi.claimPartyLootAssignment;
