@@ -1399,3 +1399,12 @@ failed, so real browser/phone, Render HTTPS/cookies, DB/AI and multi-device
 acceptance remain pending. [Setup and limits](cloud-phone-preview.md).
 Companion lifecycle A11 remains queued, paused for this user-requested testing
 setup. O02, O05, REC-01 and deferred models retain their previous status.
+
+
+### DEP02: preview startup tooling follow-up
+
+First hosted build succeeded; deployment exceeded 512 MiB. Startup also fetched
+pnpm 12.15.0 despite the intended build version. Render now invokes the protected
+Node wrapper directly; root packageManager pins pnpm 10.33.0. No schema,
+authority or password-gate change. Hosted runtime acceptance remains pending;
+this does not establish the API memory requirement or close O05.
