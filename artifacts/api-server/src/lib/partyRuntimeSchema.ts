@@ -5,6 +5,7 @@ export interface CompanionAdmission {
   schemaVersion: "companion-admission.v1";
   memberId: string;
   companionId: string;
+  detachedAt?: string;
 }
 
 export interface RuntimeSnapshotPayload {

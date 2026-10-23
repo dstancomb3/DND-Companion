@@ -238,7 +238,7 @@ export interface CombatNpc {
   gear?: CombatNpcGearItem[];
   conditions?: CombatConditionSummary[];
   projection?: CombatNpcProjectionMetadata;
-  companionAdmission?: { schemaVersion: "companion-admission.v1"; memberId: string; companionId: string };
+  companionAdmission?: { schemaVersion: "companion-admission.v1"; memberId: string; companionId: string; detachedAt?: string };
   createdAt: string;
 }
 

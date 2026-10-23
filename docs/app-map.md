@@ -186,3 +186,10 @@ records NPC/companion routes still requiring a separate ownership policy.
 ## Private cloud browser preview
 
 `render.yaml` and `scripts/build-cloud-preview.cjs` prepare one Node-hosted browser/API origin. `artifacts/api-server/src/lib/cloudPreview.ts` owns the opt-in staging perimeter and static SPA serving; party capabilities remain server-route authority. Read [setup and limits](cloud-phone-preview.md). This is deployment preparation, with hosted/mobile acceptance pending.
+
+
+Party departure now revalidates proof and commits membership/runtime cleanup through
+a serializable transaction. partyRuntimeStore accepts an optional transaction
+executor; ordinary callers retain their default executor. Server-stamped
+companions are retained with detachedAt provenance and excluded from encounter
+admission/order. See companion-projection-permissions.md for recovery limits.

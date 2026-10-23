@@ -578,3 +578,21 @@ pnpm 12.15.0 despite the intended build version. Render now invokes the protecte
 Node wrapper directly; root packageManager pins pnpm 10.33.0. No schema,
 authority or password-gate change. Hosted runtime acceptance remains pending;
 this does not establish the API memory requirement or close O05.
+
+
+### O02-A11: atomic member departure and companion retention
+
+Cloud setup is paused by user request; development resumed on companion lifecycle.
+Membership deletion and durable runtime cleanup now use one serializable database
+transaction with fresh locked proof, revision-guarded save and cache invalidation
+after commit. Stamped companions retain live data with optional detachedAt metadata,
+leave combat order/economy and cannot be silently re-added by encounter controls.
+Rejoin does not claim old companions. Explicit recovery/transfer remains open.
+
+Additive existing runtime JSON v1 only; no SQL migration or lockfile change.
+Older API versions do not honor detachment, so rollback requires reviewing retained
+instances and restores the previous partial-departure risk. Existing host controls
+and capability columns remain. Tests and acceptance limits are recorded in the
+implementation log; real PostgreSQL/multiplayer verification remains pending.
+O02 remains partial, O05 open, REC-01 unverified. Browser icon and hosted DB issues
+remain deferred with cloud setup, not claimed fixed.

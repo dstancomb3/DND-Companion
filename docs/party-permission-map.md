@@ -408,3 +408,14 @@ explicitly; full proof-to-commit serialization is not implemented. See the
 [companion policy](companion-projection-permissions.md) for exact lifecycle scope.
 The route counts stay 28 proof-gated, three bootstrap and two open reads. O02
 remains partial. Rollback A10 reopens duplicate/reset exposure, not A9 proof gates.
+
+
+## O02-A11: departure transaction and detached companions
+
+Member self-leave and host removal now revalidate locked persisted capabilities
+inside a serializable transaction shared with durable runtime cleanup/deletion.
+Only server-stamped membership bindings detach; their live data stays host-managed.
+Encounter rebuild/start/add exclude retained detached instances. New enrollment
+does not inherit old membership bindings. Counts remain 28 proof-gated mutations,
+three public bootstrap handlers and two open reads. Explicit recovery/transfer,
+canonical source ownership and wider proof-to-commit races remain open.
