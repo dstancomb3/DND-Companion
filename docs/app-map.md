@@ -182,3 +182,7 @@ Shared createPartyRollRequest now uses partyHostApi and the server host proof
 helper. DM and Adventure/campaign AI DM callers require original-host proof;
 member response proof is unchanged. [Caller map](party-permission-map.md) also
 records NPC/companion routes still requiring a separate ownership policy.
+
+## Private cloud browser preview
+
+`render.yaml` and `scripts/build-cloud-preview.cjs` prepare one Node-hosted browser/API origin. `artifacts/api-server/src/lib/cloudPreview.ts` owns the opt-in staging perimeter and static SPA serving; party capabilities remain server-route authority. Read [setup and limits](cloud-phone-preview.md). This is deployment preparation, with hosted/mobile acceptance pending.

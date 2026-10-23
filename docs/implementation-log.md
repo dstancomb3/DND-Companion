@@ -4,7 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
-Subsequent passes are appended below; latest recorded pass: O02-A10 ([PR #28](https://github.com/dstancomb3/DND-Companion/pull/28)).
+Subsequent passes are appended below; latest recorded pass: DEP01 ([PR #29](https://github.com/dstancomb3/DND-Companion/pull/29)).
 
 ## Read this before choosing more work
 
@@ -388,6 +388,77 @@ HTTP commits fail closed. These behaviors must not be conflated.
 - **Validation:** 12 new direct-route tests and two new client result tests. 549 focused tests pass including previous proof, remote apply and AI idempotency safety. Workspace typechecks and 24 combat safety tests pass. Ten of 12 new route tests fail on the previous source. Tests cover repeated/lost acknowledgement, hydration without warm cache, external committed DM edits, malformed/legacy provenance, forged body binding, distinct member/companion identity, fresh proof/battle checks, failed save and concurrent CAS. Frozen install, exact 33-route map, strict unique-key OpenAPI and local operational links/whitespace checked. DB/storage and concurrency are mocked; no live PostgreSQL, HTTP, UI visual/browser/mobile/restart or process-crash acceptance.
 - **Rollout/rollback:** matching API/client and existing capability columns; no deployment or connected DB write. Optional metadata remains backward readable. Rollback the pair together if needed; A10 rollback restores duplicate/reset exposure while A9 proof gates remain. No automatic legacy projection claim or cleanup.
 - **Remaining/next:** bounded duplicate prevention applies only while the stamped live instance remains. Host deletion permits a later Add; no permanent tombstone/receipt or suppression of retry-after-removal. Legacy projections can coexist beside a newly bound instance and require DM review. Owner leave/rejoin detach/retention and explicit recovery are next; no automatic transfer based on character labels. Source-roster ownership, rule/stat validation, future owner combat commands, public reads, bootstrap abuse and proof-to-commit races remain open. Counts unchanged: 28 proof-gated handlers, three bootstrap and two open reads. O02 partial; O05, REC-01, deferred model work and live notes QA unchanged.
+
+## DEP01: protected cloud browser preview preparation
+
+Date / PR: 2026-10-23, [PR #29](https://github.com/dstancomb3/DND-Companion/pull/29).
+
+Scope decision: user requested cloud testing on PC and phone, then confirmed
+preparation. This is a separate deployment-readiness pass, related to O05
+perimeter containment. Companion lifecycle follow-up after O02-A10 is paused for
+this request, not completed or removed from the map. REC-01 remains unverified;
+O02 remains partial and O05 remains open.
+
+Before → after: browser tests required local serving and included a hardcoded
+localhost item-properties URL. An opt-in preview now serves the Expo SPA and API
+from one HTTPS origin. Render follows main with automatic deployment on commits;
+after initial setup, merges trigger cloud builds/restarts and testers refresh the
+same URL. Local/native Expo remains separate.
+
+Authority: preview startup requires strong secrets, HTTPS origin and a built web
+export. Initial Basic login issues a signed eight-hour HttpOnly/Secure/SameSite
+cookie, independent of existing party Bearer proof. All app/assets/API paths are
+protected except minimal process liveness. Cross-origin API requests are denied.
+The preview start wrapper forces protection; build forces same-origin public
+configuration and disables dotenv loading. This is shared staging access, not
+per-user accounts, AI quotas or closure of O05.
+
+Affected files:
+- README.md
+- artifacts/api-server/package.json
+- artifacts/api-server/src/app.ts
+- artifacts/api-server/src/lib/cloudPreview.test.ts
+- artifacts/api-server/src/lib/cloudPreview.ts
+- artifacts/living-character-sheet/app.json
+- artifacts/living-character-sheet/app/dm-item.tsx
+- artifacts/living-character-sheet/package.json
+- artifacts/living-character-sheet/tests/state/api-url-preview.test.cts
+- artifacts/living-character-sheet/utils/apiUrl.ts
+- docs/app-map.md
+- docs/cloud-phone-preview.md
+- docs/feature-status.md
+- docs/migrations.md
+- package.json
+- render.yaml
+- scripts/build-cloud-preview.cjs
+- scripts/start-cloud-preview.cjs
+- scripts/test-cloud-preview.cjs
+- docs/implementation-log.md
+
+Validation: all workspace typechecks and 24 combat safety tests passed; 558 focused
+tests passed, including nine new preview/client URL tests. Actual Expo web export,
+bundled API build and compiled HTTP smoke passed. Smoke covers login, assets,
+deep links, API protection and cookie/Bearer compatibility without successful DB
+or AI calls. YAML/local documentation checks passed; provider-side acceptance is
+pending. Agent used Linux Node 24.19.0/pnpm 11.25.0; recipe pins Node
+20.20.2/pnpm 10.33.0. Chromium download failed with a truncated archive, so no
+browser visual or phone acceptance is claimed.
+
+Schema / rollout / rollback: no schema or lockfile changes, no cloud resource
+creation, connected database writes or AI model calls. Operator must connect the
+Render Blueprint, supply a separate provisioned test DB and preview password,
+then test HTTPS/browser login, phone layout, multi-device party permissions and
+DB/AI connectivity. Existing five tables and host/member capability columns are
+prerequisites; deployment does not run schema push. Disable the hosted service to
+stop previewing; reverting code alone does not remove cloud resources. Preserve
+the perimeter when rolling back to avoid exposing an older API.
+
+Next handoff: one-time Render connection and real PC/phone acceptance. Automatic
+cloud deployment thereafter removes manual local builds for browser tests, but
+still requires waiting for a successful deployment. QA-N01 live notes retest and
+QA-N02 quest completion investigation remain pending. Resume companion ownership
+lifecycle work separately from NPC instance controls after this user-requested
+preview setup.
 
 ## Keep this log current
 

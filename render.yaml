@@ -1,0 +1,31 @@
+# One protected HTTPS origin for the browser app and Node API.
+# Supply an already-provisioned TEST database. This never runs schema push.
+services:
+  - type: web
+    name: dnd-companion-preview
+    runtime: node
+    branch: main
+    autoDeployTrigger: commit
+    plan: free
+    buildCommand: corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile --prod=false && pnpm run build:preview
+    startCommand: pnpm run start:preview
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.20.2
+      - key: NODE_ENV
+        value: production
+      - key: CLOUD_PREVIEW_MODE
+        value: "true"
+      - key: EXPO_PUBLIC_API_SAME_ORIGIN
+        value: "true"
+      - key: EXPO_NO_DOTENV
+        value: "1"
+      - key: PREVIEW_USERNAME
+        value: tester
+      - key: PREVIEW_PASSWORD
+        sync: false
+      - key: PREVIEW_SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
