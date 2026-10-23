@@ -54,6 +54,16 @@ test("even the host cannot sync another player's character", async t => {
 for (const [label, token] of [["owner", owner.hostToken], ["original host", host.hostToken]]) {
   test(`leave permits ${label} with persisted proof`, async t => {
     let deleted = 0;
+    t.mock.method(db, "transaction", (async (callback: (tx: unknown) => Promise<void>) => {
+      await callback({
+        select: () => ({ from: (table: unknown) => ({ where: () => {
+          const rows = table === partySessions ? [{ hostTokenHash: host.hostTokenHash }]
+            : table === partyMembers ? [{ memberTokenHash: owner.hostTokenHash }] : [];
+          return Object.assign(Promise.resolve(rows), { for: async () => rows, limit: async () => rows });
+        } }) }),
+        delete: () => ({ where: async () => { deleted++; } }),
+      });
+    }) as never);
     t.mock.method(db, "select", (() => ({ from: (table: unknown) => ({ where: async () => table === partySessions
       ? [{ hostTokenHash: host.hostTokenHash }] : [{ memberTokenHash: owner.hostTokenHash }] }) })) as never);
     t.mock.method(db, "delete", (() => ({ where: async () => { deleted++; } })) as never);

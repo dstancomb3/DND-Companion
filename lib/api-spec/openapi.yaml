@@ -97,6 +97,7 @@ paths:
       operationId: leaveParty
       tags: [party]
       summary: Remove a member with their own capability or the original host capability
+      description: Membership removal and durable runtime cleanup commit together. Server-bound companions retain live data with companionAdmission.detachedAt and leave encounter order. Rejoining never rebinds retained instances. Host retries after successful removal are no-ops; removed member proof is revoked.
       security:
         - partyCapability: []
       requestBody:
@@ -116,6 +117,10 @@ paths:
           description: Member removed
         "403":
           description: Missing or incorrect member or host capability
+        "409":
+          description: Runtime revision or transaction serialization conflict; no departure committed
+        "500":
+          description: Departure failed; no success acknowledgement
   /party/{code}/disband:
     post:
       operationId: disbandParty

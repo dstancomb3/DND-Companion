@@ -36,8 +36,10 @@ function toLoadedSnapshot(row: typeof partyRuntimeSnapshots.$inferSelect): Loade
   };
 }
 
-export async function loadPartyRuntimeSnapshot(partyCode: string): Promise<LoadedRuntimeSnapshot | null> {
-  const rows = await db
+export type RuntimeExecutor = Pick<typeof db, "select" | "insert" | "update">;
+
+export async function loadPartyRuntimeSnapshot(partyCode: string, executor: RuntimeExecutor = db): Promise<LoadedRuntimeSnapshot | null> {
+  const rows = await executor
     .select()
     .from(partyRuntimeSnapshots)
     .where(eq(partyRuntimeSnapshots.partyCode, partyCode))
@@ -46,8 +48,8 @@ export async function loadPartyRuntimeSnapshot(partyCode: string): Promise<Loade
   return toLoadedSnapshot(rows[0]);
 }
 
-export async function savePartyRuntimeSnapshot(input: SaveSnapshotInput): Promise<SaveSnapshotResult> {
-  const existing = await loadPartyRuntimeSnapshot(input.partyCode);
+export async function savePartyRuntimeSnapshot(input: SaveSnapshotInput, executor: RuntimeExecutor = db): Promise<SaveSnapshotResult> {
+  const existing = await loadPartyRuntimeSnapshot(input.partyCode, executor);
 
   if (!existing) {
     if (input.expectedRevision !== 0) {
@@ -56,7 +58,7 @@ export async function savePartyRuntimeSnapshot(input: SaveSnapshotInput): Promis
 
     const now = new Date();
     const normalized = normalizeRuntimeSnapshotPayload(input.partyCode, input.snapshot, now.toISOString());
-    const insertRows = await db
+    const insertRows = await executor
       .insert(partyRuntimeSnapshots)
       .values({
         partyCode: input.partyCode,
@@ -78,7 +80,7 @@ export async function savePartyRuntimeSnapshot(input: SaveSnapshotInput): Promis
   const now = new Date();
   const normalized = normalizeRuntimeSnapshotPayload(input.partyCode, input.snapshot, now.toISOString());
 
-  const updatedRows = await db
+  const updatedRows = await executor
     .update(partyRuntimeSnapshots)
     .set({
       schemaVersion: CURRENT_PARTY_RUNTIME_SCHEMA_VERSION,
@@ -95,7 +97,7 @@ export async function savePartyRuntimeSnapshot(input: SaveSnapshotInput): Promis
     .returning();
 
   if (updatedRows.length === 0) {
-    const latest = await loadPartyRuntimeSnapshot(input.partyCode);
+    const latest = await loadPartyRuntimeSnapshot(input.partyCode, executor);
     return { ok: false, conflictRevision: latest?.stateRevision ?? null };
   }
 

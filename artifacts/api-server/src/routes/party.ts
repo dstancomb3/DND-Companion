@@ -1274,7 +1274,7 @@ function syncLegacyTurnState(state: PartyCombatState) {
 
 function rebuildTurnOrder(state: PartyCombatState, liveMemberIds: string[]) {
   const liveSet = new Set(liveMemberIds);
-  const activeNpcIds = new Set(state.combatNpcs.map((npc) => npc.id));
+  const activeNpcIds = new Set(state.combatNpcs.filter((npc) => !npc.companionAdmission?.detachedAt).map((npc) => npc.id));
 
   for (const key of Object.keys(state.initiativeByMember)) {
     if (!liveSet.has(key) && !activeNpcIds.has(key)) delete state.initiativeByMember[key];
@@ -1765,35 +1765,74 @@ router.delete("/party/leave", async (req, res) => {
       res.status(403).json({ code: "party_member_required", error: "Only this member or the original host can remove a player." });
       return;
     }
-    await db.delete(partyMembers).where(
-      and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))
-    );
-
-    const state = combatStates.get(partyCode);
-    if (state) {
-      delete state.initiativeByMember[memberId];
-      delete state.participantBattleById[memberId];
-      state.rollRequests = state.rollRequests
-        .map((r) => ({
-          ...r,
-          targetMemberIds: r.targetMemberIds.filter((id) => id !== memberId),
-          responses: r.responses.filter((resp) => resp.memberId !== memberId),
-        }))
-        .filter((r) => r.targetMemberIds.length > 0);
-      const rawMembers = await db.select().from(partyMembers).where(eq(partyMembers.partyCode, partyCode));
-      const members = dedupeMembersWithState(rawMembers, state);
-      rebuildTurnOrder(state, members.map((m) => m.id));
+    // Revalidate proof and clean durable state on one connection. Never derive
+    // departure cleanup from a warm or possibly in-flight cache entry.
+    await db.transaction(async (tx) => {
+      const lockedSessions = await tx.select().from(partySessions)
+        .where(eq(partySessions.code, partyCode)).for("update");
+      const lockedMembers = await tx.select().from(partyMembers)
+        .where(and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))).for("update");
+      const hostAllowed = hasPartyHostToken(header, lockedSessions[0]?.hostTokenHash);
+      const memberAllowed = hasPartyHostToken(header, lockedMembers[0]?.memberTokenHash);
+      if (!hostAllowed && !memberAllowed) {
+        throw Object.assign(new Error("Membership proof changed"), { code: "party_member_required" });
+      }
+      // A host's retry after a lost acknowledgement must not append another
+      // event or detach anything belonging to a newly enrolled identity.
+      if (lockedMembers.length === 0) return;
+      const durable = await loadPartyRuntimeSnapshot(partyCode, tx);
+      if (durable) {
+        const state = hydrateRuntimeSnapshotToCombatState(partyCode, durable.snapshot);
+        state.stateRevision = durable.stateRevision;
+        const detachedAt = new Date().toISOString();
+        const detachedIds: string[] = [];
+        for (const npc of state.combatNpcs) {
+          const binding = npc.companionAdmission;
+          if (binding?.schemaVersion !== "companion-admission.v1" || binding.memberId !== memberId) continue;
+          binding.detachedAt ??= detachedAt;
+          detachedIds.push(npc.id);
+          delete state.initiativeByMember[npc.id];
+          delete state.participantBattleById[npc.id];
+          delete state.playerEconomyByMember[npc.id];
+        }
+        delete state.initiativeByMember[memberId];
+        delete state.participantBattleById[memberId];
+        delete state.playerEconomyByMember[memberId];
+        const remaining = await tx.select().from(partyMembers).where(eq(partyMembers.partyCode, partyCode));
+        rebuildTurnOrder(state, remaining.filter(m => m.id !== memberId).map(m => m.id));
         appendEvent(state, {
-          type: "party_member_left",
-          memberId,
-          message: "A party member left the party.",
+          type: "party_member_left", memberId,
+          message: detachedIds.length
+            ? `A party member left; ${detachedIds.length} companion(s) retained outside combat for DM review.`
+            : "A party member left the party.",
         });
-      await persistRuntimeState(partyCode, state);
-    }
+        const saved = await savePartyRuntimeSnapshot({
+          partyCode, snapshot: toRuntimeSnapshotPayload(state), expectedRevision: durable.stateRevision,
+        }, tx);
+        if (!saved.ok) throw new RuntimeConflictError(durable.stateRevision, saved.conflictRevision);
+      }
+      await tx.delete(partyMembers).where(
+        and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, partyCode))
+      );
+    }, { isolationLevel: "serializable" });
+    // Publish no transaction-local state. The next read hydrates the committed
+    // snapshot, including changes made by another writer after this commit.
+    combatStates.delete(partyCode);
 
     res.json({ ok: true });
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
+    let failure: { code?: string; cause?: unknown } | undefined = err as { code?: string; cause?: unknown };
+    let code = failure?.code;
+    for (let depth = 0; !code && failure?.cause && depth < 4; depth++) {
+      failure = failure.cause as typeof failure;
+      code = failure?.code;
+    }
+    if (code === "party_member_required") {
+      res.status(403).json({ code, error: "Only this member or the original host can remove a player." });
+      return;
+    }
+    if (code === "40001" || code === "40P01") throw new RuntimeConflictError(0, null);
     res.status(500).json({ error: "Failed to leave party" });
   }
 });
@@ -1897,9 +1936,9 @@ router.post("/party/:code/initiative/start", async (req, res) => {
       ? targetMemberIds.filter((id: string) => validMemberIds.has(id))
       : members.map((m) => m.id));
     const state = await getOrHydrateCombatState(code);
-    const validNpcIds = new Set(state.combatNpcs.map((npc) => npc.id));
+    const validNpcIds = new Set(state.combatNpcs.filter((npc) => !npc.companionAdmission?.detachedAt).map((npc) => npc.id));
     const selectedNpcIds = targetNpcIds.filter((id) => validNpcIds.has(id));
-    if (selectedMemberIds.length === 0 && selectedNpcIds.length === 0 && state.combatNpcs.length === 0) {
+    if (selectedMemberIds.length === 0 && selectedNpcIds.length === 0 && validNpcIds.size === 0) {
       res.status(400).json({ error: "Cannot start initiative with no combat participants" });
       return;
     }
@@ -3756,7 +3795,7 @@ router.post("/party/:code/encounters/:battleId/participants", async (req, res) =
 
     const members = await getLiveMembers(code);
     const validMemberIds = new Set(members.map((m) => m.id));
-    const validNpcIds = new Set(state.combatNpcs.map((npc) => npc.id));
+    const validNpcIds = new Set(state.combatNpcs.filter((npc) => !npc.companionAdmission?.detachedAt).map((npc) => npc.id));
 
     const addMemberIds: string[] = Array.isArray(req.body?.memberIds)
       ? req.body.memberIds.filter((id: unknown): id is string => typeof id === "string" && validMemberIds.has(id))
