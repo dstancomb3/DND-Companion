@@ -3371,6 +3371,31 @@ router.put("/party/:code/note-assignments/:assignmentId/decline", async (req, re
 router.post("/party/:code/combat-npcs", async (req, res) => {
   try {
     const { code } = req.params;
+    const projection = normalizeCombatNpcProjection(req.body?.projection);
+    const companionMemberId = projection?.ownerMemberId;
+    if (projection && (!companionMemberId || !projection.companionId)) {
+      res.status(400).json({ error: "Companion and owner member IDs are required" });
+      return;
+    }
+    const access = projection
+      ? await authorizePartyMember(code, companionMemberId!, req.get("authorization"))
+      : await authorizePartyHost(code, req.get("authorization"), "create combat NPCs");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code });
+      return;
+    }
+    // Companion metadata selects the credential; it never proves character ownership.
+    if (req.body?.projection !== undefined && !projection) {
+      res.status(400).json({ error: "Unsupported NPC projection" });
+      return;
+    }
+    if (projection && (req.body?.sourceType !== "character" || req.body?.sourceId !== projection.companionId ||
+      req.body?.disposition !== "friendly" || req.body?.initiativeTotal !== undefined ||
+      (req.body?.gear !== undefined && (!Array.isArray(req.body.gear) || req.body.gear.length > 0)) ||
+      (req.body?.conditions !== undefined && (!Array.isArray(req.body.conditions) || req.body.conditions.length > 0)))) {
+      res.status(400).json({ error: "Companion projection must be a friendly character source without gear, conditions or an initiative override" });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
@@ -3393,7 +3418,6 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
     const coreStats = normalizeCombatNpcStats(req.body?.coreStats);
     const visibleStatKeys = normalizeVisibleNpcStatKeys(req.body?.visibleStatKeys);
     const conditions = normalizeCombatConditions(req.body?.conditions);
-    const projection = normalizeCombatNpcProjection(req.body?.projection);
     const dummyMeta = parseDummyMetaFromSourceId(sourceId);
     const dummyState = dummyMeta
       ? normalizeDummyState(req.body?.dummyState, dummyMeta)
@@ -3409,6 +3433,12 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
       : coreStats.initiativeBonus;
 
     const state = await getOrHydrateCombatState(code);
+    const ownerBattleId = companionMemberId ? state.participantBattleById[companionMemberId] : undefined;
+    const requestedBattleId = typeof req.body?.battleId === "string" ? req.body.battleId.trim() : undefined;
+    if (projection && requestedBattleId && requestedBattleId !== ownerBattleId) {
+      res.status(403).json({ error: "A companion can only join its submitting member's battle" });
+      return;
+    }
     const npcId = `npc_${generateId()}`;
     const npc = {
       id: npcId,
@@ -3425,7 +3455,7 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     state.combatNpcs.push(npc);
-    const targetBattleId = selectedBattleIdFromRequest(req.body?.battleId, state.activeMemberIds, state.participantBattleById);
+    const targetBattleId = projection ? ownerBattleId : selectedBattleIdFromRequest(req.body?.battleId, state.activeMemberIds, state.participantBattleById);
     if (targetBattleId) {
       state.participantBattleById[npcId] = targetBattleId;
     }
@@ -3442,7 +3472,8 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
     rebuildTurnOrder(state, members.map((m) => m.id));
     appendEvent(state, {
       type: "combat_npc_added",
-      message: `DM added ${name} as a ${disposition} combat NPC.`,
+      message: projection ? `A party member projected ${name} as a companion.` : `DM added ${name} as a ${disposition} combat NPC.`,
+      memberId: companionMemberId,
       metadata: {
         npcId,
         sourceType,

@@ -1,4 +1,4 @@
-import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem, CombatNpc, CombatNpcStatKey, CombatNpcDummyState, CombatNpcGearItem } from "./partyApi";
+import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem, CombatNpc, CombatNpcStatKey, CombatNpcDummyState, CombatNpcGearItem, CreateCombatNpcPayload } from "./partyApi";
 
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
@@ -60,6 +60,9 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       await request(`/party/${code}/encounters/${battleId}/participants`, {
         method: "POST", headers: await encounterHeaders(code), body: JSON.stringify({ memberIds, npcIds }),
       });
+    },
+    async addCombatNpc(code: string, payload: CreateCombatNpcPayload): Promise<{ ok: true; npc: CombatNpc }> {
+      return request(`/party/${code}/combat-npcs`, { method: "POST", headers: await encounterHeaders(code, "create combat NPCs"), body: JSON.stringify(payload) });
     },
     async updateCombatNpcVisibleStats(code: string, npcId: string, payload: { visibleStatKeys: CombatNpcStatKey[] }): Promise<{ ok: true; npc: CombatNpc }> {
       return request(`/party/${code}/combat-npcs/${npcId}/visible-stats`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify(payload) });

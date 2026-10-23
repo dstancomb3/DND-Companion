@@ -547,6 +547,37 @@ paths:
           description: Party not found
         "409":
           description: Runtime revision conflict
+  /party/{code}/combat-npcs:
+    post:
+      operationId: addCombatNpc
+      tags: [party]
+      summary: Create a host NPC or admit a member companion projection
+      description: Ordinary creation requires original-host proof. Companion metadata requires exact live ownerMemberId bearer proof, constrained friendly character fields and own-member battle scope. Proof authenticates the submitter, not saved companion ownership or stats. Host proof cannot substitute for member proof on companion admission.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: NPC or companion projection created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Missing or unsupported creation/projection fields
+        "403":
+          description: Missing live host/member proof or foreign companion battle
+        "404":
+          description: Party not found or expired
+        "409":
+          description: Runtime revision conflict
   /party/{code}/combat-npcs/{npcId}/dummy-state:
     put:
       operationId: updateCombatNpcDummyState

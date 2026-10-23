@@ -31,7 +31,7 @@ import { CompanionForm } from "@/components/ui/CompanionForm";
 import type { Feat } from "@/types";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { useParty } from "@/context/PartyContext";
-import { addCombatNpc } from "@/utils/partyApi";
+import { projectPartyCompanion } from "@/utils/partyApi";
 import { auditLevelUp } from "@/data/progression/engine";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
@@ -244,10 +244,10 @@ export default function SheetScreen() {
         ownerCharacterId: character.id,
         battleId: ownerBattleId,
       });
-      await addCombatNpc(partyCode, payload);
+      await projectPartyCompanion(partyCode, payload);
       Alert.alert("Companion added", `${companion.name} was projected into party combat.`);
-    } catch {
-      Alert.alert("Unable to add companion", "Could not project this companion into combat right now.");
+    } catch (error: unknown) {
+      Alert.alert("Unable to add companion", error instanceof Error ? error.message : "Could not project this companion into combat right now.");
     } finally {
       setProjectingCompanionId(null);
     }
