@@ -4,7 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
-Subsequent passes are appended below; latest recorded pass: DEP01 ([PR #29](https://github.com/dstancomb3/DND-Companion/pull/29)).
+Subsequent passes are appended below; latest recorded pass: DEP02 ([PR #30](https://github.com/dstancomb3/DND-Companion/pull/30)).
 
 ## Read this before choosing more work
 
@@ -459,6 +459,40 @@ still requires waiting for a successful deployment. QA-N01 live notes retest and
 QA-N02 quest completion investigation remain pending. Resume companion ownership
 lifecycle work separately from NPC instance controls after this user-requested
 preview setup.
+
+## DEP02: direct Node preview startup
+
+Date / PR: 2026-10-23, [PR #30](https://github.com/dstancomb3/DND-Companion/pull/30).
+
+Scope: follow-up to user-reported Render deployment failure. User logs establish
+successful browser export, API bundle and build upload, followed by deployment
+exceeding 512 MiB. Earlier runtime logs showed Corepack fetching pnpm 12.15.0
+and dependency downloads near port scans. Exact memory attribution remains
+unverified; do not conclude the API needs a paid instance.
+
+Before → after: Render invoked pnpm run start:preview without a root
+packageManager declaration. It now invokes the same protected wrapper directly
+with Node, bypassing runtime package-manager bootstrap. Root packageManager pins
+pnpm 10.33.0 for build tooling. No runtime install/build is added.
+
+Files: package.json, render.yaml, docs/cloud-phone-preview.md,
+docs/feature-status.md, docs/migrations.md, docs/implementation-log.md.
+
+Validation: all workspace typechecks and 24 combat baseline tests passed;
+nine focused preview/client URL tests and compiled HTTP startup smoke passed.
+YAML start-command and package-manager pin checks passed. No application code
+changed, so the prior compiled artifact was reused for startup smoke. Hosted
+memory acceptance remains pending; this pass has no memory benchmark proving
+512 MiB suitability and makes no claim the original deployment succeeded.
+
+Rollout: sync the Blueprint and verify the service Start Command is
+node --enable-source-maps scripts/start-cloud-preview.cjs before testing the
+next deployment. Preserve existing preview secrets and DB URL. Capture runtime
+logs/metrics if OOM persists. No paid plan change, DB/schema write, model call
+or password/party authority change. Revert only with preview protection retained.
+
+Status: DEP01 hosting acceptance remains pending, O05 open, O02 partial,
+REC-01 unverified. Companion lifecycle and existing QA follow-ups remain queued.
 
 ## Keep this log current
 
