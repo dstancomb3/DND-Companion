@@ -1,5 +1,12 @@
 export const CURRENT_PARTY_RUNTIME_SCHEMA_VERSION = 1;
 
+// Server-created party-scoped admission provenance, never accepted from request bodies.
+export interface CompanionAdmission {
+  schemaVersion: "companion-admission.v1";
+  memberId: string;
+  companionId: string;
+}
+
 export interface RuntimeSnapshotPayload {
   partyCode: string;
   activeMemberIds: string[];
@@ -52,6 +59,7 @@ export interface RuntimeSnapshotPayload {
       ownerMemberId?: string;
       ownerCharacterId?: string;
     };
+    companionAdmission?: CompanionAdmission;
     createdAt: string;
   }>;
   memberStatsById: Record<

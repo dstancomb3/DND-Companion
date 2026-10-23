@@ -56,7 +56,7 @@ validated combat/companion ownership, transaction safety or abuse protection.
 | POST | `/party/:code/note-assignments` | Host proof (O02-A1) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
 | PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
-| POST | `/party/:code/combat-npcs` | Host or companion submitter proof (O02-A9) | Create/seed NPC, dummy or player companion | Ordinary NPCs require host proof; companion admission requires exact live member proof and own-battle scope. Character/creature ownership and stats remain client claims. |
+| POST | `/party/:code/combat-npcs` | Host or companion submitter proof (O02-A9/A10) | Create/seed NPC, dummy or player companion | Ordinary NPCs require host proof; companion admission requires exact live member proof and own-battle scope. Character/creature ownership and stats remain client claims. |
 | PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Host proof (O02-A8) | Update NPC/dummy state | Host proof plus party-local instance lookup; existing HP/action normalization retained. |
 | PUT | `/party/:code/combat-npcs/:npcId/gear` | Host proof (O02-A8) | Replace NPC gear | Host proof plus party-local instance lookup; canonical effect validation remains separate. |
 | PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Host proof (O02-A8) | Choose NPC stats visible to players | Host proof plus party-local instance lookup; public reads still expose full data. |
@@ -389,3 +389,22 @@ spoofing. All twelve previously open non-bootstrap mutations now check proof,
 but O02 remains partial: open reads still have activity/expiry side effects,
 invitation bootstrap is public, and proof-to-commit races, gameplay truth and
 companion ownership remain open. O05, REC-01 and deferred models are unchanged.
+
+## O02-A10: player-managed live companion identity (2026-10-22)
+
+The user chose player-managed immediate admission, with DM oversight, rather
+than an approval queue. New companions get server-stamped admission provenance
+bound to the authenticated party/member/companion identity. Repeat admission
+checks committed runtime and reuses an existing bound instance without
+resetting its combat state, applying local edits, moving it or emitting another
+creation event. Existing member/battle/field checks remain before reuse.
+
+Only server-stamped live instances qualify, so legacy public owner labels grant
+no ownership or deduplication rights. There is no canonical local-roster proof,
+permanent receipt/tombstone, auto-transfer, owner leave/rejoin cleanup or new
+player instance-control permission. Optional runtime JSON metadata is additive;
+no new SQL migration. Existing revision conflicts fail closed and may be retried
+explicitly; full proof-to-commit serialization is not implemented. See the
+[companion policy](companion-projection-permissions.md) for exact lifecycle scope.
+The route counts stay 28 proof-gated, three bootstrap and two open reads. O02
+remains partial. Rollback A10 reopens duplicate/reset exposure, not A9 proof gates.

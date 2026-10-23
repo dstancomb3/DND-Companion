@@ -244,8 +244,9 @@ export default function SheetScreen() {
         ownerCharacterId: character.id,
         battleId: ownerBattleId,
       });
-      await projectPartyCompanion(partyCode, payload);
-      Alert.alert("Companion added", `${companion.name} was projected into party combat.`);
+      const result = await projectPartyCompanion(partyCode, payload);
+      Alert.alert(result.reused ? "Companion already in combat" : "Companion added",
+        result.reused ? `${result.npc.name} is already in party combat. Their current combat state was kept.` : `${companion.name} was projected into party combat.`);
     } catch (error: unknown) {
       Alert.alert("Unable to add companion", error instanceof Error ? error.message : "Could not project this companion into combat right now.");
     } finally {
