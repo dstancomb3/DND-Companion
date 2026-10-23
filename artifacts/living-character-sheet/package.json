@@ -17,7 +17,7 @@
     "test:state-regression": "pnpm exec tsx --test tests/state/mutation-sync-hardening.test.mts tests/state/party-event-history.test.mts tests/state/encounter-setup-handoff.test.mts tests/state/character-import-export-contract.test.mts tests/combat/resolveCombatAction.safety.test.cts",
     "test:regression": "pnpm run test:state-regression && pnpm run test:smoke",
     "test:party-notes": "node --import tsx --test tests/state/party-notes-delivery.test.cts",
-    "test:party-host": "node --import tsx --test tests/state/party-host-api.test.cts tests/state/party-member-api.test.cts tests/state/party-encounter-api.test.cts",
+    "test:party-host": "node --import tsx --test tests/state/party-host-api.test.cts tests/state/party-member-api.test.cts tests/state/party-encounter-api.test.cts tests/state/party-roll-prompt-api.test.cts",
     "test:undo-safety": "node --import tsx --test tests/state/mutation-undo-safety.test.cts tests/state/mutation-history-containment.test.cts",
     "test:snapshot-usage": "node --import tsx --test tests/state/snapshot-effect-usage.test.cts tests/state/character-effect-usage-lifecycle.test.cts"
   },

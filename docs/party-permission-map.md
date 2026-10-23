@@ -24,11 +24,11 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A5: fifteen handlers have explicit capability proof (sync, leave,
+After O02-A6: sixteen handlers have explicit capability proof (sync, leave,
 disband, note creation/accept/decline, member initiative, roll response, rest
-request/approval/acknowledgement, loot claim, initiative start, encounter end
-and participant addition); three are bootstrap handlers; two are
-open read handlers; 13 are open mutation handlers. Counts are declarations, not a security-completion
+request/approval/acknowledgement, loot claim, initiative start, encounter end,
+participant addition and roll-prompt creation); three are bootstrap handlers; two are
+open read handlers; 12 are open mutation handlers. Counts are declarations, not a security-completion
 percentage. Some GET/session helpers have writes.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
@@ -47,7 +47,7 @@ percentage. Some GET/session helpers have writes.
 | POST | `/party/:code/economy/spend` | Open mutation | Spend member turn economy | Proposed own-current-actor proof and existing economy validation. |
 | POST | `/party/:code/economy/reset` | Open mutation | Reset member turn economy | Requires explicit reset/host policy; memberId alone is not proof. |
 | POST | `/party/:code/combat/apply-outcomes` | Open mutation | Apply bounded remote HP/temp HP/conditions | Existing source/turn/target checks are business validation, not caller authentication. Prove source ownership or explicit host authority. |
-| POST | `/party/:code/roll-requests` | Open mutation | Create roll prompts | Proposed host or explicit authorized orchestrator role; no caller DM flag. |
+| POST | `/party/:code/roll-requests` | Host proof (O02-A6) | Create roll prompts | Persisted original-host proof before activity/runtime work. AI DM uses the same capability; target membership is not author authority. |
 | PUT | `/party/:code/roll-requests/:requestId/respond` | Target-member proof | Record/replace target member roll response | Live exact-member proof plus existing request-target check. Dice/modifier fairness and durable roll authority remain separate. |
 | POST | `/party/:code/rest-requests` | Member proof | Request rest for member | Live requester proof; existing party-wide rest request semantics retained. Host proof is required on the separate approval route. |
 | PUT | `/party/:code/rest-requests/:requestId` | Host proof (O02-A4) | Approve/deny rest | Original-host proof before activity/expiry/runtime work; server stamps resolvedBy as dm. |
@@ -58,7 +58,7 @@ percentage. Some GET/session helpers have writes.
 | POST | `/party/:code/note-assignments` | Host proof (O02-A1) | Create DM quest/people/location assignments | Authenticate original host before activity, expiry cleanup, member reads or runtime hydration. Server stamps DM origin. |
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
 | PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
-| POST | `/party/:code/combat-npcs` | Open mutation | Create/seed NPC or dummy in runtime | Proposed host proof; template vs instance authority needs explicit mapping. |
+| POST | `/party/:code/combat-npcs` | Open mutation | Create/seed NPC, dummy or player companion | Needs separate host creation and member-owned companion projection policy. Supplied projection.ownerMemberId is metadata, not proof. |
 | PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Open mutation | Update NPC/dummy state | Proposed host proof and referenced instance/battle scope. |
 | PUT | `/party/:code/combat-npcs/:npcId/gear` | Open mutation | Replace NPC gear | Proposed host proof; canonical effect validation remains separate. |
 | PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Open mutation | Choose NPC stats visible to players | Proposed host proof; audience-limited read projection remains separate. |
@@ -252,3 +252,49 @@ encounter changes. Authorization and runtime commit are not one transaction;
 concurrent disband/recreate/capability-change races and live acceptance remain.
 There are now 15 proof-gated handlers, 3 bootstrap, 2 open reads and 13 open
 mutation handlers. This is a count of declarations, not security completion.
+
+
+## O02-A6: roll-prompt authoring (2026-10-22)
+
+POST /party/:code/roll-requests now reuses authorizePartyHost before session
+activity refresh, expired-state deletion, member reads or runtime hydration.
+The helper accepts a server-selected action label for clear errors; caller role
+fields do not control it. Missing/member/wrong-party/legacy/body-only/malformed/
+AI-label proof returns 403 party_host_required with no writes. Unknown party is
+404. Authorized hosts retain live target filtering, label/battle-label
+normalization, initiative prompt overlap/replied-prompt behavior, events and
+persistence. This does not add stat-key schema validation, enforce battle-target
+membership or make authoring and runtime commit atomic.
+
+Client createPartyRollRequest retains its signature/result through partyHostApi.
+It reads only the exact party's persisted host credential, sends bearer and JSON
+headers, prevents requests without local proof and retains proof after errors.
+DM Party's direct prompt action now displays errors instead of leaving a rejected
+promise unhandled. Its initiative-start and participant-add paths already catch
+failures. Adventure adjudication and campaign orchestration already report failed
+prompts. Model responses, watched codes and member proof cannot delegate host
+access. Use the creator device for both DM and AI DM prompts.
+
+### Caller map and NPC follow-up evidence
+
+| Operation | Observed callers | Decision / remaining work |
+| --- | --- | --- |
+| Roll-prompt creation | dm-party.tsx start/add/manual prompt; Adventure session adjudication; campaignEncounterRuntime through the session's injected shared export | Gate now using original-host proof, including reused battles that skip initiative start. Recipients still respond with member proof. |
+| NPC creation | DM Monsters; DM Party templates/dummies; landing demo; campaign orchestration; player sheet companion projection | Leave open in this pass. Player projection sends ownerMemberId/ownerCharacterId inside metadata without credential proof; host-only gating would break an existing player feature. Need explicit validated ownership/host policies. |
+| NPC dummy-state and gear updates | DM Party handlers | Observed UI is host-oriented; separate scoped instance-ownership gate next. No permission inferred from NPC ID or projection labels. |
+| NPC visibility and deletion | DM Party handlers | Host-oriented current callers; remain open pending next bounded proof/instance policy. |
+| NPC initiative | DM Party and Adventure session AI encounter seeding | Current host/AI DM path needs proof; companion-owner initiative rights require an explicit policy if introduced. No gate added here. |
+
+Campaign integration tests exercise real host adapters for new and reused battles.
+A member-only new battle fails at start before downstream work. In a reused
+battle with an already-present hostile, unauthorized roll authoring becomes a
+failedRoll entry without issuing a roll request. If an existing battle lacks its
+NPC, the still-open creation route can run before prompt failure: no workflow
+transaction or complete AI DM authority is claimed. Refresh/read paths remain open.
+
+No new schema or migration. Matching client/API and existing host column required;
+old clients and unclaimed legacy parties fail closed. Roll back matching versions
+together if needed, leaving columns intact; reverting server proof reopens prompt
+spoofing. DB/storage are mocked in focused tests; device/HTTP/real DB and concurrent
+capability/session changes remain unverified. There are 16 proof-gated handlers,
+3 bootstrap, 2 open reads and 12 open mutation handlers. Original O02 stays partial.

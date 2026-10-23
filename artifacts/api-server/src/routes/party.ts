@@ -2463,6 +2463,12 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
 router.post("/party/:code/roll-requests", async (req, res) => {
     try {
       const { code } = req.params;
+      // A requested target or AI DM label is not authority to issue prompts.
+      const access = await authorizePartyHost(code, req.get("authorization"), "create roll prompts");
+      if (!access.ok) {
+        res.status(access.status).json({ error: access.error, code: access.code });
+        return;
+      }
       const session = await ensureActiveSession(code);
       if (!session.ok) {
         res.status(session.status).json({ error: session.error });
@@ -3167,15 +3173,15 @@ router.post("/party/:code/note-assignments", async (req, res) => {
   }
 });
 
-// Encounter control belongs to the persisted host capability, including AI DM
-// calls made on the host device. Caller labels do not establish delegation.
-async function authorizePartyHost(code: string, authorization: string | undefined) {
+// Encounter and roll-prompt control belong to the persisted host capability.
+// AI DM calls use the host device; caller labels do not establish delegation.
+async function authorizePartyHost(code: string, authorization: string | undefined, action = "manage encounters") {
   const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
   if (sessions.length === 0) {
     return { ok: false as const, status: 404, code: "party_not_found", error: "Party session not found" };
   }
   if (!hasPartyHostToken(authorization, sessions[0].hostTokenHash)) {
-    return { ok: false as const, status: 403, code: "party_host_required", error: "Only the original party host can manage encounters. Run DM or AI DM controls from the device that created this party." };
+    return { ok: false as const, status: 403, code: "party_host_required", error: `Only the original party host can ${action}. Run DM or AI DM controls from the device that created this party.` };
   }
   return { ok: true as const };
 }

@@ -1,4 +1,4 @@
-import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult } from "./partyApi";
+import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey } from "./partyApi";
 
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
@@ -39,6 +39,13 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       if (!token) throw new Error("Only the device that created this party can approve or deny rest. Older parties must expire or be recreated.");
       return request(`/party/${code}/rest-requests/${requestId}`, {
         method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+    },
+    async createPartyRollRequest(code: string, payload: { statKey: PartyStatKey; label?: string; targetMemberIds: string[]; battleId?: string }): Promise<{ ok: true; request: PartyRollRequest }> {
+      const token = await storage.getItem(tokenKey(code));
+      if (!token) throw new Error("Only the device that created this party can create roll prompts. Run DM or AI DM controls from that device. Older parties must expire or be recreated.");
+      return request(`/party/${code}/roll-requests`, {
+        method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
     },
     async startPartyInitiative(code: string, includeEnvironment = true, targetMemberIds?: string[], targetNpcIds?: string[]): Promise<PartyInitiativeStartResult> {
