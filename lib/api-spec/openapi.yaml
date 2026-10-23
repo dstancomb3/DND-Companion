@@ -552,7 +552,7 @@ paths:
       operationId: addCombatNpc
       tags: [party]
       summary: Create a host NPC or admit a member companion projection
-      description: Ordinary creation requires original-host proof. Companion metadata requires exact live ownerMemberId bearer proof, constrained friendly character fields and own-member battle scope. Proof authenticates the submitter, not saved companion ownership or stats. Host proof cannot substitute for member proof on companion admission.
+      description: Ordinary creation requires original-host proof. Companion metadata requires exact live ownerMemberId bearer proof, constrained friendly character fields and own-member battle scope. Proof authenticates the submitter, not saved companion ownership or stats. Host proof cannot substitute for member proof on companion admission. Player-managed admission stamps server provenance and reuses an existing committed live instance without resetting it; companion responses include reused. There is no permanent receipt after removal.
       security:
         - partyCapability: []
       parameters:
@@ -565,7 +565,7 @@ paths:
               $ref: "#/components/schemas/GenericObject"
       responses:
         "200":
-          description: NPC or companion projection created
+          description: NPC created, or companion projection created or reused with current combat state
           content:
             application/json:
               schema:

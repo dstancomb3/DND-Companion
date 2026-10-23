@@ -238,6 +238,7 @@ export interface CombatNpc {
   gear?: CombatNpcGearItem[];
   conditions?: CombatConditionSummary[];
   projection?: CombatNpcProjectionMetadata;
+  companionAdmission?: { schemaVersion: "companion-admission.v1"; memberId: string; companionId: string };
   createdAt: string;
 }
 
@@ -452,6 +453,7 @@ export type CreateCombatNpcPayload = {
 };
 
 export const addCombatNpc = hostApi.addCombatNpc;
+export interface CompanionProjectionResult { ok: true; npc: CombatNpc; reused: boolean }
 export const projectPartyCompanion = memberApi.projectPartyCompanion;
 
 export const updateCombatNpcVisibleStats = hostApi.updateCombatNpcVisibleStats;

@@ -51,3 +51,11 @@ for (const error of [new Error("Offline"), new Error("Host rejected")]) {
     assert.equal(f.calls.length, 1); assert.equal(f.rows.get("party-host-token.v1:PARTY"), "host-token");
   });
 }
+
+for (const reused of [false, true]) {
+  test(`companion API exposes the server reuse result: ${reused}`, async () => {
+    const f = fixture(); Object.assign(f.reply, { reused, npc: { id: "existing", name: "Current name", dummyState: { currentHp: 3 } } });
+    const result = await partyMemberApi(f.request, f.storage).projectPartyCompanion("PARTY", payload);
+    assert.equal(result.reused, reused); assert.equal(result.npc.id, "existing"); assert.equal(result.npc.dummyState?.currentHp, 3); assert.equal(f.calls.length, 1);
+  });
+}

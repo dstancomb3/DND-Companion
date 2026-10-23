@@ -7,6 +7,7 @@ import {
   CURRENT_PARTY_RUNTIME_SCHEMA_VERSION,
   normalizeRuntimeSnapshotPayload,
   type RuntimeSnapshotPayload,
+  type CompanionAdmission,
 } from "../lib/partyRuntimeSchema";
 import {
   deletePartyRuntimeSnapshot,
@@ -307,6 +308,7 @@ interface PartyCombatState {
     gear?: CombatNpcGearItem[];
     conditions?: CombatConditionSummary[];
     projection?: CombatNpcProjectionMetadata;
+    companionAdmission?: CompanionAdmission;
     createdAt: string;
   }>;
   memberStatsById: Record<string, PartyMemberCombatStats>;
@@ -1111,6 +1113,17 @@ function hydrateRuntimeSnapshotToCombatState(code: string, snapshot: RuntimeSnap
     playerEconomyByMember: normalized.playerEconomyByMember,
     updatedAt: normalized.updatedAt,
   };
+}
+
+// Companion admission/reuse reads committed state, not a possibly in-flight cached mutation.
+async function getCommittedCombatState(code: string): Promise<PartyCombatState> {
+  const durable = await loadPartyRuntimeSnapshot(code);
+  if (!durable) return buildDefaultCombatState(code);
+  const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+  state.schemaVersion = durable.schemaVersion;
+  state.stateRevision = durable.stateRevision;
+  state.updatedAt = durable.updatedAt;
+  return state;
 }
 
 async function getOrHydrateCombatState(code: string): Promise<PartyCombatState> {
@@ -3432,13 +3445,29 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
       ? Math.floor(req.body.initiativeTotal)
       : coreStats.initiativeBonus;
 
-    const state = await getOrHydrateCombatState(code);
+    const state = projection ? await getCommittedCombatState(code) : await getOrHydrateCombatState(code);
     const ownerBattleId = companionMemberId ? state.participantBattleById[companionMemberId] : undefined;
     const requestedBattleId = typeof req.body?.battleId === "string" ? req.body.battleId.trim() : undefined;
     if (projection && requestedBattleId && requestedBattleId !== ownerBattleId) {
       res.status(403).json({ error: "A companion can only join its submitting member's battle" });
       return;
     }
+    if (projection) {
+      const existing = state.combatNpcs.find((entry) =>
+        entry.companionAdmission?.schemaVersion === "companion-admission.v1" &&
+        entry.companionAdmission.memberId === companionMemberId &&
+        entry.companionAdmission.companionId === projection.companionId);
+      if (existing) {
+        // Reuse preserves live HP, spent economy, DM edits, battle placement and history.
+        res.json({ ok: true, npc: existing, reused: true });
+        return;
+      }
+    }
+    const companionAdmission: CompanionAdmission | undefined = projection ? {
+      schemaVersion: "companion-admission.v1",
+      memberId: companionMemberId!,
+      companionId: projection.companionId!,
+    } : undefined;
     const npcId = `npc_${generateId()}`;
     const npc = {
       id: npcId,
@@ -3452,6 +3481,7 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
       gear,
       conditions,
       projection,
+      companionAdmission,
       createdAt: new Date().toISOString(),
     };
     state.combatNpcs.push(npc);
@@ -3484,7 +3514,7 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
     });
     await persistRuntimeState(code, state);
 
-    res.json({ ok: true, npc });
+    res.json({ ok: true, npc, ...(projection ? { reused: false } : {}) });
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     res.status(500).json({ error: "Failed to add combat NPC" });

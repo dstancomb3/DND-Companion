@@ -524,3 +524,24 @@ All twelve previously open non-bootstrap mutations now check caller proof:
 O02 stays partial because read side effects/privacy, bootstrap abuse, ownership,
 proof-to-commit races and gameplay truth remain open. O05/model work, REC-01
 and live notes QA are unchanged. Tests and touched files are in the log.
+
+
+## O02-A10 player-managed companion identity (2026-10-22)
+
+User selected immediate player-managed companion admission with DM oversight.
+New server-owned admission metadata binds the live combat instance to party,
+authenticated member and local companion ID. Repeated Add returns the committed
+instance with reused=true, preserving current HP/economy/conditions, DM edits
+and placement, without another creation event. Companion admission reads durable
+runtime rather than a possibly in-flight cache; the existing revision guard
+rejects conflicting writes. The sheet distinguishes reuse from a new addition.
+
+Optional companionAdmission data is additive within existing runtime JSON/schema
+v1; no new column or SQL migration. Requests cannot supply trusted provenance.
+Legacy owner labels are not adopted. This verifies party-scoped submission
+identity, not saved-character ownership, approved stats or permanent receipts.
+Host deletion permits a later new Add; no tombstone/ban or retry-after-removal
+protection is added. Owner leave/rejoin detach/recovery and player combat command
+rights remain the next distinct boundary. O02/O05, public reads, proof-to-commit
+races, REC-01 and deferred models remain unchanged. Rollback matching API/client
+together; removing A10 restores duplicate/reset exposure. No deployment or DB write.
