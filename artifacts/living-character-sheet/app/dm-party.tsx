@@ -1663,10 +1663,11 @@ export default function DmPartyScreen() {
     if (!watchedCode) return;
     setUpdatingNpcDummyStateId(npcId);
     try {
+      setError(null);
       await updateCombatNpcDummyState(watchedCode, npcId, patch);
       await refreshCombat(watchedCode);
-    } catch {
-      // silently ignore
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update NPC state.");
     } finally {
       setUpdatingNpcDummyStateId(null);
     }
@@ -1693,10 +1694,11 @@ export default function DmPartyScreen() {
   const handleUpdateNpcGear = async (npcId: string, gear: CombatNpcGearItem[]) => {
     if (!watchedCode) return;
     try {
+      setError(null);
       await updateCombatNpcGear(watchedCode, npcId, { gear });
       await refreshCombat(watchedCode);
-    } catch {
-      // silently ignore
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update NPC gear.");
     }
   };
 

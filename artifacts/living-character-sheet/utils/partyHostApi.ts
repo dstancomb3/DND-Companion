@@ -1,4 +1,4 @@
-import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem } from "./partyApi";
+import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem, CombatNpc, CombatNpcStatKey, CombatNpcDummyState, CombatNpcGearItem } from "./partyApi";
 
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
@@ -10,9 +10,9 @@ type Request = <T>(path: string, options?: RequestInit) => Promise<T>;
 const tokenKey = (code: string) => `party-host-token.v1:${code}`;
 
 export function partyHostApi(request: Request, storage: HostTokenStorage) {
-  async function encounterHeaders(code: string): Promise<Record<string, string>> {
+  async function encounterHeaders(code: string, action = "manage encounters"): Promise<Record<string, string>> {
     const token = await storage.getItem(tokenKey(code));
-    if (!token) throw new Error("Only the device that created this party can manage encounters. Run DM or AI DM controls from that device. Older parties must expire or be recreated.");
+    if (!token) throw new Error(`Only the device that created this party can ${action}. Run DM or AI DM controls from that device. Older parties must expire or be recreated.`);
     return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   }
   return {
@@ -60,6 +60,21 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
       await request(`/party/${code}/encounters/${battleId}/participants`, {
         method: "POST", headers: await encounterHeaders(code), body: JSON.stringify({ memberIds, npcIds }),
       });
+    },
+    async updateCombatNpcVisibleStats(code: string, npcId: string, payload: { visibleStatKeys: CombatNpcStatKey[] }): Promise<{ ok: true; npc: CombatNpc }> {
+      return request(`/party/${code}/combat-npcs/${npcId}/visible-stats`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify(payload) });
+    },
+    async updateCombatNpcDummyState(code: string, npcId: string, payload: Partial<CombatNpcDummyState>): Promise<{ ok: true; npc: CombatNpc }> {
+      return request(`/party/${code}/combat-npcs/${npcId}/dummy-state`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify(payload) });
+    },
+    async updateCombatNpcGear(code: string, npcId: string, payload: { gear: CombatNpcGearItem[] }): Promise<{ ok: true; npc: CombatNpc }> {
+      return request(`/party/${code}/combat-npcs/${npcId}/gear`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify(payload) });
+    },
+    async removeCombatNpc(code: string, npcId: string): Promise<void> {
+      await request(`/party/${code}/combat-npcs/${npcId}`, { method: "DELETE", headers: await encounterHeaders(code, "manage NPC instances") });
+    },
+    async rollNpcInitiative(code: string, npcId: string, initiativeRoll: number, initiativeBonus?: number): Promise<{ initiativeTotal: number }> {
+      return request(`/party/${code}/combat-npcs/${npcId}/initiative`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify({ initiativeRoll, initiativeBonus }) });
     },
     async sendPartyEndTurn(code: string, payload: EndPartyTurnPayload = {}): Promise<void> {
       await request(`/party/${code}/end-turn`, { method: "POST", headers: await encounterHeaders(code), body: JSON.stringify(payload) });

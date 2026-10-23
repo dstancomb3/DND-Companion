@@ -24,9 +24,9 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A7: 22 handlers have explicit capability proof; three are bootstrap
-handlers; two are open reads; six are open mutations (NPC creation and five
-instance controls). Counts describe declarations, not security completion.
+After O02-A8: 27 handlers have explicit capability proof; three are bootstrap
+handlers; two are open reads; one is an open mutation (NPC creation, including
+player companion projection). Counts describe declarations, not security completion.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
 | --- | --- | --- | --- | --- |
@@ -56,13 +56,13 @@ instance controls). Counts describe declarations, not security completion.
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
 | PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
 | POST | `/party/:code/combat-npcs` | Open mutation | Create/seed NPC, dummy or player companion | Needs separate host creation and member-owned companion projection policy. Supplied projection.ownerMemberId is metadata, not proof. |
-| PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Open mutation | Update NPC/dummy state | Proposed host proof and referenced instance/battle scope. |
-| PUT | `/party/:code/combat-npcs/:npcId/gear` | Open mutation | Replace NPC gear | Proposed host proof; canonical effect validation remains separate. |
-| PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Open mutation | Choose NPC stats visible to players | Proposed host proof; audience-limited read projection remains separate. |
-| DELETE | `/party/:code/combat-npcs/:npcId` | Open mutation | Remove NPC and runtime references | Proposed host proof and aggregate serialization. |
+| PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Host proof (O02-A8) | Update NPC/dummy state | Host proof plus party-local instance lookup; existing HP/action normalization retained. |
+| PUT | `/party/:code/combat-npcs/:npcId/gear` | Host proof (O02-A8) | Replace NPC gear | Host proof plus party-local instance lookup; canonical effect validation remains separate. |
+| PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Host proof (O02-A8) | Choose NPC stats visible to players | Host proof plus party-local instance lookup; public reads still expose full data. |
+| DELETE | `/party/:code/combat-npcs/:npcId` | Host proof (O02-A8) | Remove NPC and runtime references | Host proof plus party-local instance lookup; existing initiative/battle reference cleanup retained. |
 | DELETE | `/party/:code/encounters/:battleId` | Host proof (O02-A5) | End/remove encounter and related state | Original-host proof before side effects; existing party-local battle checks retained. Reversal/history remains unimplemented. |
 | POST | `/party/:code/encounters/:battleId/participants` | Host proof (O02-A5) | Add encounter members/NPCs | Original-host proof plus existing live party-local participant filtering and battle existence checks. |
-| PUT | `/party/:code/combat-npcs/:npcId/initiative` | Open mutation | Set NPC initiative | Proposed host proof and NPC/battle scope. |
+| PUT | `/party/:code/combat-npcs/:npcId/initiative` | Host proof (O02-A8) | Set NPC initiative | Host proof plus party-local instance lookup; AI DM uses the same creator capability. Dice truth remains separate. |
 
 ## O02-A1: authenticated DM note authoring
 
@@ -327,3 +327,30 @@ leaving columns; API rollback reopens these spoofing paths. No deployment.
 Read privacy, concurrency between proof and commit, combat truth and receipts,
 NPC routes, companion ownership, O05 and REC-01 remain open. Focused tests use
 mock DB/storage; PostgreSQL/HTTP/browser/mobile/restart acceptance is pending.
+
+## O02-A8: host NPC instance controls (2026-10-23)
+
+Five direct instance routes now require the original party host capability before
+activity refresh, expiry deletion, runtime hydration or instance lookup: health/
+action state, gear, stat visibility, removal and NPC initiative. Instance IDs,
+DM/AI labels and companion owner metadata do not grant access. Authenticated
+hosts remain subject to existing party-local NPC existence checks and normalizers.
+Deletion retains battle/initiative reference cleanup. AI DM initiative uses the
+same host device; no delegated role is introduced. DM state/gear errors and AI
+initiative failures are now surfaced instead of silently discarded.
+
+This policy applies to manual host management of any existing NPC projection,
+including companions. It does not introduce player companion-owner rights.
+Creation remains unchanged and open because it also serves player projections;
+that separate pass must prove source member/companion ownership, validate allowed
+projection fields and define replacement/rejoin/lifecycle behavior. Do not call
+NPC authorization complete: open creation can still add NPCs to a battle and
+change order; public reads and member combat outcomes are separate paths.
+
+Matching client/API plus existing host column required; no new schema migration
+or deployment. Old clients and unclaimed parties fail closed on these controls.
+Rollback the pair together, retaining columns; API rollback reopens unauthorized
+instance editing. Proof/commit races, public stat privacy (visibility settings
+are not a read-security filter), inventory/combat truth, recovery and live
+PostgreSQL/HTTP/browser/mobile/restart acceptance remain open. Tests mock DB and
+storage. Original O02 remains partial; O05/model work and REC-01 unchanged.

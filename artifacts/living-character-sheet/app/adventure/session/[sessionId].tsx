@@ -1544,8 +1544,16 @@ export default function AdventureSessionPlaceholderScreen() {
                       text: `${encounterOutcome.hostileNpcName ?? encounterIntent.hostileCreatureName} rolled initiative.`,
                     },
                   ]);
-                } catch {
-                  // Leave encounter active even if NPC initiative automation fails.
+                } catch (err: unknown) {
+                  // Preserve the active encounter, but expose capability/transport failure.
+                  setEntries((prev) => [
+                    ...prev,
+                    {
+                      id: createFeedEntryId("npc-initiative-error"),
+                      role: "tool",
+                      text: err instanceof Error ? err.message : "NPC initiative could not be recorded.",
+                    },
+                  ]);
                 }
               }
 

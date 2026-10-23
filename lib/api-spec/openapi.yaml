@@ -547,6 +547,180 @@ paths:
           description: Party not found
         "409":
           description: Runtime revision conflict
+  /party/{code}/combat-npcs/{npcId}/dummy-state:
+    put:
+      operationId: updateCombatNpcDummyState
+      tags: [party]
+      summary: Update NPC health and action state as original host
+      description: Requires persisted original-host proof before session or instance work. Companion ownership metadata and member proof do not grant manual instance control. NPC creation and player companion ownership remain separate.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Instance action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid action input
+        "403":
+          description: Missing original-host proof
+        "404":
+          description: Party or party-local NPC instance not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/combat-npcs/{npcId}/gear:
+    put:
+      operationId: updateCombatNpcGear
+      tags: [party]
+      summary: Replace NPC gear as original host
+      description: Requires persisted original-host proof before session or instance work. Companion ownership metadata and member proof do not grant manual instance control. NPC creation and player companion ownership remain separate.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Instance action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid action input
+        "403":
+          description: Missing original-host proof
+        "404":
+          description: Party or party-local NPC instance not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/combat-npcs/{npcId}/visible-stats:
+    put:
+      operationId: updateCombatNpcVisibleStats
+      tags: [party]
+      summary: Set NPC stat visibility as original host
+      description: Requires persisted original-host proof before session or instance work. Companion ownership metadata and member proof do not grant manual instance control. NPC creation and player companion ownership remain separate.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Instance action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid action input
+        "403":
+          description: Missing original-host proof
+        "404":
+          description: Party or party-local NPC instance not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/combat-npcs/{npcId}:
+    delete:
+      operationId: removeCombatNpc
+      tags: [party]
+      summary: Remove NPC instance as original host
+      description: Requires persisted original-host proof before session or instance work. Companion ownership metadata and member proof do not grant manual instance control. NPC creation and player companion ownership remain separate.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Instance action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid action input
+        "403":
+          description: Missing original-host proof
+        "404":
+          description: Party or party-local NPC instance not found
+        "409":
+          description: Runtime revision conflict
+  /party/{code}/combat-npcs/{npcId}/initiative:
+    put:
+      operationId: rollNpcInitiative
+      tags: [party]
+      summary: Set NPC initiative as original host
+      description: Requires persisted original-host proof before session or instance work. Companion ownership metadata and member proof do not grant manual instance control. NPC creation and player companion ownership remain separate.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      responses:
+        "200":
+          description: Instance action accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid action input
+        "403":
+          description: Missing original-host proof
+        "404":
+          description: Party or party-local NPC instance not found
+        "409":
+          description: Runtime revision conflict
   /party/{code}/combat/apply-outcomes:
     post:
       operationId: applyRemoteCombatOutcomes
