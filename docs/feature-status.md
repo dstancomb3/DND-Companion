@@ -642,6 +642,7 @@ Runner guards are tested, and absence of PG configuration fails instead of skips
 A reproduced warmed-cache read regression is fixed: combat-state GET now reads
 durable runtime/current membership instead of another process's stale projection.
 Other mutation caches/read privacy remain open. No SQL/capability/client/lockfile
-change. Rollback loses this freshness behavior and CI coverage. Initial real PG/CI
-execution is pending until recorded in the implementation log; workflow creation
-alone is not acceptance. See party-postgres-tests.md. Cloud setup stays paused.
+change. Rollback loses this freshness behavior and CI coverage. CI run 40112334408 passed on PostgreSQL 16.15 with 11 real HTTP/lifecycle
+tests across independent API processes, plus 613 regressions, eight runner guards,
+workspace typechecks and 24 combat checks. These are scoped acceptance results,
+not full application or production concurrency certification. See party-postgres-tests.md. Cloud setup stays paused.

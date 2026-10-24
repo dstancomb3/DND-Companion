@@ -42,3 +42,14 @@ log; writing a workflow is not evidence that it ran successfully.
 These tests do not establish browser/mobile rendering, AI behavior, all mutation
 races, production PG configuration, durable rollback/undo, crash recovery or complete
 party authorization. Cloud setup and the reported icon-font issue remain paused/open.
+
+
+## First verified execution
+
+[CI run 40112334408](https://github.com/dstancomb3/DND-Companion/actions/runs/40112334408)
+passed with Node 20.20.2, pnpm 10.33.0 and PostgreSQL 16.15. All 11 real database
+tests passed with zero skips; logs confirm the random schema was removed.
+The same job passed workspace typechecks, 24 combat tests, 613 scoped regressions
+and eight runner guards. The first attempt caught an optional IPC-disconnect type
+error in the new worker, corrected before this successful run. This validates
+the tested lifecycle/failure orders, not every possible scheduling interleaving.

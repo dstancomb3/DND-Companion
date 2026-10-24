@@ -4,7 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
-Subsequent passes are appended below; latest recorded pass: O02-A13 ([PR #34](https://github.com/dstancomb3/DND-Companion/pull/34)).
+Subsequent passes are appended below; latest recorded pass: T01-PG1 ([PR #35](https://github.com/dstancomb3/DND-Companion/pull/35)).
 
 ## Read this before choosing more work
 
@@ -64,7 +64,7 @@ documents the original reproductions and testing limits.
 | O03 | High: name/class/max-HP/AC dedupe collapses distinct characters | Fixed (scoped) | [PR #1](https://github.com/dstancomb3/DND-Companion/pull/1) groups by stable member ID | Repeated enrollment IDs remain distinct intentionally; ID migration/reference cleanup and live party QA remain separate. |
 | O04 | High: recovered DB reads can roll back newer fallback campaign saves | Fixed (scoped) | [PR #3](https://github.com/dstancomb3/DND-Companion/pull/3) cache ordering/bigint; [PR #4](https://github.com/dstancomb3/DND-Companion/pull/4) durable checkpoint+receipt commit; [PR #5](https://github.com/dstancomb3/DND-Companion/pull/5) atomic expected-token writes and durable reads | Guarded HTTP checkpoint boundary; compatibility memory helper is not a durable outbox. Real PostgreSQL, two-device, restart and delete/concurrency acceptance still pending. |
 | O05 | High when publicly reachable: AI routes lack app authentication/rate limits and accept memory-buffered uploads | Open | API output validation in [PR #14](https://github.com/dstancomb3/DND-Companion/pull/14) does not close request authorization or usage budgets | Caller/campaign authorization, quotas/concurrency, bounded expensive input/image handling and abuse tests. Also I17. |
-| T01 | Additional testing observation: standard validation omits existing tests; no GitHub Actions | Partial | [PR #1](https://github.com/dstancomb3/DND-Companion/pull/1) includes sync regressions; [PR #6](https://github.com/dstancomb3/DND-Companion/pull/6) repairs install/typecheck/combat baseline | CI workflow and comprehensive release gate still absent at the logged main revision; Windows/Node 20, live DB, HTTP/browser/mobile acceptance remain open. T01 is not counted as a sixth recovered major finding. |
+| T01 | Additional testing observation: standard validation omits existing tests; no GitHub Actions | Partial | [PR #1](https://github.com/dstancomb3/DND-Companion/pull/1) includes sync regressions; [PR #6](https://github.com/dstancomb3/DND-Companion/pull/6) repairs install/typecheck/combat baseline | [PR #35](https://github.com/dstancomb3/DND-Companion/pull/35) adds scoped CI with successful Linux/Node 20.20.2/PostgreSQL 16.15 HTTP lifecycle coverage; comprehensive release gate, Windows/browser/mobile and broader DB acceptance remain open. T01 is not counted as a sixth recovered major finding. |
 
 ## Merged implementation history
 
@@ -108,8 +108,13 @@ Documentation/audit PRs #2/#9/#12 delivered plans/evidence, not runtime features
 | [PR #28](https://github.com/dstancomb3/DND-Companion/pull/28) · 2026-10-22 · O02-A10 | Original O02 / related U09 | Player-managed admission policy and server-stamped live identity; repeat Add reuses committed combat state without resets or duplicate events. | 549 focused tests, workspace typechecks, 24 combat tests; ten of 12 new route tests fail on old source. | Additive runtime JSON v1, no SQL migration; no permanent receipt/tombstone or leave/rejoin cleanup. Canonical ownership and general races remain open. |
 
 
-
-
+| [PR #29](https://github.com/dstancomb3/DND-Companion/pull/29) · 2026-10-23 · DEP01 | User-requested cloud preview preparation | Protected same-origin browser/API recipe, automatic main builds, setup guide. | 558 regressions, 24 combat tests, workspace typechecks, web/API export and HTTP smoke. | Hosting acceptance separate; O05 remains open. |
+| [PR #30](https://github.com/dstancomb3/DND-Companion/pull/30) · 2026-10-23 · DEP02 | Preview startup follow-up | Direct Node startup and pinned build pnpm after hosted memory failure. | Nine focused preview tests, compiled HTTP smoke, baseline. | User later confirmed startup/login; hosted DB and icon issue remain open. |
+| [PR #31](https://github.com/dstancomb3/DND-Companion/pull/31) · 2026-10-23 | User-directed development resumption | Pause cloud setup and audit atomic companion departure boundary. | Documentation/source inspection only. | No lifecycle implementation credit. |
+| [PR #32](https://github.com/dstancomb3/DND-Companion/pull/32) · 2026-10-23 · O02-A11 | Original O02 / related U09 | Transactional departure, retained detached companions and no automatic rejoin claim. | 572 regressions, typechecks, 24 combat tests. | Additive runtime v1 metadata; no SQL migration; initial tests mocked DB. |
+| [PR #33](https://github.com/dstancomb3/DND-Companion/pull/33) · 2026-10-24 · O02-A12 | Original O02 / related U09 | Reviewed original-host recovery, preserved live data and bounded audit. | 598 regressions, baseline, web/API build and HTTP smoke. | Permanent ledger/canonical roster remain open. |
+| [PR #34](https://github.com/dstancomb3/DND-Companion/pull/34) · 2026-10-24 · O02-A13 | Original O02 / related U09 | Transactional admission/reuse with shared departure/recovery lock ordering. | 612 regressions, baseline, API build and HTTP smoke. | Companion scope only; initial concurrency tests modeled serial orders. |
+| [PR #35](https://github.com/dstancomb3/DND-Companion/pull/35) · 2026-10-24 · T01-PG1 | Testing T01 / original O02 freshness | Isolated PostgreSQL/HTTP CI, real lifecycle/rollback/concurrency cases and durable combat reads. | CI 40112334408: 11 PG tests, 613 regressions, eight guards, workspace typechecks and 24 combat tests. | PG 16.15/two processes; broader DB, crash/restart and device acceptance remain open. |
 
 
 ## Later audit: undo and snapshots
@@ -254,7 +259,7 @@ HTTP commits fail closed. These behaviors must not be conflated.
 | --- | --- | --- |
 | REC-01 original “15 issues” reconciliation | Unverified | Recover the original numbered artifact if available; preserve wording/severity and map each real finding. Until then retain the five recovered O IDs and do not claim a completion percentage. |
 | This implementation-log backfill | Documentation only | Coverage of PRs #1–#15, U01–U17, I01–I20 and H0–H7; evidence/links checked; workspace typecheck and 24-test combat baseline rerun for this documentation change. Full historical suites not rerun. No new runtime fix or migration. |
-| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. O02-A6 protects roll-prompt creation and maps NPC callers. O02-A7 protects six non-NPC mutations and fixes battle-scoped end-turn. O02-A8 protects five NPC instance controls. O02-A9 adds proof to NPC creation and constrained member companion admission. All twelve previously open non-bootstrap mutations now check proof; canonical companion ownership/lifecycle, public read privacy/side effects, public bootstrap abuse, proof-to-commit races and gameplay truth remain open. User selected player-managed immediate admission with DM oversight. O02-A10 adds server-stamped live identity and committed-instance reuse without resets. O02-A11 now implements guarded owner-leave detach/retention. O02-A12 adds reviewed original-host recovery. O02-A13 adds shared transactional admission/reuse proof. Next evidence: real PostgreSQL/multi-client lifecycle acceptance; canonical roster validation, other mutation races and permanent receipts remain open. Legacy owner metadata grants no rights. AI caller/usage controls are unchanged. |
+| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. O02-A6 protects roll-prompt creation and maps NPC callers. O02-A7 protects six non-NPC mutations and fixes battle-scoped end-turn. O02-A8 protects five NPC instance controls. O02-A9 adds proof to NPC creation and constrained member companion admission. All twelve previously open non-bootstrap mutations now check proof; canonical companion ownership/lifecycle, public read privacy/side effects, public bootstrap abuse, proof-to-commit races and gameplay truth remain open. User selected player-managed immediate admission with DM oversight. O02-A10 adds server-stamped live identity and committed-instance reuse without resets. O02-A11 now implements guarded owner-leave detach/retention. O02-A12 adds reviewed original-host recovery. O02-A13 adds shared transactional admission/reuse proof. T01-PG1 now verifies 11 lifecycle cases with PostgreSQL 16.15 and independent HTTP API processes. Broader DB/production acceptance remains open; canonical roster validation, other mutation races and permanent receipts remain open. Legacy owner metadata grants no rights. AI caller/usage controls are unchanged. |
 | New claim-recovery proposal | Open, not activated by this backfill | U08/I13/I19 specify the gap. Durable receipt/state ownership, failure matrix and priority decision required before implementation. |
 | AI usage / lightweight model exploration | Deferred by user; no implementation | PR #23 remains audit evidence. User considered a small reasoning model, then explicitly deferred model work and resumed O02. No model/runtime, parser fast path or telemetry integration activated; no measured savings claimed. |
 | Live notes/status QA | QA-N01 live retest pending / QA-N02 open | User deferred retesting PR #21 and authorized the encounter-control pass. Do not claim the reported Active-to-Completed behavior fixed without source/sent/local status evidence. |
@@ -787,6 +792,97 @@ combat truth remain open. Counts unchanged: 34 declarations, 29 proof-gated
 mutations, three public bootstrap handlers, two open reads. O02 partial / O05
 open / REC-01 unverified. Full undo/combat/AI DM, deferred model work, notes QA and
 reported icon-font/hosted DB issues retain prior status. Cloud setup stays paused.
+
+## T01-PG1: isolated PostgreSQL lifecycle CI and durable combat reads (PR #35)
+
+2026-10-24 / [PR #35](https://github.com/dstancomb3/DND-Companion/pull/35).
+User selected real DB integration and CI as the next plan step, with cloud setup
+paused. Scope: T01 testing gap and O02 companion lifecycle acceptance; one bounded
+read-freshness fix discovered by those tests. No new gameplay rights or features.
+
+Infrastructure: an opt-in runner requires RUN_POSTGRES_INTEGRATION=1 and a separate
+TEST_DATABASE_URL restricted to loopback database dnd_companion_ci with no URL
+options. It never loads .env or falls back to application DATABASE_URL. It creates
+one random schema, exports DDL from the current party Drizzle model, scopes
+foreign keys/child connections to that schema and drops it afterward. No public
+tables, user database, schema push or application migration is touched. Abrupt
+machine/process kill can leave a random local test schema; CI service is ephemeral.
+
+Workflow: PostgreSQL 16 service on ubuntu-24.04, pinned checkout/setup-node commits,
+Node 20.20.2/pnpm 10.33.0 and frozen install. Contents-read-only token, no persisted
+checkout credentials or production secrets. PR/main/manual triggers run baseline,
+eight runner guards, scoped unit/client regressions and mandatory real PG tests.
+Missing configuration fails rather than skips. This is CI configuration and
+observed execution, not an automatically configured branch-protection rule.
+
+Real suite: two independent HTTP API worker processes, real PostgreSQL row-lock
+waits and durable SQL assertions. Eleven cases cover preservation/detach/recovery/
+stale replay, runtime-write/delete/deferred-commit rollback, admission commit
+rollback including activity, both queued admission/departure orders, simultaneous
+first admission, competing recovery, recovery commit rollback and cross-process
+read freshness. Serialization conflicts are valid rejected outcomes; tests make
+explicit follow-up requests only after checking durable membership.
+
+Discovered defect: a warmed combat-state GET could keep showing a companion as
+active after another process committed detachment. New regression fails on prior
+source. That GET now reads committed durable runtime and current member rows,
+using a local projection instead of cached in-flight mutations. Existing activity/
+expiry handling and open-read authorization remain; reads are not one snapshot-
+isolated transaction, and other mutation caches remain separate.
+
+Verified CI evidence:
+- Initial run 40112146208 stopped during typecheck on optional IPC disconnect in
+  the new worker; fixed without changing application authority or dependencies.
+- [Run 40112334408](https://github.com/dstancomb3/DND-Companion/actions/runs/40112334408)
+  succeeded on source commit dc27c694d267e85b4c9c4f98e2571ed6af04b030.
+- Logs report PostgreSQL 16.15, 11 PG tests passed, zero failed/skipped, and removal
+  of the uniquely created test schema.
+- Same job passed all workspace/integration-source typechecks, 24 combat safety
+  tests, 613 scoped regressions and eight runner guards under Node 20.20.2.
+- Local baseline/regressions/guards passed; API bundle and compiled HTTP smoke
+  passed. Local PG/server/container binaries were unavailable, so real DB evidence
+  comes from CI, not local mock results. Workflow syntax/no-secret settings checked.
+
+Touched files:
+- .github/workflows/party-postgres.yml
+- scripts/test-party-postgres.cjs
+- scripts/test-party-postgres.test.cjs
+- artifacts/api-server/tests/integration/party-lifecycle.postgres.test.ts
+- artifacts/api-server/tests/integration/party-worker.ts
+- artifacts/api-server/tsconfig.integration.json
+- artifacts/api-server/package.json
+- artifacts/api-server/src/routes/party.ts
+- artifacts/api-server/src/routes/party.departure-safety.test.ts
+- package.json
+- README.md
+- docs/party-postgres-tests.md
+- docs/app-map.md
+- docs/feature-status.md
+- docs/migrations.md
+- docs/party-permission-map.md
+- docs/companion-projection-permissions.md
+- docs/runtime-baseline.md
+- docs/implementation-log.md
+
+Log reconciliation: summary rows for PRs #29–#34 were backfilled from their
+existing detailed pass records. This adds no completion credit beyond those
+records and supersedes pending DB statements only for the 11 tested lifecycle
+cases. Original finding IDs and historical claims remain intact.
+
+Rollout/rollback: no production SQL/schema/capability/client/lockfile or generated
+binding change. The read fix adds a durable query path to an existing GET; API
+rollback restores stale cached reads. Reverting CI loses future coverage but does
+not delete user data/resources. Test-only schema writes occurred solely in the
+disposable CI PostgreSQL instance; no connected user DB, AI call, paid service or
+cloud setup was performed.
+
+Limits/next: actual PostgreSQL/two-process lifecycle cases now have evidence.
+This is not all scheduling interleavings, DB versions/configurations, crash/
+restart, checkpoint durability, all mutation races or a complete release gate.
+Canonical source ownership, public read privacy/bootstrap limits and O05 remain
+open. O02 partial / T01 partial / REC-01 unverified; full undo/combat/AI DM, deferred
+models, notes QA and icon-font/hosted DB issues retain previous status. Return to
+the remaining original safety backlog before expanding gameplay features.
 
 ## Keep this log current
 
