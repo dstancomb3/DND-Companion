@@ -8,6 +8,7 @@ import { RuntimeConflictError } from "./routes/party";
 import { logAIIdempotencyHealthCheck } from "./lib/aiIdempotencyHealthCheck";
 
 import { createCloudPreview } from "./lib/cloudPreview";
+import { createAiConcurrencyGuard } from "./lib/aiConcurrencyGuard";
 
 const app: Express = express();
 const cloudPreview = createCloudPreview();
@@ -40,6 +41,9 @@ app.use("/api/adventure/campaign-runtime/turn", express.json({ limit: "4mb" }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
+const aiGuard = createAiConcurrencyGuard();
+app.use("/api/ai", aiGuard);
+app.use("/api/adventure/campaign-runtime/turn", aiGuard);
 app.use("/api", router);
 cloudPreview?.serve(app);
 
