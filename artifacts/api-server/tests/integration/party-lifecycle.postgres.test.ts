@@ -137,7 +137,7 @@ test("HTTP lifecycle preserves damaged state, detaches atomically and recovers t
   assert.equal((await request(f.a, "/party/" + f.code + "/combat-npcs/" + npc.id + "/gear", "PUT",
     { gear: [{ id: "collar", name: "Wolf collar", category: "gear", equipped: true }] }, f.host)).status, 200);
   const before = (await f.durable())!.snapshot.combatNpcs[0];
-  await request(f.b, "/party/" + f.code + "/combat-state");
+  await request(f.b, "/party/" + f.code + "/combat-state", "GET", undefined, f.host);
   assert.equal((await f.leave()).status, 200); assert.equal(await f.memberExists(), false);
   const departed = (await f.durable())!, retained = departed.snapshot.combatNpcs[0];
   assert.ok(retained.companionAdmission.detachedAt);
@@ -184,7 +184,7 @@ test("admission commit failure rolls back activity, runtime and event; explicit 
 for (const first of ["admission", "departure"] as const) {
   test("independent processes queued with " + first + " first cannot leave an active orphan", { timeout: 30000 }, async () => {
     const f = await fixture(); assert.equal((await f.admit()).status, 200);
-    await request(f.b, "/party/" + f.code + "/combat-state");
+    await request(f.b, "/party/" + f.code + "/combat-state", "GET", undefined, f.host);
     let add!: Awaited<ReturnType<typeof f.admit>>, leave!: Awaited<ReturnType<typeof f.leave>>;
     await withSessionLock(f.code, async release => {
       const firstRequest = first === "admission" ? f.admit(f.a, "second-pet") : f.leave(f.a);
@@ -216,9 +216,9 @@ test("simultaneous first admission across processes yields one live instance and
 });
 test("a second process reads detachment committed after its cache was warmed", { timeout: 30000 }, async () => {
   const f = await fixture(); assert.equal((await f.admit()).status, 200);
-  assert.equal((await request(f.b, "/party/" + f.code + "/combat-state")).status, 200);
+  assert.equal((await request(f.b, "/party/" + f.code + "/combat-state", "GET", undefined, f.host)).status, 200);
   assert.equal((await f.leave(f.a)).status, 200);
-  const visible = await request(f.b, "/party/" + f.code + "/combat-state");
+  const visible = await request(f.b, "/party/" + f.code + "/combat-state", "GET", undefined, f.host);
   assert.equal(visible.status, 200); assert.ok(visible.body.combatNpcs[0].companionAdmission.detachedAt);
   assert.equal(visible.body.turnOrder.includes(visible.body.combatNpcs[0].id), false);
 });
