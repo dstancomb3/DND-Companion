@@ -943,3 +943,9 @@ remain outside this bounded slice, so O02 remains partial.
 Next planned safety work after this PR: O05 AI endpoint caller authorization,
 usage/concurrency controls and bounded expensive input handling. Cloud setup stays
 paused; AI DM roll-prompt reliability resumes after the safety backlog.
+
+## O05-I1: bounded AI input admission (2026-10-24)
+
+Scoped input-containment slice on `fix/o05-ai-input-limits`. Before the general 25 MB application JSON parser, /api/ai and the model-backed Adventure campaign-runtime turn now use a 4 MB streaming JSON parser limit. The AI loot-image endpoint changes from a 20 MB memory-buffer cap to 8 MB, and bounds multipart fields/parts/count. Express/body-parser and Multer oversize errors are translated to HTTP 413 with `ai_input_too_large`. Other import and party endpoints keep their existing request-size contract.
+
+This is a conservative per-request memory/input ceiling, not caller authorization, global byte-budget enforcement, model token counting, per-IP/account quotas, distributed concurrency, image pixel/decompression validation, or full O05. Existing clients with inputs beyond these ceilings will receive explicit errors. No SQL/schema or client credential change. The next slices must design real caller/session authorization and distributed usage budgets before claiming publicly reachable AI safety. Cloud deployment remains paused.
