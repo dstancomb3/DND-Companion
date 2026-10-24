@@ -4,7 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
-Subsequent passes are appended below; latest recorded pass: O02-A11 ([PR #32](https://github.com/dstancomb3/DND-Companion/pull/32)).
+Subsequent passes are appended below; latest recorded pass: O02-A12 ([PR #33](https://github.com/dstancomb3/DND-Companion/pull/33)).
 
 ## Read this before choosing more work
 
@@ -254,7 +254,7 @@ HTTP commits fail closed. These behaviors must not be conflated.
 | --- | --- | --- |
 | REC-01 original “15 issues” reconciliation | Unverified | Recover the original numbered artifact if available; preserve wording/severity and map each real finding. Until then retain the five recovered O IDs and do not claim a completion percentage. |
 | This implementation-log backfill | Documentation only | Coverage of PRs #1–#15, U01–U17, I01–I20 and H0–H7; evidence/links checked; workspace typecheck and 24-test combat baseline rerun for this documentation change. Full historical suites not rerun. No new runtime fix or migration. |
-| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. O02-A6 protects roll-prompt creation and maps NPC callers. O02-A7 protects six non-NPC mutations and fixes battle-scoped end-turn. O02-A8 protects five NPC instance controls. O02-A9 adds proof to NPC creation and constrained member companion admission. All twelve previously open non-bootstrap mutations now check proof; canonical companion ownership/lifecycle, public read privacy/side effects, public bootstrap abuse, proof-to-commit races and gameplay truth remain open. User selected player-managed immediate admission with DM oversight. O02-A10 adds server-stamped live identity and committed-instance reuse without resets. O02-A11 now implements guarded owner-leave detach/retention. Next: explicit host-authorized rejoin recovery; canonical roster validation and permanent receipts remain open. Legacy owner metadata grants no rights. AI caller/usage controls are unchanged. |
+| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. O02-A6 protects roll-prompt creation and maps NPC callers. O02-A7 protects six non-NPC mutations and fixes battle-scoped end-turn. O02-A8 protects five NPC instance controls. O02-A9 adds proof to NPC creation and constrained member companion admission. All twelve previously open non-bootstrap mutations now check proof; canonical companion ownership/lifecycle, public read privacy/side effects, public bootstrap abuse, proof-to-commit races and gameplay truth remain open. User selected player-managed immediate admission with DM oversight. O02-A10 adds server-stamped live identity and committed-instance reuse without resets. O02-A11 now implements guarded owner-leave detach/retention. O02-A12 adds reviewed original-host recovery. Next: admission/departure proof-to-commit consistency; canonical roster validation and permanent receipts remain open. Legacy owner metadata grants no rights. AI caller/usage controls are unchanged. |
 | New claim-recovery proposal | Open, not activated by this backfill | U08/I13/I19 specify the gap. Durable receipt/state ownership, failure matrix and priority decision required before implementation. |
 | AI usage / lightweight model exploration | Deferred by user; no implementation | PR #23 remains audit evidence. User considered a small reasoning model, then explicitly deferred model work and resumed O02. No model/runtime, parser fast path or telemetry integration activated; no measured savings claimed. |
 | Live notes/status QA | QA-N01 live retest pending / QA-N02 open | User deferred retesting PR #21 and authorized the encounter-control pass. Do not claim the reported Active-to-Completed behavior fixed without source/sent/local status evidence. |
@@ -605,6 +605,102 @@ proof-gated mutations, three public bootstrap handlers, two open reads.
 O02 partial / O05 open / REC-01 unverified. Full undo/combat/AI DM and live notes QA
 retain prior status. Cloud setup stays paused; missing icon glyphs and hosted
 DB connectivity are recorded open, not fixed by this pass.
+
+## O02-A12: reviewed original-host companion recovery (PR #33)
+
+2026-10-24 / [PR #33](https://github.com/dstancomb3/DND-Companion/pull/33).
+Continuation of original O02 companion lifecycle, related U09. Separate from
+DM NPC instance commands and canonical player companion ownership verification.
+
+Before → after: O02-A11 retained departed companions but provided no recovery
+flow. The retained DM card now offers enrolled recipient selection, a reason,
+review and separate confirmation. Detached entries are omitted from encounter
+selection and initiative controls until recovered. The new POST
+/party/:code/combat-npcs/:npcId/recover-companion requires original-host Bearer,
+targetMemberId, expectedRevision, expectedDetachedAt and a 3–240 character reason.
+No member/watch capability can substitute for host proof.
+
+The endpoint revalidates locked host proof and exact-party live target enrollment
+inside one serializable transaction. It requires the reviewed durable revision
+and exact detachment stamp, refuses unstamped/active/changed instances and
+conflicts if the recipient already has the same companion ID bound to another
+instance (active or detached). It preserves HP, gear, conditions and used dummy
+actions/reaction/movement. It rebinds membership, updates projection ownerMemberId,
+retains the companion ID/legacy character label and records recoveredFrom for
+the latest prior member/detachment/time. Character labels are not credentials.
+Encounter mapping, initiative and shared economy remain empty; encounter placement
+is a separate host action after recovery.
+
+Binding and companion_recovered history commit together with existing revision
+guarding. Event metadata includes prior/target membership, companion/NPC identity,
+reason, original-host actor and timestamps. Cache is invalidated only after commit.
+Stale/replayed requests conflict, including a lost-ack retry; no automatic retry or
+exactly-once receipt added. Event history remains bounded to 200 and recoveredFrom
+retains only the latest transition, not a permanent ownership ledger.
+
+Client: partyHostApi uses persisted original-host proof without member/watch
+fallback. Confirmation is invalidated by new runtime revision or disappearing
+recipient and supports cancellation. An in-flight ref blocks double-click sends;
+form controls disable during the request. Failure keeps the draft, shows an error,
+requires review again and attempts a state refresh. Existing API authorization
+remains authoritative even when a watcher views DM controls. No optimistic binding
+or new player instance-control rights.
+
+Touched files:
+- artifacts/api-server/src/lib/partyRuntimeSchema.ts
+- artifacts/api-server/src/routes/party.ts
+- artifacts/api-server/src/routes/party.departure-safety.test.ts
+- artifacts/living-character-sheet/utils/partyApi.ts
+- artifacts/living-character-sheet/utils/partyHostApi.ts
+- artifacts/living-character-sheet/app/dm-party.tsx
+- artifacts/living-character-sheet/components/CompanionRecoveryPanel.tsx
+- artifacts/living-character-sheet/package.json
+- artifacts/living-character-sheet/tests/state/party-npc-instance-api.test.cts
+- artifacts/living-character-sheet/tests/state/companion-recovery-panel.test.cts
+- docs/app-map.md
+- docs/companion-projection-permissions.md
+- docs/feature-status.md
+- docs/migrations.md
+- docs/party-permission-map.md
+- docs/implementation-log.md
+- lib/api-spec/openapi.yaml
+
+Validation: 598 focused tests passed, including 19 new direct recovery tests,
+two new host adapter tests and five UI interaction tests using mocked React Native
+host primitives and the existing renderer dependency. All 19 new recovery tests
+fail against the prior route source, while 14 existing departure tests still pass.
+Cases include exact preservation/committed audit, invalid/member/forged/revoked host
+proof, missing/legacy/foreign-party target, expired party, absent runtime, stale
+revision/stamp, duplicate binding, legacy/non-detached source, write/commit failure,
+revision/serialization conflict, lost acknowledgement and ignored combat overrides.
+UI tests cover review/confirm, cancellation, changed revision, recipient loss,
+error/draft retention, no retry, double-send exclusion and hidden active recovery.
+
+All workspace typechecks and 24 combat safety tests passed. Actual browser export
+and API build passed; compiled HTTP preview smoke passed after the final API build.
+OpenAPI unique keys, exact 34 route declarations and whitespace checked. No
+lockfile/dependency or generated-binding change. No successful connected DB/AI
+calls or cloud setup. UI renderer emits its existing deprecation warning.
+
+Evidence limits: transaction storage and UI native primitives are test doubles.
+No real PostgreSQL locking, multi-process races, browser visual/mobile/accessibility
+acceptance, crash or provider deployment acceptance claimed. Export/smoke is not
+end-to-end multiplayer verification. The previously reported icon font issue stays
+open; cloud setup remains paused.
+
+Rollout/rollback: optional recoveredFrom is additive in existing runtime JSON v1;
+no SQL migration. Matching API/client, existing capability columns and server-first
+rollout required. Older lifecycle code ignores recovery provenance and does not
+provide this guarded recovery contract; inspect retained/recovered parties before
+reverting. Restore the pair together, preserve capabilities and preview perimeter.
+
+Remaining/next: close the wider companion admission/departure proof-to-commit race
+before claiming full lifecycle consistency, then verify real DB/multi-client behavior.
+Canonical source-roster ownership, active-instance transfer, duplicate reconciliation,
+permanent audit/receipts, public reads/bootstrap protection and gameplay truth remain
+open. Current route counts: 34 declarations, 29 proof-gated mutations, three public
+bootstrap handlers and two open reads. O02 partial, O05 open, REC-01 unverified.
+Full undo/combat/AI DM, lightweight-model deferral and live notes QA unchanged.
 
 ## Keep this log current
 
