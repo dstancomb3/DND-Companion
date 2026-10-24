@@ -168,6 +168,16 @@ paths:
       operationId: getPartyMembers
       tags: [party]
       summary: Get party members
+      description: Requires original-host bearer proof or a live member bearer capability paired with X-Party-Member-Id. Party invitation code alone is not sufficient.
+      security:
+        - partyCapability: []
+      parameters:
+        - name: X-Party-Member-Id
+          in: header
+          required: false
+          description: Required with member bearer proof; omitted for host proof.
+          schema:
+            type: string
       parameters:
         - $ref: "#/components/parameters/PartyCode"
       responses:
@@ -419,6 +429,16 @@ paths:
       operationId: getPartyCombatState
       tags: [party]
       summary: Get current combat state
+      description: Requires original-host bearer proof or a live member bearer capability paired with X-Party-Member-Id. Party invitation code alone is not sufficient.
+      security:
+        - partyCapability: []
+      parameters:
+        - name: X-Party-Member-Id
+          in: header
+          required: false
+          description: Required with member bearer proof; omitted for host proof.
+          schema:
+            type: string
       parameters:
         - $ref: "#/components/parameters/PartyCode"
       responses:
