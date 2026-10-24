@@ -18,7 +18,7 @@ async function stop() {
   server.closeAllConnections();
   await new Promise<void>(done => server.close(() => done()));
   await pool.end();
-  if (process.connected) process.disconnect();
+  if (process.connected) process.disconnect?.();
 }
 process.on("SIGTERM", () => void stop());
 process.on("message", message => { if (message === "stop") void stop(); });
