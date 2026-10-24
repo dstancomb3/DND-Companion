@@ -10,7 +10,9 @@
     "build:preview": "node scripts/build-cloud-preview.cjs",
     "start:preview": "node --enable-source-maps scripts/start-cloud-preview.cjs",
     "test:cloud-preview": "node --import tsx --test artifacts/api-server/src/lib/cloudPreview.test.ts artifacts/living-character-sheet/tests/state/api-url-preview.test.cts",
-    "test:preview-build": "node scripts/test-cloud-preview.cjs"
+    "test:preview-build": "node scripts/test-cloud-preview.cjs",
+    "test:party-postgres": "node scripts/test-party-postgres.cjs",
+    "test:party-postgres-guards": "node --test scripts/test-party-postgres.test.cjs"
   },
   "private": true,
   "devDependencies": {

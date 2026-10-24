@@ -13,7 +13,7 @@ policy, not certification of a saved character, companion or its stats.
 | Battle placement | Derive from authenticated member's runtime battle; reject a different explicit battle | Host can later move participants through existing host controls. |
 | Member has no battle | Create unassigned projection, without fallback to another player's battle | No automatic later joining/moving is added. |
 | Instance management | Existing host-only state/gear/visibility/delete/initiative controls | No player companion-owner edit rights are inferred. |
-| Retry and identity | Server-stamped party/member/companion identity reuses a committed live instance | No permanent receipt/tombstone after removal; companion admission/departure uses shared transactional locks, with real PostgreSQL concurrency acceptance pending. |
+| Retry and identity | Server-stamped party/member/companion identity reuses a committed live instance | No permanent receipt/tombstone after removal; companion admission/departure uses shared transactional locks, with 11 scoped PostgreSQL 16.15 lifecycle cases accepted in CI; broader concurrency acceptance remains open. |
 | Member leave/rejoin | Transactional departure detaches stamped companions and retains live data | No automatic ownership transfer or rebind of old projections. |
 | Legacy projections | Existing metadata retained for compatibility | It was publicly writable before this gate and cannot prove historical ownership. |
 
@@ -220,3 +220,17 @@ current server version before relying on the race containment; reverting restore
 the preflight-to-commit gap. Canonical source ownership, rule validation, permanent
 receipts, other mutation races, public read/privacy and real DB/multi-process
 acceptance remain open. Cloud setup stays paused.
+
+
+## T01-PG1: real database evidence
+
+PR #35 adds the opt-in isolated PostgreSQL/HTTP suite and CI. Run 40112334408
+passed all 11 cases on PostgreSQL 16.15 using two independent API processes:
+preservation/recovery/replay, immediate/runtime/delete/deferred commit rollback,
+both queued admission/departure orders, first-admission concurrency, competing
+recovery and freshness after another process commits. The test schema was removed.
+This supersedes earlier pending-DB statements only for those scoped cases.
+Combat-state GET now reads committed data/current members to avoid warm-cache
+staleness across processes. Public read authorization, atomic read snapshots,
+legacy mutation caches, production DB configurations, arbitrary interleavings,
+crash/restart and browser/mobile acceptance remain open. See party-postgres-tests.md.

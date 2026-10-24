@@ -1,0 +1,59 @@
+name: Party lifecycle PostgreSQL
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: party-postgres-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  lifecycle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: dnd_companion_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dnd_companion_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20.20.2
+      - name: Install frozen dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          pnpm install --frozen-lockfile
+      - name: Typecheck and combat baseline
+        run: pnpm run validate:combat-baseline
+      - name: Test integration-runner safeguards
+        run: pnpm run test:party-postgres-guards
+      - name: Party route and client regressions
+        run: >-
+          node --import tsx --test
+          artifacts/api-server/src/lib/partySyncGuard.test.ts
+          artifacts/api-server/src/lib/cloudPreview.test.ts
+          artifacts/api-server/src/routes/party.*safety.test.ts
+          artifacts/api-server/src/routes/party.remote-apply-route.test.ts
+          artifacts/api-server/src/routes/ai/idempotency-route-safety.test.ts
+          artifacts/living-character-sheet/tests/state/party-*-api.test.cts
+          artifacts/living-character-sheet/tests/state/api-url-preview.test.cts
+          artifacts/living-character-sheet/tests/state/party-notes-delivery.test.cts
+          artifacts/living-character-sheet/tests/state/companion-recovery-panel.test.cts
+      - name: Real PostgreSQL and independent-process lifecycle tests
+        env:
+          RUN_POSTGRES_INTEGRATION: "1"
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dnd_companion_ci
+        run: pnpm run test:party-postgres

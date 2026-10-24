@@ -1886,8 +1886,11 @@ router.get("/party/:code/combat-state", async (req, res) => {
       return;
     }
 
-    const members = await getLiveMembers(code);
-    const state = await getOrHydrateCombatState(code);
+    // A different API process can commit departure/recovery while this process
+    // has a warm cache. Read durable state without exposing in-flight mutations.
+    const state = await getCommittedCombatState(code);
+    const rawMembers = await db.select().from(partyMembers).where(eq(partyMembers.partyCode, code));
+    const members = dedupeMembersWithState(rawMembers, state);
     rebuildTurnOrder(state, members.map((m) => m.id));
 
     res.json({

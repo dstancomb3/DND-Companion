@@ -44,3 +44,18 @@ database table setup does not establish those gameplay/persistence results.
 No database migration or connected database write was performed during this
 baseline repair. The runtime authority map and roll-stall diagnosis from the
 convergence plan are still separate work.
+
+
+## T01-PG1: scoped CI and PostgreSQL acceptance (2026-10-24)
+
+[PR #35](https://github.com/dstancomb3/DND-Companion/pull/35) adds the Party lifecycle
+PostgreSQL workflow. [Run 40112334408](https://github.com/dstancomb3/DND-Companion/actions/runs/40112334408)
+passed a frozen install under Node 20.20.2/pnpm 10.33.0, all workspace typechecks
+(including integration sources), 24 combat baseline tests, 613 scoped regressions,
+eight safety guards and 11 actual PostgreSQL 16.15 HTTP/lifecycle checks using two
+API processes. All PG tests executed with zero skips and schema cleanup logged.
+
+This supersedes earlier pending statements for that lifecycle scope, not campaign
+checkpoint/crash/restart, full combat/AI DM, browser/mobile/Windows acceptance or
+all repository tests. The workflow is not itself a configured branch-protection
+rule. Test DB setup is automatic in CI; no user database or cloud setup is needed.
