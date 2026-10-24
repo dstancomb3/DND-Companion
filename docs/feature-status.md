@@ -629,3 +629,19 @@ admission/departure race. Mocked serial-order tests do not prove real PostgreSQL
 locking or multi-process acceptance. Canonical roster, other party mutation races,
 public reads/bootstrap protection and full combat truth remain open. O02 partial,
 O05 open, REC-01 unverified; cloud setup and icon-font QA remain paused/open.
+
+
+### T01-PG1 / O02: isolated lifecycle integration and CI
+
+An opt-in loopback-only PostgreSQL runner creates/removes a random schema using
+DDL exported from the current party model, with no .env fallback or public schema
+changes. CI provisions PostgreSQL 16 and exercises real HTTP using independent
+API processes, locking, failure rollback and companion lifecycle operations.
+Runner guards are tested, and absence of PG configuration fails instead of skips.
+
+A reproduced warmed-cache read regression is fixed: combat-state GET now reads
+durable runtime/current membership instead of another process's stale projection.
+Other mutation caches/read privacy remain open. No SQL/capability/client/lockfile
+change. Rollback loses this freshness behavior and CI coverage. Initial real PG/CI
+execution is pending until recorded in the implementation log; workflow creation
+alone is not acceptance. See party-postgres-tests.md. Cloud setup stays paused.

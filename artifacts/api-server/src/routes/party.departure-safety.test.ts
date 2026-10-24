@@ -413,3 +413,18 @@ test("reuse acknowledgement waits for commit without changing runtime state or r
   release(); const res = await pending; assert.equal(res.body.reused, true);
   assert.deepEqual(f.state().runtime, before);
 });
+test("combat-state read observes durable detachment from another API process after cache warmup", async t => {
+  const f = fixture(t); assert.equal((await f.read()).statusCode, 200);
+  f.mutate(s => {
+    s.members = s.members.filter((m: any) => m.id !== "owner");
+    s.runtime.stateRevision++;
+    s.runtime.snapshot.combatNpcs[0].companionAdmission.detachedAt = "external-commit";
+    delete s.runtime.snapshot.participantBattleById.owned;
+    delete s.runtime.snapshot.initiativeByMember.owned;
+  });
+  const read = await f.read();
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.combatNpcs[0].companionAdmission.detachedAt, "external-commit");
+  assert.equal(read.body.participantBattleById.owned, undefined);
+  assert.equal(read.body.stateRevision, 2);
+});

@@ -205,3 +205,10 @@ The companion creation/reuse branch now passes the transaction executor through
 getCommittedCombatState and the existing runtime store. It shares session/member
 lock order with departure/recovery and acknowledges after commit. Ordinary host
 NPC creation retains its compatibility path; this is not a global party cutover.
+
+
+Isolated lifecycle integration: scripts/test-party-postgres.cjs exports the party
+schema into a disposable test schema; tests/integration/party-worker.ts starts
+independent HTTP API processes. The party-postgres workflow supplies PostgreSQL
+and runs mandatory checks. Combat-state GET reads durable runtime/current members
+for cross-process freshness; other mutation cache paths remain separate.

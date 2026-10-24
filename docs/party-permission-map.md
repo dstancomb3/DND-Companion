@@ -443,3 +443,13 @@ preflight-to-departure gap in implementation, subject to real DB acceptance;
 canonical ownership, other mutation races and full authorization remain open.
 Route counts remain 34 declarations / 29 proof-gated mutations / three bootstrap /
 two open reads.
+
+
+## T01-PG1: cross-process read regression and database acceptance
+
+The combat-state GET remains an open read (no new caller authorization); it now
+reads committed durable state/current members to observe another process's
+departure/recovery. It does not publish cached in-flight state. This is bounded
+freshness, not snapshot-isolated reads or completion of public read privacy.
+The isolated PostgreSQL/HTTP suite and CI job cover the companion lifecycle;
+results and limits are recorded in the implementation log.
