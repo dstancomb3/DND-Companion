@@ -46,11 +46,15 @@ for (const isCompanion of [false, true]) {
 function fixture(t: TestContext, options: { ownerBattle?: boolean; expired?: boolean } = {}) {
   const code = `create-ok-${++serial}`, now = new Date(); let writes = 0;
   let durable: Record<string, any> = { partyCode: code, schemaVersion: 1, stateRevision: 1, updatedAt: now, snapshot: { participantBattleById: { other: "alpha", ...(options.ownerBattle === false ? {} : { member: "beta" }) }, currentTurnIdByBattle: { alpha: "other", beta: "member" }, combatNpcs: [], includeEnvironment: false } };
+  t.mock.method(db, "transaction", (async (callback: (tx: unknown) => Promise<unknown>, options: unknown) => {
+    assert.deepEqual(options, { isolationLevel: "serializable" });
+    return callback(db);
+  }) as never);
   t.mock.method(db, "select", (() => ({ from: (table: unknown) => ({ where: (condition: never) => {
     const params = new PgDialect().sqlToQuery(condition).params;
     assert.deepEqual(params, table === partyMembers && params.length === 2 ? ["member", code] : [code]);
     const rows = table === partySessions ? [{ hostTokenHash: host.hostTokenHash, lastActivityAt: options.expired ? new Date(0) : now }] : table === partyMembers ? ["member", "other"].map(id => ({ id, memberTokenHash: id === "member" ? member.hostTokenHash : other.hostTokenHash, characterName: id, characterClass: "Wizard", maxHp: 10, armorClass: 12, updatedAt: now })) : [durable];
-    return Object.assign(Promise.resolve(rows), { limit: async () => rows });
+    return Object.assign(Promise.resolve(rows), { limit: async () => rows, for: async () => rows });
   } }) })) as never);
   t.mock.method(db, "update", ((table: unknown) => ({ set: (value: Record<string, unknown>) => ({ where: () => Object.assign(Promise.resolve([]), { returning: async () => { assert.equal(table, partyRuntimeSnapshots); writes++; durable = { ...durable, ...value }; return [durable]; } }) }) })) as never);
   t.mock.method(db, "delete", (() => ({ where: async () => [] })) as never);

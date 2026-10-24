@@ -13,6 +13,7 @@ import {
   deletePartyRuntimeSnapshot,
   loadPartyRuntimeSnapshot,
   savePartyRuntimeSnapshot,
+  type RuntimeExecutor,
 } from "../lib/partyRuntimeStore";
 import { decideMemberSync, type MemberSyncClock } from "../lib/partySyncGuard";
 
@@ -1116,8 +1117,8 @@ function hydrateRuntimeSnapshotToCombatState(code: string, snapshot: RuntimeSnap
 }
 
 // Companion admission/reuse reads committed state, not a possibly in-flight cached mutation.
-async function getCommittedCombatState(code: string): Promise<PartyCombatState> {
-  const durable = await loadPartyRuntimeSnapshot(code);
+async function getCommittedCombatState(code: string, executor?: RuntimeExecutor): Promise<PartyCombatState> {
+  const durable = await loadPartyRuntimeSnapshot(code, executor);
   if (!durable) return buildDefaultCombatState(code);
   const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
   state.schemaVersion = durable.schemaVersion;
@@ -1154,7 +1155,7 @@ function transactionFailureCode(error: unknown): string | undefined {
   return undefined;
 }
 
-class CompanionRecoveryError extends Error {
+class CompanionLifecycleError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
 }
 
@@ -3456,10 +3457,11 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
       res.status(400).json({ error: "Companion projection must be a friendly character source without gear, conditions or an initiative override" });
       return;
     }
-    const session = await ensureActiveSession(code);
-    if (!session.ok) {
-      res.status(session.status).json({ error: session.error });
-      return;
+    // Companion admission refreshes activity only after locked proof inside
+    // its transaction. Keep ordinary host NPC creation on its existing path.
+    if (!projection) {
+      const session = await ensureActiveSession(code);
+      if (!session.ok) { res.status(session.status).json({ error: session.error }); return; }
     }
 
     const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
@@ -3492,78 +3494,116 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
       ? Math.floor(req.body.initiativeTotal)
       : coreStats.initiativeBonus;
 
-    const state = projection ? await getCommittedCombatState(code) : await getOrHydrateCombatState(code);
-    const ownerBattleId = companionMemberId ? state.participantBattleById[companionMemberId] : undefined;
-    const requestedBattleId = typeof req.body?.battleId === "string" ? req.body.battleId.trim() : undefined;
-    if (projection && requestedBattleId && requestedBattleId !== ownerBattleId) {
-      res.status(403).json({ error: "A companion can only join its submitting member's battle" });
-      return;
-    }
-    if (projection) {
-      const existing = state.combatNpcs.find((entry) =>
-        entry.companionAdmission?.schemaVersion === "companion-admission.v1" &&
-        entry.companionAdmission.memberId === companionMemberId &&
-        entry.companionAdmission.companionId === projection.companionId);
-      if (existing) {
-        // Reuse preserves live HP, spent economy, DM edits, battle placement and history.
-        res.json({ ok: true, npc: existing, reused: true });
-        return;
+    const executeCreation = async (tx?: RuntimeExecutor) => {
+      if (tx) {
+        // Same lock order as member departure and host recovery. Reuse also
+        // revalidates membership and responds only after transaction commit.
+        const sessions = await tx.select().from(partySessions)
+          .where(eq(partySessions.code, code)).for("update");
+        const owners = await tx.select().from(partyMembers)
+          .where(and(eq(partyMembers.id, companionMemberId!), eq(partyMembers.partyCode, code))).for("update");
+        if (!hasPartyHostToken(req.get("authorization"), owners[0]?.memberTokenHash)) {
+          throw new CompanionLifecycleError(403, "party_member_required", "Member access is missing or expired. Rejoin this party.");
+        }
+        if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) {
+          throw new CompanionLifecycleError(404, "party_not_found", "Party is absent or expired.");
+        }
+        await tx.update(partySessions).set({ lastActivityAt: new Date() }).where(eq(partySessions.code, code));
       }
-    }
-    const companionAdmission: CompanionAdmission | undefined = projection ? {
-      schemaVersion: "companion-admission.v1",
-      memberId: companionMemberId!,
-      companionId: projection.companionId!,
-    } : undefined;
-    const npcId = `npc_${generateId()}`;
-    const npc = {
-      id: npcId,
-      name,
-      sourceType,
-      sourceId,
-      disposition,
-      coreStats,
-      visibleStatKeys,
-      dummyState,
-      gear,
-      conditions,
-      projection,
-      companionAdmission,
-      createdAt: new Date().toISOString(),
-    };
-    state.combatNpcs.push(npc);
-    const targetBattleId = projection ? ownerBattleId : selectedBattleIdFromRequest(req.body?.battleId, state.activeMemberIds, state.participantBattleById);
-    if (targetBattleId) {
-      state.participantBattleById[npcId] = targetBattleId;
-    }
-    if (initiativeTotal !== null) {
-      state.initiativeByMember[npcId] = {
-        memberId: npcId,
-        initiativeRoll: 0,
-        initiativeBonus: coreStats.initiativeBonus,
-        initiativeTotal,
-      };
-    }
-
-    const members = await getLiveMembers(code);
-    rebuildTurnOrder(state, members.map((m) => m.id));
-    appendEvent(state, {
-      type: "combat_npc_added",
-      message: projection ? `A party member projected ${name} as a companion.` : `DM added ${name} as a ${disposition} combat NPC.`,
-      memberId: companionMemberId,
-      metadata: {
-        npcId,
+      const state = tx ? await getCommittedCombatState(code, tx) : await getOrHydrateCombatState(code);
+      const ownerBattleId = companionMemberId ? state.participantBattleById[companionMemberId] : undefined;
+      const requestedBattleId = typeof req.body?.battleId === "string" ? req.body.battleId.trim() : undefined;
+      if (projection && requestedBattleId && requestedBattleId !== ownerBattleId) {
+        throw new CompanionLifecycleError(403, "companion_battle_required", "A companion can only join its submitting member's battle");
+      }
+      if (projection) {
+        const existing = state.combatNpcs.find((entry) =>
+          entry.companionAdmission?.schemaVersion === "companion-admission.v1" &&
+          entry.companionAdmission.memberId === companionMemberId &&
+          entry.companionAdmission.companionId === projection.companionId);
+        if (existing) {
+          // Reuse preserves live HP, spent economy, DM edits, battle placement and history.
+          if (existing.companionAdmission?.detachedAt) {
+            throw new CompanionLifecycleError(409, "companion_recovery_conflict", "This retained companion requires host review.");
+          }
+          return { ok: true, npc: existing, reused: true };
+        }
+      }
+      const companionAdmission: CompanionAdmission | undefined = projection ? {
+        schemaVersion: "companion-admission.v1",
+        memberId: companionMemberId!,
+        companionId: projection.companionId!,
+      } : undefined;
+      const npcId = `npc_${generateId()}`;
+      const npc = {
+        id: npcId,
+        name,
         sourceType,
+        sourceId,
         disposition,
-        combatantKind: projection?.combatantKind,
-        companionId: projection?.companionId,
-      },
-    });
-    await persistRuntimeState(code, state);
+        coreStats,
+        visibleStatKeys,
+        dummyState,
+        gear,
+        conditions,
+        projection,
+        companionAdmission,
+        createdAt: new Date().toISOString(),
+      };
+      state.combatNpcs.push(npc);
+      const targetBattleId = projection ? ownerBattleId : selectedBattleIdFromRequest(req.body?.battleId, state.activeMemberIds, state.participantBattleById);
+      if (targetBattleId) {
+        state.participantBattleById[npcId] = targetBattleId;
+      }
+      if (initiativeTotal !== null) {
+        state.initiativeByMember[npcId] = {
+          memberId: npcId,
+          initiativeRoll: 0,
+          initiativeBonus: coreStats.initiativeBonus,
+          initiativeTotal,
+        };
+      }
 
-    res.json({ ok: true, npc, ...(projection ? { reused: false } : {}) });
+      const members = tx
+        ? await tx.select().from(partyMembers).where(eq(partyMembers.partyCode, code))
+        : await getLiveMembers(code);
+      rebuildTurnOrder(state, members.map((m) => m.id));
+      appendEvent(state, {
+        type: "combat_npc_added",
+        message: projection ? `A party member projected ${name} as a companion.` : `DM added ${name} as a ${disposition} combat NPC.`,
+        memberId: companionMemberId,
+        metadata: {
+          npcId,
+          sourceType,
+          disposition,
+          combatantKind: projection?.combatantKind,
+          companionId: projection?.companionId,
+        },
+      });
+      if (tx) {
+        const saved = await savePartyRuntimeSnapshot({
+          partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision: state.stateRevision,
+        }, tx);
+        if (!saved.ok) throw new RuntimeConflictError(state.stateRevision, saved.conflictRevision);
+      } else {
+        await persistRuntimeState(code, state);
+      }
+      return { ok: true, npc, ...(projection ? { reused: false } : {}) };
+    };
+    const result = projection
+      ? await db.transaction(tx => executeCreation(tx), { isolationLevel: "serializable" })
+      : await executeCreation();
+    if (projection) combatStates.delete(code);
+    res.json(result);
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
+    if (err instanceof CompanionLifecycleError) {
+      res.status(err.status).json({ code: err.code, error: err.message }); return;
+    }
+    const failureCode = transactionFailureCode(err);
+    if (normalizeCombatNpcProjection(req.body?.projection) && (failureCode === "40001" || failureCode === "40P01" || failureCode === "23505")) {
+      throw new RuntimeConflictError(0, null);
+    }
     res.status(500).json({ error: "Failed to add combat NPC" });
   }
 });
@@ -3586,15 +3626,15 @@ router.post("/party/:code/combat-npcs/:npcId/recover-companion", async (req, res
     const npc = await db.transaction(async tx => {
       const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
       if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash)) {
-        throw new CompanionRecoveryError(403, "party_host_required", "Only the original host can recover companions.");
+        throw new CompanionLifecycleError(403, "party_host_required", "Only the original host can recover companions.");
       }
       if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) {
-        throw new CompanionRecoveryError(404, "party_not_found", "Party is absent or expired.");
+        throw new CompanionLifecycleError(404, "party_not_found", "Party is absent or expired.");
       }
       const targets = await tx.select().from(partyMembers)
         .where(and(eq(partyMembers.id, targetMemberId), eq(partyMembers.partyCode, code))).for("update");
       if (!targets[0] || typeof targets[0].memberTokenHash !== "string" || !/^[a-f0-9]{64}$/.test(targets[0].memberTokenHash)) {
-        throw new CompanionRecoveryError(400, "recovery_target_required", "Choose a currently enrolled member of this party.");
+        throw new CompanionLifecycleError(400, "recovery_target_required", "Choose a currently enrolled member of this party.");
       }
       const durable = await loadPartyRuntimeSnapshot(code, tx);
       if (!durable || durable.stateRevision !== expectedRevision) {
@@ -3606,13 +3646,13 @@ router.post("/party/:code/combat-npcs/:npcId/recover-companion", async (req, res
       if (!retained || binding?.schemaVersion !== "companion-admission.v1" ||
           !binding.detachedAt || binding.detachedAt !== expectedDetachedAt ||
           typeof binding.companionId !== "string" || !binding.companionId) {
-        throw new CompanionRecoveryError(409, "companion_recovery_conflict", "This companion is no longer the retained instance you reviewed.");
+        throw new CompanionLifecycleError(409, "companion_recovery_conflict", "This companion is no longer the retained instance you reviewed.");
       }
       if (state.combatNpcs.some(entry => entry.id !== npcId &&
           entry.companionAdmission?.schemaVersion === "companion-admission.v1" &&
           entry.companionAdmission.memberId === targetMemberId &&
           entry.companionAdmission.companionId === binding.companionId)) {
-        throw new CompanionRecoveryError(409, "companion_recovery_conflict", "That member already has a bound instance of this companion. Review duplicates before recovery.");
+        throw new CompanionLifecycleError(409, "companion_recovery_conflict", "That member already has a bound instance of this companion. Review duplicates before recovery.");
       }
       const previousMemberId = binding.memberId, detachedAt = binding.detachedAt;
       const recoveredAt = new Date().toISOString();
@@ -3643,7 +3683,7 @@ router.post("/party/:code/combat-npcs/:npcId/recover-companion", async (req, res
     res.json({ ok: true, npc });
   } catch (error) {
     if (error instanceof RuntimeConflictError) throw error;
-    if (error instanceof CompanionRecoveryError) {
+    if (error instanceof CompanionLifecycleError) {
       res.status(error.status).json({ code: error.code, error: error.message }); return;
     }
     const code = transactionFailureCode(error);
