@@ -147,3 +147,44 @@ to continue development. Mock transaction tests do not establish live PostgreSQL
 locking/concurrency behavior; real DB and multi-client acceptance remain pending.
 General admission proof-to-commit races, canonical source ownership, permanent
 receipts, public read/privacy and full combat authority are still open.
+
+
+## O02-A12: explicit host recovery
+
+The original host can restore a retained, server-stamped companion to a selected
+live enrolled member. The DM card shows retained status, a recipient picker, reason
+field and separate review/confirm actions. New runtime revisions, disappearing
+recipients and cancellation invalidate confirmation. Busy controls and an in-flight
+guard prevent repeated UI submission. Errors retain the draft and require review;
+the DM screen attempts to refresh state after a rejected/uncertain request.
+
+POST /party/:code/combat-npcs/:npcId/recover-companion requires original-host
+Bearer proof, expectedRevision, expectedDetachedAt, targetMemberId and a reason
+of 3–240 characters. It revalidates locked host proof and live target enrollment
+inside the same serializable transaction as the revision-guarded runtime save.
+Only a detached server-admitted instance qualifies. Existing target bindings for
+the same companion ID, including another detached one, conflict rather than merge
+or overwrite. No target ownership or source roster is inferred from names/labels.
+
+Recovery keeps HP, conditions, gear and used dummy actions/reaction/movement.
+It changes the bound member, updates the projection's display ownerMemberId,
+clears detachedAt and records the previous member/detachment/time as recoveredFrom.
+It leaves encounter mapping, initiative and shared economy empty; subsequent
+host encounter admission is explicit. The companion ID and legacy character label
+are preserved; they do not become proof of canonical source ownership. Host review
+is the deliberate authority for this binding change.
+
+The same commit appends companion_recovered with prior/target membership,
+companion/NPC identity, reason and timestamp. Existing event history is bounded
+to 200 entries, and recoveredFrom retains only the most recent recovery. This is
+an auditable bounded history, not a permanent ownership ledger or exactly-once
+receipt. A lost-ack retry with the old revision conflicts; refresh before deciding
+what to do. Active-instance transfer, legacy adoption and duplicate reconciliation
+are not provided by this endpoint.
+
+Matching API/client uses additive existing runtime v1 JSON, no SQL migration.
+Deploy the API before using the UI. Older versions do not enforce this recovery
+contract and ignore new provenance; review live retained/recovered instances before
+rollback. Tests mock transactional storage and native UI host primitives; real
+PostgreSQL locking, multi-client races and visual/device acceptance remain pending.
+Cloud setup and the reported icon-font issue remain paused/open.

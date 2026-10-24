@@ -1426,3 +1426,19 @@ and capability columns remain. Tests and acceptance limits are recorded in the
 implementation log; real PostgreSQL/multiplayer verification remains pending.
 O02 remains partial, O05 open, REC-01 unverified. Browser icon and hosted DB issues
 remain deferred with cloud setup, not claimed fixed.
+
+
+### O02-A12: reviewed host companion recovery
+
+Retained companions now have a DM recipient/reason/review/confirm flow and an
+original-host-only recovery endpoint. Fresh locked host/target proof and exact
+reviewed revision/detachment guard the transactional binding change and event.
+HP/gear/conditions/used actions remain, encounter placement is separate, and
+duplicate target bindings conflict. Optional recoveredFrom provenance retains the
+latest transition; existing event history stays bounded at 200.
+
+No SQL migration or lockfile change. Matching API/client required; review recovery
+metadata before reverting to older lifecycle code. Canonical roster ownership,
+active transfers, permanent ledger/receipts and wider admission proof-to-commit
+races remain open. Real DB/concurrent-client and visual/mobile acceptance is
+pending. O02 stays partial; cloud setup, icon-font QA, O05 and REC-01 stay open.

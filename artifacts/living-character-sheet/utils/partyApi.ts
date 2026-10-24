@@ -238,7 +238,7 @@ export interface CombatNpc {
   gear?: CombatNpcGearItem[];
   conditions?: CombatConditionSummary[];
   projection?: CombatNpcProjectionMetadata;
-  companionAdmission?: { schemaVersion: "companion-admission.v1"; memberId: string; companionId: string; detachedAt?: string };
+  companionAdmission?: { schemaVersion: "companion-admission.v1"; memberId: string; companionId: string; detachedAt?: string; recoveredFrom?: { memberId: string; detachedAt: string; recoveredAt: string } };
   createdAt: string;
 }
 
@@ -394,6 +394,13 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 const hostApi = partyHostApi(apiRequest, AsyncStorage);
+export interface RecoverCompanionPayload {
+  targetMemberId: string;
+  expectedRevision: number;
+  expectedDetachedAt: string;
+  reason: string;
+}
+export const recoverPartyCompanion = hostApi.recoverPartyCompanion;
 export const createParty = hostApi.createParty;
 export const removePartyMember = hostApi.removePartyMember;
 const memberApi = partyMemberApi(apiRequest, AsyncStorage);

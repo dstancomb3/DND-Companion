@@ -39,3 +39,21 @@ test("AI encounter initiative can omit bonus while still requiring original host
   assert.deepEqual(result, f.reply); assert.deepEqual(JSON.parse(String(f.calls[0].options?.body)), { initiativeRoll: 12 });
   assert.deepEqual(f.calls[0].options?.headers, { Authorization: "Bearer private-host", "Content-Type": "application/json" });
 });
+
+test("companion recovery uses persisted original host proof and exact reviewed revision", async () => {
+  const f = fixture(), api = partyHostApi(f.request, f.storage);
+  const payload = { targetMemberId: "new-owner", expectedRevision: 4, expectedDetachedAt: "2026-10-23T00:00:00.000Z", reason: "Owner rejoined" };
+  assert.deepEqual(await api.recoverPartyCompanion("PARTY", "npc", payload), f.reply);
+  assert.deepEqual(f.calls, [{ path: "/party/PARTY/combat-npcs/npc/recover-companion", options: {
+    method: "POST", headers: { Authorization: "Bearer private-host", "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  } }]);
+});
+test("companion recovery has no watcher/member fallback or automatic retry", async () => {
+  const f = fixture(), api = partyHostApi(f.request, f.storage);
+  const payload = { targetMemberId: "new-owner", expectedRevision: 4, expectedDetachedAt: "stamp", reason: "Owner rejoined" };
+  await assert.rejects(api.recoverPartyCompanion("OTHER", "npc", payload), /recover companions/);
+  assert.equal(f.calls.length, 0);
+  const conflict = Object.assign(new Error("Conflict"), { status: 409 }); f.fail(conflict);
+  await assert.rejects(api.recoverPartyCompanion("PARTY", "npc", payload), e => e === conflict);
+  assert.equal(f.calls.length, 1); assert.equal(f.rows.get("party-host-token.v1:PARTY"), "private-host");
+});

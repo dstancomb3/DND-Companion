@@ -35,14 +35,15 @@ function fixture(t: TestContext) {
       playerEconomyByMember: { owner: { action: 0 }, owned: { action: 0 }, other: { action: 1 } },
     } },
   };
-  const controls = { failWrite: false, failDelete: false, failCommit: false, conflict: false, revoke: false, serialization: false };
+  const controls = { failWrite: false, failDelete: false, failCommit: false, conflict: false, revoke: false, serialization: false, revokeHost: false, expired: false };
   let transactions = 0, writes = 0;
   const query = (state: any, scoped: boolean): any => ({
     select: () => ({ from: (table: unknown) => ({ where: (condition: never) => {
       const params = new PgDialect().sqlToQuery(condition).params;
-      let rows = table === partySessions ? [{ code, hostTokenHash: host.hostTokenHash, lastActivityAt: now }]
-        : table === partyMembers ? state.members.filter((m: any) => params.length < 2 || m.id === params[0])
+      let rows = table === partySessions ? [{ code, hostTokenHash: host.hostTokenHash, lastActivityAt: controls.expired ? new Date(0) : now }]
+        : table === partyMembers ? state.members.filter((m: any) => (params.length < 2 || m.id === params[0]) && m.partyCode === (params.length < 2 ? params[0] : params[1]))
         : state.runtime ? [state.runtime] : [];
+      if (scoped && controls.revokeHost && table === partySessions) rows = rows.map((row: any) => ({ ...row, hostTokenHash: other.hostTokenHash }));
       if (scoped && controls.revoke && table === partyMembers) rows = rows.map((m: any) => ({ ...m, memberTokenHash: other.hostTokenHash }));
       const copy = structuredClone(rows);
       return Object.assign(Promise.resolve(copy), { limit: async () => copy, for: async (lock: string) => { assert.equal(lock, "update"); return copy; } });
@@ -83,7 +84,16 @@ function fixture(t: TestContext) {
     await handler("/party/:code/combat-state", "get")({ params: { code }, get: () => undefined }, res);
     return res;
   }
-  return { leave, read, controls, state: () => structuredClone(committed), mutate: (fn: (s: any) => void) => fn(committed), transactions: () => transactions, writes: () => writes };
+  async function recover(payload?: Record<string, unknown>, token = host.hostToken) {
+    const res = response(), binding = committed.runtime?.snapshot.combatNpcs[0].companionAdmission;
+    const body = payload ?? { targetMemberId: "other", expectedRevision: committed.runtime.stateRevision,
+      expectedDetachedAt: binding?.detachedAt, reason: "Owner rejoined with a new membership." };
+    await handler("/party/:code/combat-npcs/:npcId/recover-companion", "post")({
+      params: { code, npcId: "owned" }, body, get: () => `Bearer ${token}`,
+    }, res);
+    return res;
+  }
+  return { leave, read, recover, controls, state: () => structuredClone(committed), mutate: (fn: (s: any) => void) => fn(committed), transactions: () => transactions, writes: () => writes };
 }
 for (const [label, token] of [["self", owner.hostToken], ["host", host.hostToken]]) {
   test(`cold-cache ${label} departure atomically detaches only bound companions and retains live data`, async t => {
@@ -167,4 +177,108 @@ test("host cannot add a retained detached companion back through encounter parti
   }, res);
   assert.equal(res.statusCode, 400); assert.equal(res.body.error, "No valid participants to add");
   assert.equal(f.state().runtime.snapshot.participantBattleById.owned, undefined);
+});
+
+test("recovery requires host proof and preserves all live data while recording reassignment", async t => {
+  const f = fixture(t); await f.leave();
+  f.mutate(s => { s.runtime.snapshot.combatNpcs[1].companionAdmission.companionId = "different"; });
+  const before = f.state().runtime.snapshot.combatNpcs[0];
+  const res = await f.recover(); assert.equal(res.statusCode, 200);
+  const after = f.state().runtime.snapshot, npc = after.combatNpcs[0];
+  assert.deepEqual(npc.dummyState, before.dummyState);
+  assert.deepEqual(npc.conditions, before.conditions); assert.deepEqual(npc.gear, before.gear);
+  assert.equal(npc.companionAdmission.memberId, "other");
+  assert.equal(npc.companionAdmission.companionId, "pet");
+  assert.equal(npc.companionAdmission.detachedAt, undefined);
+  assert.equal(npc.companionAdmission.recoveredFrom.memberId, "owner");
+  assert.equal(npc.companionAdmission.recoveredFrom.detachedAt, before.companionAdmission.detachedAt);
+  assert.equal(npc.projection.ownerMemberId, "other");
+  assert.equal(after.participantBattleById.owned, undefined);
+  assert.equal(after.initiativeByMember.owned, undefined);
+  assert.equal(after.playerEconomyByMember.owned, undefined);
+  assert.equal(after.turnOrder.includes("owned"), false);
+  const event = after.eventLog[0]; assert.equal(event.type, "companion_recovered");
+  assert.equal(event.metadata.previousMemberId, "owner"); assert.equal(event.metadata.targetMemberId, "other");
+  assert.equal(event.metadata.actor, "original_host"); assert.ok(event.metadata.reason);
+  assert.equal((await f.read()).body.combatNpcs[0].companionAdmission.memberId, "other");
+});
+for (const token of [owner.hostToken, other.hostToken, "forged"]) {
+  test("recovery refuses member/forged proof without starting a transaction", async t => {
+    const f = fixture(t); await f.leave(); const before = f.state(), count = f.transactions();
+    assert.equal((await f.recover(undefined, token)).statusCode, 403);
+    assert.deepEqual(f.state(), before); assert.equal(f.transactions(), count);
+  });
+}
+test("recovery revalidates the original host inside its transaction", async t => {
+  const f = fixture(t); await f.leave(); const before = f.state(); f.controls.revokeHost = true;
+  assert.equal((await f.recover()).statusCode, 403); assert.deepEqual(f.state(), before);
+});
+for (const target of ["absent", "legacy"]) {
+  test(`recovery refuses ${target} target membership`, async t => {
+    const f = fixture(t); await f.leave();
+    f.mutate(s => { if (target === "absent") s.members = []; else s.members[0].memberTokenHash = null; });
+    const before = f.state(); assert.equal((await f.recover()).statusCode, 400); assert.deepEqual(f.state(), before);
+  });
+}
+test("recovery refuses an already-bound target identity without replacing either instance", async t => {
+  const f = fixture(t); await f.leave(); const before = f.state();
+  // 'unrelated' already belongs to other/pet.
+  const res = await f.recover(); assert.equal(res.statusCode, 409); assert.deepEqual(f.state(), before);
+});
+test("recovery rejects stale reviewed revision and exact detachment mismatch", async t => {
+  const f = fixture(t); await f.leave(); const before = f.state(), stamp = before.runtime.snapshot.combatNpcs[0].companionAdmission.detachedAt;
+  await assert.rejects(f.recover({ targetMemberId: "other", expectedRevision: 1, expectedDetachedAt: stamp, reason: "Review stale" }), RuntimeConflictError);
+  assert.equal((await f.recover({ targetMemberId: "other", expectedRevision: 2, expectedDetachedAt: "different", reason: "Wrong instance" })).statusCode, 409);
+  assert.deepEqual(f.state(), before);
+});
+test("recovery refuses legacy and non-detached instances", async t => {
+  const f = fixture(t);
+  assert.equal((await f.recover({ targetMemberId: "other", expectedRevision: 1, expectedDetachedAt: "forged", reason: "Wrong instance" })).statusCode, 409);
+  await f.leave(); f.mutate(s => { delete s.runtime.snapshot.combatNpcs[0].companionAdmission; });
+  assert.equal((await f.recover({ targetMemberId: "other", expectedRevision: 2, expectedDetachedAt: "forged", reason: "Legacy instance" })).statusCode, 409);
+});
+for (const fault of ["failWrite", "failCommit", "conflict", "serialization"] as const) {
+  test(`recovery ${fault} preserves retained data and binding`, async t => {
+    const f = fixture(t); await f.leave();
+    f.mutate(s => { s.runtime.snapshot.combatNpcs[1].companionAdmission.companionId = "different"; });
+    const before = f.state(); f.controls[fault] = true;
+    if (fault === "conflict" || fault === "serialization") await assert.rejects(f.recover(), RuntimeConflictError);
+    else assert.equal((await f.recover()).statusCode, 500);
+    assert.deepEqual(f.state(), before);
+  });
+}
+test("lost acknowledgement retry fails closed without second binding change or event", async t => {
+  const f = fixture(t); await f.leave();
+  f.mutate(s => { s.runtime.snapshot.combatNpcs[1].companionAdmission.companionId = "different"; });
+  const stamp = f.state().runtime.snapshot.combatNpcs[0].companionAdmission.detachedAt;
+  const request = { targetMemberId: "other", expectedRevision: 2, expectedDetachedAt: stamp, reason: "Restore to owner" };
+  assert.equal((await f.recover(request)).statusCode, 200); const committed = f.state();
+  await assert.rejects(f.recover(request), RuntimeConflictError); assert.deepEqual(f.state(), committed);
+  assert.equal(committed.runtime.snapshot.eventLog.filter((e: any) => e.type === "companion_recovered").length, 1);
+});
+test("recovery validates review fields before transactions and ignores submitted combat overrides", async t => {
+  const f = fixture(t); await f.leave();
+  const count = f.transactions();
+  assert.equal((await f.recover({ targetMemberId: "other", reason: "ok" })).statusCode, 400);
+  assert.equal(f.transactions(), count);
+  f.mutate(s => { s.runtime.snapshot.combatNpcs[1].companionAdmission.companionId = "different"; });
+  const state = f.state(), stamp = state.runtime.snapshot.combatNpcs[0].companionAdmission.detachedAt;
+  assert.equal((await f.recover({ targetMemberId: "other", expectedRevision: 2, expectedDetachedAt: stamp, reason: "Restore owner", dummyState: { currentHp: 999 }, battleId: "injected", companionId: "forged" })).statusCode, 200);
+  const npc = f.state().runtime.snapshot.combatNpcs[0];
+  assert.equal(npc.dummyState.currentHp, 3); assert.equal(npc.companionAdmission.companionId, "pet");
+  assert.equal(f.state().runtime.snapshot.participantBattleById.owned, undefined);
+});
+
+test("recovery cannot target a member from another party", async t => {
+  const f = fixture(t); await f.leave(); f.mutate(s => { s.members[0].partyCode = "another-party"; });
+  const before = f.state(); assert.equal((await f.recover()).statusCode, 400); assert.deepEqual(f.state(), before);
+});
+test("expired party recovery fails before runtime writes", async t => {
+  const f = fixture(t); await f.leave(); const before = f.state(); f.controls.expired = true;
+  assert.equal((await f.recover()).statusCode, 404); assert.deepEqual(f.state(), before);
+});
+test("missing durable snapshot fails as a conflict without recreating runtime", async t => {
+  const f = fixture(t); await f.leave(); f.mutate(s => { s.runtime = null; });
+  await assert.rejects(f.recover({ targetMemberId: "other", expectedRevision: 2, expectedDetachedAt: "stamp", reason: "Review missing state" }), RuntimeConflictError);
+  assert.equal(f.state().runtime, null);
 });

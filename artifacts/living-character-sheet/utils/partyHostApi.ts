@@ -1,4 +1,4 @@
-import type { NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem, CombatNpc, CombatNpcStatKey, CombatNpcDummyState, CombatNpcGearItem, CreateCombatNpcPayload } from "./partyApi";
+import type { RecoverCompanionPayload, NotesAssignment, NotesAssignmentPayload, PartyRestRequest, PartyInitiativeStartResult, PartyRollRequest, PartyStatKey, EndPartyTurnPayload, LootAssignment, LootAssignmentItem, CombatNpc, CombatNpcStatKey, CombatNpcDummyState, CombatNpcGearItem, CreateCombatNpcPayload } from "./partyApi";
 
 // Keep host capabilities separate from shareable party codes and watch history.
 interface HostTokenStorage {
@@ -16,6 +16,11 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
     return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   }
   return {
+    async recoverPartyCompanion(code: string, npcId: string, payload: RecoverCompanionPayload): Promise<{ ok: true; npc: CombatNpc }> {
+      return request(`/party/${code}/combat-npcs/${npcId}/recover-companion`, {
+        method: "POST", headers: await encounterHeaders(code, "recover companions"), body: JSON.stringify(payload),
+      });
+    },
     async createParty(): Promise<{ code: string }> {
       const { code, hostToken } = await request<{ code: string; hostToken: string }>("/party/create", { method: "POST" });
       if (!hostToken) throw new Error("The server must be updated before creating a hosted party.");

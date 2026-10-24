@@ -1,3 +1,4 @@
+import { CompanionRecoveryPanel } from "@/components/CompanionRecoveryPanel";
 import { useFocusEffect } from "expo-router";
 import { createDmLootDraft, dmLootDraftFromProposal, toDmLootAssignment, hasStructuredLootEffects, type DmLootDraftFields } from "@/utils/dmLootDraft";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -36,6 +37,7 @@ import {
   resolvePartyRestRequest,
   addCombatNpc,
   removeCombatNpc,
+  recoverPartyCompanion,
   updateCombatNpcVisibleStats,
   updateCombatNpcDummyState,
   updateCombatNpcGear,
@@ -917,6 +919,10 @@ export default function DmPartyScreen() {
     }));
   }, [groupedMembers]);
 
+  const availableEncounterNpcs = useMemo(() => (combatState?.combatNpcs ?? []).filter(
+    npc => !npc.companionAdmission?.detachedAt
+  ), [combatState?.combatNpcs]);
+
   const activeTargetTab: TargetingTab = activeControlTab === "loot" || activeControlTab === "notes"
     ? activeControlTab
     : "turn";
@@ -1039,7 +1045,7 @@ export default function DmPartyScreen() {
   }, [encounterControlOptions, selectedNpcImportEncounterId]);
 
   useEffect(() => {
-    const validNpcIds = new Set((combatState?.combatNpcs ?? []).map((npc) => npc.id));
+    const validNpcIds = new Set((combatState?.combatNpcs ?? []).filter(npc => !npc.companionAdmission?.detachedAt).map((npc) => npc.id));
     setSelectedNpcIdsForEncounter((prev) => {
       const filtered = prev.filter((id) => validNpcIds.has(id));
       return filtered.length !== prev.length ? filtered : prev;
@@ -2833,23 +2839,23 @@ export default function DmPartyScreen() {
                 })}
               </View>
 
-              {(combatState?.combatNpcs?.length ?? 0) > 0 && (
+              {availableEncounterNpcs.length > 0 && (
                 <View style={{ gap: 6 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                     <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700", letterSpacing: 0.4 }}>
-                      NPCS / MONSTERS ({selectedNpcIdsForEncounter.length}/{combatState?.combatNpcs?.length ?? 0}) SELECTED
+                      NPCS / MONSTERS ({selectedNpcIdsForEncounter.length}/{availableEncounterNpcs.length}) SELECTED
                     </Text>
                     <TouchableOpacity onPress={() => {
-                      const allIds = (combatState?.combatNpcs ?? []).map((n) => n.id);
+                      const allIds = availableEncounterNpcs.map((n) => n.id);
                       setSelectedNpcIdsForEncounter((prev) => prev.length === allIds.length ? [] : allIds);
                     }}>
                       <Text style={{ fontSize: 12, color: c.primary, fontWeight: "700" }}>
-                        {selectedNpcIdsForEncounter.length === (combatState?.combatNpcs?.length ?? 0) ? "Deselect All" : "Select All"}
+                        {selectedNpcIdsForEncounter.length === availableEncounterNpcs.length ? "Deselect All" : "Select All"}
                       </Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {(combatState?.combatNpcs ?? []).map((npc) => {
+                    {availableEncounterNpcs.map((npc) => {
                       const selected = selectedNpcIdsForEncounter.includes(npc.id);
                       const dispositionColors = getDispositionColors(npc.disposition);
                       return (
@@ -2934,7 +2940,7 @@ export default function DmPartyScreen() {
                   (id) => !combatState?.participantBattleById?.[id]
                 );
                 const canAddToEncounter = !!activeBattleId && (unassignedSelectedNpcIds.length > 0 || unassignedSelectedMemberIds.length > 0);
-                const hasAnything = turnSelectedTargets.length > 0 || selectedNpcIdsForEncounter.length > 0 || (combatState?.combatNpcs?.length ?? 0) > 0;
+                const hasAnything = turnSelectedTargets.length > 0 || selectedNpcIdsForEncounter.length > 0 || availableEncounterNpcs.length > 0;
                 const isDisabled = canAddToEncounter
                   ? (addingToEncounter || (unassignedSelectedNpcIds.length === 0 && unassignedSelectedMemberIds.length === 0))
                   : (startingInitiative || !hasAnything);
@@ -4845,8 +4851,23 @@ export default function DmPartyScreen() {
                         </View>
 
                         <ConditionBadges conditions={conditions} />
+                        {npc.companionAdmission?.detachedAt && (
+                          <CompanionRecoveryPanel npc={npc} members={members} revision={combatState?.stateRevision} colors={c}
+                            onRecover={async payload => {
+                              try {
+                                await recoverPartyCompanion(watchedCode!, npc.id, payload);
+                              } catch (failure) {
+                                await refreshCombat(watchedCode!).catch(() => {});
+                                throw failure;
+                              }
+                              await refreshCombat(watchedCode!);
+                              showStatusPill("Companion restored; ready for encounter placement.", "positive");
+                            }} />
+                        )}
+
 
                         {/* Initiative section */}
+                        {!npc.companionAdmission?.detachedAt && (
                         <View style={{ marginTop: 8, gap: 6 }}>
                           <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700" }}>
                             INITIATIVE {typeof initiativeTotal !== "number" ? "(not rolled)" : `· ${initiativeTotal}`}{bonus !== 0 ? ` (bonus: ${bonus >= 0 ? "+" : ""}${bonus})` : ""}
@@ -4876,6 +4897,7 @@ export default function DmPartyScreen() {
                           </View>
                         </View>
 
+                        )}
                         {/* Visible stats */}
                         <View style={{ marginTop: 6, gap: 6 }}>
                           <Text style={{ fontSize: 11, color: c.mutedForeground, fontWeight: "700" }}>PLAYER-VISIBLE NPC STATS</Text>
