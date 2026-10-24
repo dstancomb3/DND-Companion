@@ -4,7 +4,7 @@ Backfilled 2026-10-22. Historical coverage: PRs #1–#15 through main commit
 `c69f7d34c50aecea862e994622e52765d4bf9afc`.
 Merge dates below use America/Chicago (UTC−05:00 on these dates).
 This log records this collaboration's work, not every feature that predated it.
-Subsequent passes are appended below; latest recorded pass: O02-A12 ([PR #33](https://github.com/dstancomb3/DND-Companion/pull/33)).
+Subsequent passes are appended below; latest recorded pass: O02-A13 ([PR #34](https://github.com/dstancomb3/DND-Companion/pull/34)).
 
 ## Read this before choosing more work
 
@@ -254,7 +254,7 @@ HTTP commits fail closed. These behaviors must not be conflated.
 | --- | --- | --- |
 | REC-01 original “15 issues” reconciliation | Unverified | Recover the original numbered artifact if available; preserve wording/severity and map each real finding. Until then retain the five recovered O IDs and do not claim a completion percentage. |
 | This implementation-log backfill | Documentation only | Coverage of PRs #1–#15, U01–U17, I01–I20 and H0–H7; evidence/links checked; workspace typecheck and 24-test combat baseline rerun for this documentation change. Full historical suites not rerun. No new runtime fix or migration. |
-| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. O02-A6 protects roll-prompt creation and maps NPC callers. O02-A7 protects six non-NPC mutations and fixes battle-scoped end-turn. O02-A8 protects five NPC instance controls. O02-A9 adds proof to NPC creation and constrained member companion admission. All twelve previously open non-bootstrap mutations now check proof; canonical companion ownership/lifecycle, public read privacy/side effects, public bootstrap abuse, proof-to-commit races and gameplay truth remain open. User selected player-managed immediate admission with DM oversight. O02-A10 adds server-stamped live identity and committed-instance reuse without resets. O02-A11 now implements guarded owner-leave detach/retention. O02-A12 adds reviewed original-host recovery. Next: admission/departure proof-to-commit consistency; canonical roster validation and permanent receipts remain open. Legacy owner metadata grants no rights. AI caller/usage controls are unchanged. |
+| Original-scope permission/AI exposure work | O02 partial / O05 open | O02-A1/A2 protect DM note authoring and recipients; O02-A3 protects five member-owned actions. O02-A4 protects host rest approval/denial. O02-A5 maps those callers and gates initiative start/add/end with host proof. O02-A6 protects roll-prompt creation and maps NPC callers. O02-A7 protects six non-NPC mutations and fixes battle-scoped end-turn. O02-A8 protects five NPC instance controls. O02-A9 adds proof to NPC creation and constrained member companion admission. All twelve previously open non-bootstrap mutations now check proof; canonical companion ownership/lifecycle, public read privacy/side effects, public bootstrap abuse, proof-to-commit races and gameplay truth remain open. User selected player-managed immediate admission with DM oversight. O02-A10 adds server-stamped live identity and committed-instance reuse without resets. O02-A11 now implements guarded owner-leave detach/retention. O02-A12 adds reviewed original-host recovery. O02-A13 adds shared transactional admission/reuse proof. Next evidence: real PostgreSQL/multi-client lifecycle acceptance; canonical roster validation, other mutation races and permanent receipts remain open. Legacy owner metadata grants no rights. AI caller/usage controls are unchanged. |
 | New claim-recovery proposal | Open, not activated by this backfill | U08/I13/I19 specify the gap. Durable receipt/state ownership, failure matrix and priority decision required before implementation. |
 | AI usage / lightweight model exploration | Deferred by user; no implementation | PR #23 remains audit evidence. User considered a small reasoning model, then explicitly deferred model work and resumed O02. No model/runtime, parser fast path or telemetry integration activated; no measured savings claimed. |
 | Live notes/status QA | QA-N01 live retest pending / QA-N02 open | User deferred retesting PR #21 and authorized the encounter-control pass. Do not claim the reported Active-to-Completed behavior fixed without source/sent/local status evidence. |
@@ -701,6 +701,92 @@ permanent audit/receipts, public reads/bootstrap protection and gameplay truth r
 open. Current route counts: 34 declarations, 29 proof-gated mutations, three public
 bootstrap handlers and two open reads. O02 partial, O05 open, REC-01 unverified.
 Full undo/combat/AI DM, lightweight-model deferral and live notes QA unchanged.
+
+## O02-A13: companion admission/departure race containment (PR #34)
+
+2026-10-24 / [PR #34](https://github.com/dstancomb3/DND-Companion/pull/34).
+Original O02 companion lifecycle, related U09. Server-only continuation after
+reviewed recovery, without new player/host rights or a broader party cutover.
+
+Before → after: companion admission/reuse authenticated membership before the
+runtime operation, so removal between those steps could still create or return
+an instance. The companion branch now runs session/member row locks in that order,
+live member capability/party-expiry revalidation, activity refresh, fresh durable
+snapshot reads, own-battle checks and revision-guarded runtime save on one
+serializable transaction connection. It shares lock order with departure/recovery.
+Reuse also waits for transaction commit, despite adding no runtime event or
+snapshot revision. Successful commit invalidates cache; no transaction-local
+state is published.
+
+A removed/revoked member fails locked revalidation even after passing preflight.
+If admission commits first, a later committed departure reads and detaches that
+instance. PostgreSQL may instead abort an overlapping serializable transaction;
+this is returned as conflict with no automatic retry. Session activity rolls back
+with rejected/failed companion work. First runtime insert uses the same scoped
+executor; first-row uniqueness, serialization and deadlock errors fail closed
+rather than acknowledge an unsaved instance or transparently retry. Explicit
+requests reauthenticate. Detached retained instances cannot be reused to bypass
+host recovery. Existing source/battle/payload constraints are preserved.
+
+Ordinary original-host NPC creation keeps its previous activity/cache/CAS path.
+The route's shared construction logic is wrapped without moving authority to
+clients or changing the request/result contract. Internal lifecycle error handling
+is shared with recovery. Other party mutation proof-to-commit races, canonical
+source ownership and gameplay truth remain separate work.
+
+Touched files:
+- artifacts/api-server/src/routes/party.ts
+- artifacts/api-server/src/routes/party.companion-identity-safety.test.ts
+- artifacts/api-server/src/routes/party.npc-creation-safety.test.ts
+- artifacts/api-server/src/routes/party.departure-safety.test.ts
+- docs/app-map.md
+- docs/companion-projection-permissions.md
+- docs/feature-status.md
+- docs/migrations.md
+- docs/party-permission-map.md
+- docs/implementation-log.md
+- lib/api-spec/openapi.yaml
+
+Validation: 612 focused tests passed, including 14 new lifecycle regressions.
+All workspace typechecks and 24 combat safety tests passed, followed by a final
+API test-source typecheck. API bundle build and compiled HTTP preview smoke passed.
+Existing identity/reuse and ordinary host NPC creation regressions still pass.
+Updated success fixtures accept transaction execution; denied preflight tests
+retain their no-write expectations.
+
+New staged transaction tests cover removal after preflight for creation and reuse,
+missing first runtime, revocation, both modeled serial admission/departure orders,
+acknowledgement only after commit for creation and reuse, write/commit rollback,
+revision/serialization conflict, first-row uniqueness and explicit retry, expired
+reuse and retained-instance refusal. Test doubles assert session/member lock order
+before scoped writes and forbid global insert/delete. Negative run selected 11
+non-blocking regressions against the prior route: nine fail, two already pass.
+Three acknowledgement/queue gate tests were not run on the old source because it
+does not enter that transaction boundary. Existing bounded duplicate/CAS tests
+are not a substitute for database isolation evidence. OpenAPI unique keys, exact
+34-route inventory and whitespace checked.
+
+Evidence limits: DB transactions and queued lock order are models of permitted
+serial behavior, not real PostgreSQL scheduling/locking or multi-process proof.
+An actual concurrent PostgreSQL run can return serialization conflict instead of
+the modeled success order. No real DB, crash/lost-commit-ack, mobile/browser or
+provider deployment acceptance claimed. Compiled smoke performs no successful DB
+or AI call. Temporary negative-run files were removed; no dependency/lockfile,
+schema version, capability, generated-binding or client change.
+
+Rollout/rollback: compatible server behavior on existing runtime JSON v1 and
+capability columns, no SQL migration or connected DB action. Rollback restores
+the preflight-to-commit gap even if departure/recovery remain transactional.
+Keep the newer server before relying on this lifecycle containment and preserve
+existing admission/recovery metadata. No cloud setup resumed.
+
+Remaining: real PostgreSQL and multi-client lifecycle acceptance, canonical
+source-roster verification, other mutation races, permanent receipts/history,
+public reads/bootstrap protection, legacy reconciliation and deterministic
+combat truth remain open. Counts unchanged: 34 declarations, 29 proof-gated
+mutations, three public bootstrap handlers, two open reads. O02 partial / O05
+open / REC-01 unverified. Full undo/combat/AI DM, deferred model work, notes QA and
+reported icon-font/hosted DB issues retain prior status. Cloud setup stays paused.
 
 ## Keep this log current
 
