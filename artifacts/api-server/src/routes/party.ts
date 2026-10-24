@@ -1535,11 +1535,6 @@ router.post("/party/join/:code", async (req, res) => {
       return;
     }
 
-    if (!await authorizePartyRead(req, code, sessions[0])) {
-      res.status(403).json({ code: "party_read_required", error: "Party membership or host access is required to read party state." });
-      return;
-    }
-
     if (isExpired(sessions[0].lastActivityAt)) {
       await db.delete(partySessions).where(eq(partySessions.code, code));
       await deletePartyRuntimeSnapshot(code);
@@ -1743,6 +1738,11 @@ router.get("/party/:code/members", async (req, res) => {
 
     if (sessions.length === 0) {
       res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+
+    if (!await authorizePartyRead(req, code, sessions[0])) {
+      res.status(403).json({ code: "party_read_required", error: "Party membership or host access is required to read party state." });
       return;
     }
 
