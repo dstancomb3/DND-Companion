@@ -1442,3 +1442,20 @@ metadata before reverting to older lifecycle code. Canonical roster ownership,
 active transfers, permanent ledger/receipts and wider admission proof-to-commit
 races remain open. Real DB/concurrent-client and visual/mobile acceptance is
 pending. O02 stays partial; cloud setup, icon-font QA, O05 and REC-01 stay open.
+
+
+### O02-A13: transactional companion admission and reuse
+
+Admission/reuse now shares session/member row lock order and serializable
+transaction scope with departure/recovery. Membership is revalidated after
+preflight; activity and runtime saves roll back together, acknowledgements follow
+commit and successful requests invalidate cache. First-row uniqueness and
+serialization failures return conflicts without automatic retry. Retained
+companions require explicit host recovery.
+
+Server-only compatible behavior change, no SQL/schema/capability/client or lockfile
+change. Ordinary host NPC creation keeps its existing path. Rollback restores the
+admission/departure race. Mocked serial-order tests do not prove real PostgreSQL
+locking or multi-process acceptance. Canonical roster, other party mutation races,
+public reads/bootstrap protection and full combat truth remain open. O02 partial,
+O05 open, REC-01 unverified; cloud setup and icon-font QA remain paused/open.

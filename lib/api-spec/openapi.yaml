@@ -557,7 +557,7 @@ paths:
       operationId: addCombatNpc
       tags: [party]
       summary: Create a host NPC or admit a member companion projection
-      description: Ordinary creation requires original-host proof. Companion metadata requires exact live ownerMemberId bearer proof, constrained friendly character fields and own-member battle scope. Proof authenticates the submitter, not saved companion ownership or stats. Host proof cannot substitute for member proof on companion admission. Player-managed admission stamps server provenance and reuses an existing committed live instance without resetting it; companion responses include reused. There is no permanent receipt after removal.
+      description: Ordinary creation requires original-host proof. Companion metadata requires exact live ownerMemberId bearer proof, constrained friendly character fields and own-member battle scope. Proof authenticates the submitter, not saved companion ownership or stats. Host proof cannot substitute for member proof on companion admission. Player-managed admission stamps server provenance and reuses an existing committed live instance without resetting it; companion responses include reused. Companion creation and reuse revalidate locked session/member proof in a serializable transaction with durable runtime reads, activity refresh and revision-guarded save. Responses follow commit. Serialization and first-row uniqueness conflicts fail closed without automatic retry. There is no permanent receipt after removal.
       security:
         - partyCapability: []
       parameters:
@@ -582,7 +582,7 @@ paths:
         "404":
           description: Party not found or expired
         "409":
-          description: Runtime revision conflict
+          description: Runtime revision, serialization, first-row uniqueness or retained-companion conflict; explicitly retry after reviewing current state
   /party/{code}/combat-npcs/{npcId}/recover-companion:
     post:
       operationId: recoverPartyCompanion

@@ -199,3 +199,9 @@ CompanionRecoveryPanel provides the retained-companion DM review/confirm flow.
 partyHostApi sends the original-host capability plus exact reviewed runtime
 revision and detachment stamp. The server recovery route serializes host/target
 revalidation, binding update and history save; encounter placement is separate.
+
+
+The companion creation/reuse branch now passes the transaction executor through
+getCommittedCombatState and the existing runtime store. It shares session/member
+lock order with departure/recovery and acknowledges after commit. Ordinary host
+NPC creation retains its compatibility path; this is not a global party cutover.

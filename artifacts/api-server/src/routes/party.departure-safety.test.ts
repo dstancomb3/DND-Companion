@@ -35,9 +35,15 @@ function fixture(t: TestContext) {
       playerEconomyByMember: { owner: { action: 0 }, owned: { action: 0 }, other: { action: 1 } },
     } },
   };
-  const controls = { failWrite: false, failDelete: false, failCommit: false, conflict: false, revoke: false, serialization: false, revokeHost: false, expired: false };
+  const controls = { failWrite: false, failDelete: false, failCommit: false, conflict: false, revoke: false, serialization: false, revokeHost: false, expired: false, uniqueInsert: false };
   let transactions = 0, writes = 0;
-  const query = (state: any, scoped: boolean): any => ({
+  let beforeTransaction: (() => Promise<void>) | undefined;
+  let holdCommit: (() => Promise<void>) | undefined;
+  let transactionQueue: Promise<void> = Promise.resolve();
+  const query = (state: any, scoped: boolean): any => {
+    const lockedTables: unknown[] = [];
+    const assertLocked = () => assert.deepEqual(lockedTables, [partySessions, partyMembers], "session/member locks must precede transactional writes");
+    return ({
     select: () => ({ from: (table: unknown) => ({ where: (condition: never) => {
       const params = new PgDialect().sqlToQuery(condition).params;
       let rows = table === partySessions ? [{ code, hostTokenHash: host.hostTokenHash, lastActivityAt: controls.expired ? new Date(0) : now }]
@@ -46,33 +52,59 @@ function fixture(t: TestContext) {
       if (scoped && controls.revokeHost && table === partySessions) rows = rows.map((row: any) => ({ ...row, hostTokenHash: other.hostTokenHash }));
       if (scoped && controls.revoke && table === partyMembers) rows = rows.map((m: any) => ({ ...m, memberTokenHash: other.hostTokenHash }));
       const copy = structuredClone(rows);
-      return Object.assign(Promise.resolve(copy), { limit: async () => copy, for: async (lock: string) => { assert.equal(lock, "update"); return copy; } });
+      return Object.assign(Promise.resolve(copy), { limit: async () => copy, for: async (lock: string) => {
+        assert.equal(lock, "update");
+        assert.equal(table, lockedTables.length === 0 ? partySessions : partyMembers, "lifecycle lock order");
+        lockedTables.push(table); return copy;
+      } });
     } }) }),
-    update: (table: unknown) => ({ set: (value: Record<string, unknown>) => ({ where: (condition: never) => ({ returning: async () => {
-      assert.equal(scoped, true, "runtime writes must use transaction executor");
-      assert.equal(table, partyRuntimeSnapshots);
+    insert: (table: unknown) => ({ values: (value: Record<string, unknown>) => ({ returning: async () => {
+      assert.equal(scoped, true); assertLocked(); assert.equal(table, partyRuntimeSnapshots);
+      if (controls.uniqueInsert || state.runtime) throw Object.assign(Error("duplicate runtime row"), { code: "23505" });
       if (controls.failWrite) throw Error("write failed");
-      const params = new PgDialect().sqlToQuery(condition).params;
-      if (controls.conflict || params[1] !== state.runtime.stateRevision) return [];
-      writes++; state.runtime = { ...state.runtime, ...structuredClone(value) }; return [state.runtime];
-    } }) }) }),
+      writes++; state.runtime = structuredClone(value); return [state.runtime];
+    } }) }),
+    update: (table: unknown) => ({ set: (value: Record<string, unknown>) => ({ where: (condition: never) => {
+      assert.equal(scoped, true, "all transactional writes must use the scoped executor"); assertLocked();
+      if (table === partySessions) {
+        state.activityUpdates = (state.activityUpdates ?? 0) + 1;
+        return Promise.resolve([]);
+      }
+      return { returning: async () => {
+        assert.equal(table, partyRuntimeSnapshots);
+        if (controls.failWrite) throw Error("write failed");
+        const params = new PgDialect().sqlToQuery(condition).params;
+        if (controls.conflict || params[1] !== state.runtime.stateRevision) return [];
+        writes++; state.runtime = { ...state.runtime, ...structuredClone(value) }; return [state.runtime];
+      } };
+    } }) }),
     delete: (table: unknown) => ({ where: async () => {
-      assert.equal(scoped, true, "member deletion must use transaction executor");
+      assert.equal(scoped, true, "member deletion must use transaction executor"); assertLocked();
       assert.equal(table, partyMembers);
       if (controls.failDelete) throw Error("delete failed");
       writes++; state.members = state.members.filter((m: any) => m.id !== "owner");
     } }),
-  });
+  }); };
   t.mock.method(db, "update", ((table: unknown) => { assert.equal(table, partySessions); return { set: () => ({ where: async () => [] }) }; }) as never);
+  t.mock.method(db, "insert", (() => { throw Error("Global insertion is forbidden"); }) as never);
   t.mock.method(db, "delete", (() => { throw Error("Global deletion is forbidden"); }) as never);
   t.mock.method(db, "select", (() => query(committed, false).select()) as never);
   t.mock.method(db, "transaction", (async (callback: (tx: unknown) => Promise<unknown>, options: unknown) => {
     assert.deepEqual(options, { isolationLevel: "serializable" }); transactions++;
-    const staged = structuredClone(committed);
-    const result = await callback(query(staged, true));
-    if (controls.failCommit) throw Error("commit failed");
-    if (controls.serialization) throw Object.assign(Error("query failed"), { cause: { code: "40001" } });
-    committed = staged; return result;
+    const hook = beforeTransaction; beforeTransaction = undefined; if (hook) await hook();
+    // Models one permitted lock order, not PostgreSQL isolation itself.
+    const previous = transactionQueue;
+    let release!: () => void;
+    transactionQueue = new Promise<void>(resolve => { release = resolve; });
+    await previous;
+    try {
+      const staged = structuredClone(committed);
+      const result = await callback(query(staged, true));
+      const hold = holdCommit; holdCommit = undefined; if (hold) await hold();
+      if (controls.failCommit) throw Error("commit failed");
+      if (controls.serialization) throw Object.assign(Error("query failed"), { cause: { code: "40001" } });
+      committed = staged; return result;
+    } finally { release(); }
   }) as never);
   async function leave(token = owner.hostToken) {
     const res = response();
@@ -93,7 +125,17 @@ function fixture(t: TestContext) {
     }, res);
     return res;
   }
-  return { leave, read, recover, controls, state: () => structuredClone(committed), mutate: (fn: (s: any) => void) => fn(committed), transactions: () => transactions, writes: () => writes };
+  async function admit(companionId = "new-pet", token = owner.hostToken) {
+    const res = response();
+    await handler("/party/:code/combat-npcs", "post")({
+      params: { code }, body: { name: "New companion", sourceType: "character", sourceId: companionId,
+        disposition: "friendly", dummyState: { maxHp: 12, currentHp: 4, armorClass: 12 },
+        projection: { combatantKind: "companion", companionId, ownerMemberId: "owner", ownerCharacterId: "local-character" } },
+      get: () => `Bearer ${token}`,
+    }, res);
+    return res;
+  }
+  return { leave, read, recover, admit, beforeTransaction: (fn: () => Promise<void>) => { beforeTransaction = fn; }, holdCommit: (fn: () => Promise<void>) => { holdCommit = fn; }, controls, state: () => structuredClone(committed), mutate: (fn: (s: any) => void) => fn(committed), transactions: () => transactions, writes: () => writes };
 }
 for (const [label, token] of [["self", owner.hostToken], ["host", host.hostToken]]) {
   test(`cold-cache ${label} departure atomically detaches only bound companions and retains live data`, async t => {
@@ -281,4 +323,93 @@ test("missing durable snapshot fails as a conflict without recreating runtime", 
   const f = fixture(t); await f.leave(); f.mutate(s => { s.runtime = null; });
   await assert.rejects(f.recover({ targetMemberId: "other", expectedRevision: 2, expectedDetachedAt: "stamp", reason: "Review missing state" }), RuntimeConflictError);
   assert.equal(f.state().runtime, null);
+});
+
+for (const companionId of ["new-pet", "pet"]) {
+  test(`admission/reuse of ${companionId} refuses removal between preflight proof and transaction`, async t => {
+    const f = fixture(t);
+    f.beforeTransaction(async () => { assert.equal((await f.leave()).statusCode, 200); });
+    const res = await f.admit(companionId);
+    assert.equal(res.statusCode, 403); assert.equal(res.body.code, "party_member_required");
+    const saved = f.state();
+    assert.equal(saved.members.some((m: any) => m.id === "owner"), false);
+    assert.equal(saved.runtime.snapshot.combatNpcs.length, 3);
+    assert.equal(saved.runtime.snapshot.eventLog.some((e: any) => e.type === "combat_npc_added"), false);
+    assert.equal(saved.activityUpdates, undefined);
+  });
+}
+test("cold first admission cannot create a runtime after its owner leaves", async t => {
+  const f = fixture(t); f.mutate(s => { s.runtime = null; });
+  f.beforeTransaction(async () => { await f.leave(); });
+  assert.equal((await f.admit()).statusCode, 403); assert.equal(f.state().runtime, null);
+});
+test("member credential revoked after preflight cannot admit or refresh activity", async t => {
+  const f = fixture(t), before = f.state(); f.controls.revoke = true;
+  assert.equal((await f.admit()).statusCode, 403); assert.deepEqual(f.state(), before);
+});
+test("admission acknowledges only after commit; queued departure detaches that exact instance", async t => {
+  const f = fixture(t); let entered!: () => void, release!: () => void, acknowledged = false;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  f.holdCommit(async () => { entered(); await held; });
+  const admission = f.admit().then(result => { acknowledged = true; return result; });
+  await started; assert.equal(acknowledged, false);
+  assert.equal(f.state().runtime.snapshot.combatNpcs.length, 3);
+  const departure = f.leave(); release();
+  const added = await admission; assert.equal(added.statusCode, 200); await departure;
+  const saved = f.state().runtime.snapshot, npc = saved.combatNpcs.find((n: any) => n.id === added.body.npc.id);
+  assert.ok(npc.companionAdmission.detachedAt); assert.equal(saved.participantBattleById[npc.id], undefined);
+  assert.equal(saved.battleTurnOrderById.battle?.includes(npc.id) ?? false, false);
+});
+test("admission queued behind departure rejects the old credential after departure commits", async t => {
+  const f = fixture(t); let entered!: () => void, release!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  f.holdCommit(async () => { entered(); await held; });
+  const departure = f.leave(); await started;
+  const admission = f.admit(); release();
+  assert.equal((await departure).statusCode, 200); assert.equal((await admission).statusCode, 403);
+  assert.equal(f.state().runtime.snapshot.combatNpcs.length, 3);
+});
+for (const fault of ["failWrite", "failCommit", "conflict", "serialization"] as const) {
+  test(`admission ${fault} rolls back activity, event and companion together`, async t => {
+    const f = fixture(t), before = f.state(); f.controls[fault] = true;
+    if (fault === "conflict" || fault === "serialization") await assert.rejects(f.admit(), RuntimeConflictError);
+    else assert.equal((await f.admit()).statusCode, 500);
+    assert.deepEqual(f.state(), before);
+  });
+}
+test("first admission creates runtime under scoped proof and duplicate first-row conflict fails closed", async t => {
+  const f = fixture(t); f.mutate(s => { s.runtime = null; });
+  f.controls.uniqueInsert = true; await assert.rejects(f.admit(), RuntimeConflictError);
+  assert.equal(f.state().runtime, null); assert.equal(f.state().activityUpdates, undefined);
+  f.controls.uniqueInsert = false;
+  const first = await f.admit(); assert.equal(first.statusCode, 200); assert.equal(first.body.reused, false);
+  const again = await f.admit(); assert.equal(again.body.reused, true);
+  assert.equal(again.body.npc.id, first.body.npc.id); assert.equal(f.state().runtime.stateRevision, 1);
+});
+test("reuse waits for transaction commit and never acknowledges an expired session", async t => {
+  const f = fixture(t); f.controls.failCommit = true;
+  assert.equal((await f.admit("pet")).statusCode, 500);
+  f.controls.failCommit = false; f.controls.expired = true;
+  assert.equal((await f.admit("pet")).statusCode, 404);
+  assert.equal(f.state().activityUpdates, undefined);
+});
+test("detached companion cannot be reused through admission while host review is required", async t => {
+  const f = fixture(t);
+  f.mutate(s => { s.runtime.snapshot.combatNpcs[0].companionAdmission.detachedAt = "retained"; });
+  const before = f.state(), res = await f.admit("pet");
+  assert.equal(res.statusCode, 409); assert.deepEqual(f.state(), before);
+});
+
+test("reuse acknowledgement waits for commit without changing runtime state or replay history", async t => {
+  const f = fixture(t); let entered!: () => void, release!: () => void, acknowledged = false;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const before = f.state().runtime;
+  f.holdCommit(async () => { entered(); await held; });
+  const pending = f.admit("pet").then(result => { acknowledged = true; return result; });
+  await started; assert.equal(acknowledged, false); assert.equal(f.writes(), 0);
+  release(); const res = await pending; assert.equal(res.body.reused, true);
+  assert.deepEqual(f.state().runtime, before);
 });

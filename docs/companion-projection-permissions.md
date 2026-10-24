@@ -1,6 +1,6 @@
 # Companion projection permissions
 
-Original finding O02, passes O02-A9/A10. The user selected player-managed
+Original finding O02, passes O02-A9 through O02-A13. The user selected player-managed
 admission on 2026-10-22: companions enter without a DM approval step, while the
 DM retains shared combat oversight. This is a party-scoped submission/control
 policy, not certification of a saved character, companion or its stats.
@@ -13,7 +13,7 @@ policy, not certification of a saved character, companion or its stats.
 | Battle placement | Derive from authenticated member's runtime battle; reject a different explicit battle | Host can later move participants through existing host controls. |
 | Member has no battle | Create unassigned projection, without fallback to another player's battle | No automatic later joining/moving is added. |
 | Instance management | Existing host-only state/gear/visibility/delete/initiative controls | No player companion-owner edit rights are inferred. |
-| Retry and identity | Server-stamped party/member/companion identity reuses a committed live instance | No permanent receipt/tombstone after instance removal; initial insert and proof/commit races remain. |
+| Retry and identity | Server-stamped party/member/companion identity reuses a committed live instance | No permanent receipt/tombstone after removal; companion admission/departure uses shared transactional locks, with real PostgreSQL concurrency acceptance pending. |
 | Member leave/rejoin | Transactional departure detaches stamped companions and retains live data | No automatic ownership transfer or rebind of old projections. |
 | Legacy projections | Existing metadata retained for compatibility | It was publicly writable before this gate and cannot prove historical ownership. |
 
@@ -188,3 +188,35 @@ contract and ignore new provenance; review live retained/recovered instances bef
 rollback. Tests mock transactional storage and native UI host primitives; real
 PostgreSQL locking, multi-client races and visual/device acceptance remain pending.
 Cloud setup and the reported icon-font issue remain paused/open.
+
+
+## O02-A13: admission and departure share a guarded transaction boundary
+
+Companion creation and reuse now revalidate session/member proof under the same
+session-then-member row lock order used by departure and host recovery. These
+operations use serializable transactions. Session activity refresh, fresh durable
+runtime read, own-battle validation and revision-guarded creation all use that
+transaction executor. Reuse also waits for commit even when it adds no runtime
+event or snapshot revision. No transaction-local state is published to cache;
+successful commit invalidates the cached party state.
+
+If removal happens after preflight authentication, locked revalidation refuses
+the old membership. If admission commits first, later departure loads its durable
+instance and detaches it. PostgreSQL can instead abort an overlapping serializable
+transaction; that is a conflict requiring a fresh explicit request, not an
+automatic retry or success acknowledgement. Tests model permitted serial orders
+and explicitly check that lock requests precede writes; they do not establish
+PostgreSQL's exact scheduler or isolation behavior.
+
+Activity refresh rolls back with a rejected battle, failed save/commit or revoked
+proof. A missing runtime is created only within authenticated admission. Runtime
+first-row uniqueness failure now returns a conflict, never an unsaved instance
+or transparent retry. A retained detached instance cannot be reused to bypass host
+recovery. Original host NPC creation retains its existing compatibility/cache/CAS
+path; this pass does not serialize all party mutations.
+
+There is no SQL/schema, request/response, capability or client change. Keep the
+current server version before relying on the race containment; reverting restores
+the preflight-to-commit gap. Canonical source ownership, rule validation, permanent
+receipts, other mutation races, public read/privacy and real DB/multi-process
+acceptance remain open. Cloud setup stays paused.

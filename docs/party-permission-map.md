@@ -431,3 +431,15 @@ capabilities cannot substitute. Host/target revalidation and binding/event save
 share a serializable transaction. Review/version guards reject stale, duplicate
 and replayed requests. This bounded recovery does not close canonical source
 ownership, active transfer, permanent history or general admission races.
+
+
+## O02-A13: companion admission/reuse lock scope
+
+The existing companion branch now locks session then exact member, revalidates
+member capability and commits activity/runtime work on one transaction connection,
+matching departure/recovery ordering. Reuse is authenticated again and acknowledged
+after commit. The ordinary host NPC branch is unchanged. This closes the bounded
+preflight-to-departure gap in implementation, subject to real DB acceptance;
+canonical ownership, other mutation races and full authorization remain open.
+Route counts remain 34 declarations / 29 proof-gated mutations / three bootstrap /
+two open reads.
