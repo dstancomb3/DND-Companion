@@ -1,3 +1,4 @@
+import multer from "multer";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
@@ -32,6 +33,10 @@ app.use(
 );
 cloudPreview?.protect(app);
 if (!cloudPreview) app.use(cors());
+// Model-backed endpoints have a tighter streaming JSON limit than other app APIs.
+// This runs before the general body parser; oversized requests never reach a model.
+app.use("/api/ai", express.json({ limit: "4mb" }));
+app.use("/api/adventure/campaign-runtime/turn", express.json({ limit: "4mb" }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
@@ -51,6 +56,14 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
           ? "Runtime state is stale — refresh authoritative state and retry"
           : "State revision conflict — retry with current state",
     });
+    return;
+  }
+  if (err instanceof multer.MulterError && err.code.startsWith("LIMIT_")) {
+    res.status(413).json({ code: "ai_input_too_large", error: "AI image upload exceeds the supported limits." });
+    return;
+  }
+  if (typeof err === "object" && err !== null && "type" in err && err.type === "entity.too.large") {
+    res.status(413).json({ code: "ai_input_too_large", error: "Request exceeds the supported input size." });
     return;
   }
   logger.error(err, "Unhandled route error");

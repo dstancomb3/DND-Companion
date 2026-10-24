@@ -1156,7 +1156,7 @@ const router = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 8, fieldSize: 16 * 1024, parts: 9 },
 });
 
 type CharacterContext = {
