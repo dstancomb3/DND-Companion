@@ -113,7 +113,7 @@ function fixture(t: TestContext) {
   }
   async function read() {
     const res = response();
-    await handler("/party/:code/combat-state", "get")({ params: { code }, get: () => undefined }, res);
+    await handler("/party/:code/combat-state", "get")({ params: { code }, get: () => `Bearer ${host.hostToken}` }, res);
     return res;
   }
   async function recover(payload?: Record<string, unknown>, token = host.hostToken) {

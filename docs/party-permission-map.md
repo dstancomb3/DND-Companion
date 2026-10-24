@@ -24,9 +24,9 @@ access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
 permissions or newly approved broad changes.
 
-After O02-A9: 28 handlers have explicit capability proof; three are bootstrap
-handlers and two are open reads. No non-bootstrap mutation declaration remains
-without proof. This count does not establish full authorization, read privacy,
+After O02-A14: 31 handlers require private host/member proof and three are
+bootstrap handlers. No party-state read or non-bootstrap mutation declaration
+remains code-only. This count does not establish field-level DM-secret projection,
 validated combat/companion ownership, transaction safety or abuse protection.
 
 | Method | Route (under /api) | Current caller proof | Effect | Remaining boundary / policy |
@@ -35,10 +35,10 @@ validated combat/companion ownership, transaction safety or abuse protection.
 | POST | `/party/join/:code` | Invite bootstrap | Validate/share party invitation | Code is an invitation, not DM/member authority; private-read policy remains open. |
 | POST | `/party/:code/register-member` | Invite bootstrap | Issue member UUID + private capability | Caller cannot choose/claim existing identity; enrollment abuse limits remain open. |
 | PUT | `/party/sync` | Member proof | Own member projection + runtime sync | Existing exact party/member token check; further serialization/races remain open. |
-| GET | `/party/:code/members` | Open read | Member/stat projection; expiry handling | No caller proof. Decide scoped read/DM-secret policy; do not infer read authorization from code. |
+| GET | `/party/:code/members` | Host or live member proof (O02-A14) | Member/stat projection; expiry handling | Code-only reads denied before activity/expiry/runtime work. Existing authenticated party-wide member projection retained. |
 | DELETE | `/party/leave` | Member or host proof | Remove self or host-remove another member | O02-A11 commits locked proof, membership removal and durable companion detachment together; removal is not a ban. |
 | POST | `/party/:code/disband` | Host proof | Delete session/members/runtime | Existing original-host check; delegated DM/recovery not implemented. |
-| GET | `/party/:code/combat-state` | Open read | Read/hydrate runtime; refresh activity | No caller proof; read privacy and pre-auth activity/expiry side effects remain open. |
+| GET | `/party/:code/combat-state` | Host or live member proof (O02-A14) | Read committed runtime; refresh activity | Code-only reads denied before activity/expiry/runtime work. Field-level host/member secret projection remains separate. |
 | POST | `/party/:code/initiative/start` | Host proof (O02-A5) | Start initiative/change participants and order | Live original-host proof before activity/runtime work; AI DM uses the same host capability. |
 | PUT | `/party/:code/initiative/roll` | Member proof | Submit member initiative | Live own-member proof before activity/runtime work; existing member/reroll checks retained. DM override is not granted by this route. |
 | POST | `/party/:code/end-turn` | Member or host proof (O02-A7) | Advance battle turn; optional isDmOverride | Own current turn in own requested/default battle; host proof required for override. Global compatibility turn is not authority. |
@@ -453,3 +453,22 @@ departure/recovery. It does not publish cached in-flight state. This is bounded
 freshness, not snapshot-isolated reads or completion of public read privacy.
 The isolated PostgreSQL/HTTP suite and CI job cover the companion lifecycle;
 results and limits are recorded in the implementation log.
+
+
+## O02-A14: private party-state reads (2026-10-24)
+
+The two remaining code-only reads now require either the original host capability
+or a live member capability bound to an explicit member ID. Authorization happens
+before activity refresh, expiry cleanup, member projection or runtime hydration,
+so possession of an invitation code alone cannot read party state or keep a
+session active. Join and registration remain intentional bootstrap routes.
+
+The client automatically supplies an existing host token or one stored member
+token for the party, preserving current polling/call signatures. Read rejection
+uses `party_read_required` and is treated as lost party access by the client.
+No schema/migration or new gameplay authority is introduced.
+
+This closes unauthenticated party-state disclosure, not field-level role
+projection. Authenticated members still receive the existing combat-state wire
+shape; DM-secret filtering, canonical inventory/combat truth and broader abuse
+limits remain separate work. Matching API/client must deploy together.

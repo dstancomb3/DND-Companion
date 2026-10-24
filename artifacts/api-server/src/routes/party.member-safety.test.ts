@@ -116,7 +116,7 @@ test("valid sync updates an existing row without registering another member", as
   assert.equal(res.statusCode, 200);
   assert.equal(memberUpdates, 1);
 });
-test("public member projection excludes the persisted credential hash", async t => {
+test("authorized member projection excludes the persisted credential hash", async t => {
   const code = "public-member-projection";
   t.mock.method(db, "select", (() => ({ from: (table: unknown) => {
     const rows = table === partySessions ? [{ lastActivityAt: now }]
@@ -125,11 +125,37 @@ test("public member projection excludes the persisted credential hash", async t 
   } })) as never);
   t.mock.method(db, "update", (() => ({ set: () => ({ where: async () => [] }) })) as never);
   const res = response();
-  await handler("/party/:code/members")({ params: { code } }, res);
+  await handler("/party/:code/members")({
+    params: { code },
+    get: (name: string) => name.toLowerCase() === "authorization"
+      ? `Bearer ${owner.hostToken}`
+      : name.toLowerCase() === "x-party-member-id" ? "member" : undefined,
+  }, res);
   assert.equal(res.statusCode, 200);
   assert.equal((res.body.members as Array<Record<string, unknown>>)[0].memberTokenHash, undefined);
   assert.equal(JSON.stringify(res.body).includes(owner.hostTokenHash), false);
 });
+
+for (const path of ["/party/:code/members", "/party/:code/combat-state"]) {
+  test(`${path} rejects a party code without private read proof before side effects`, async t => {
+    const reads: unknown[] = [], writes: unknown[] = [];
+    t.mock.method(db, "select", (() => ({ from: (table: unknown) => {
+      reads.push(table);
+      return { where: async () => table === partySessions
+        ? [{ code: "PARTY", lastActivityAt: now, hostTokenHash: host.hostTokenHash }]
+        : [] };
+    } })) as never);
+    for (const method of ["insert", "update", "delete"] as const) {
+      t.mock.method(db, method, ((...args: unknown[]) => { writes.push(args); throw new Error("Forbidden write"); }) as never);
+    }
+    const res = response();
+    await handler(path)({ params: { code: "PARTY" }, get: () => undefined }, res);
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.body.code, "party_read_required");
+    assert.deepEqual(writes, []);
+    assert.equal(reads.includes(partyRuntimeSnapshots), false);
+  });
+}
 
 test("member removed between authorization and update is never inserted or persisted to runtime", async t => {
   const code = "removed-mid-sync";

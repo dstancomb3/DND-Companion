@@ -646,3 +646,16 @@ change. Rollback loses this freshness behavior and CI coverage. CI run 401123344
 tests across independent API processes, plus 613 regressions, eight runner guards,
 workspace typechecks and 24 combat checks. These are scoped acceptance results,
 not full application or production concurrency certification. See party-postgres-tests.md. Cloud setup stays paused.
+
+### O02-A14: private party-state reads
+
+The two party-state GET routes now require private party proof: either the original
+host capability or a live member capability bound to that member ID. Invitation
+codes alone can no longer read member/combat state or refresh session activity.
+Join and member registration stay public bootstrap operations.
+
+The client automatically attaches stored read proof, so current polling and host
+read callers keep their API shape. No SQL/schema migration. This closes code-only
+read disclosure but does not yet implement host-vs-player field redaction inside
+the authenticated combat-state projection. O02 therefore remains partial.
+Cloud setup stays paused; O05 AI request authorization/input limits remains next.

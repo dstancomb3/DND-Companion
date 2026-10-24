@@ -379,7 +379,13 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
       (raw
         ? `Request failed (${res.status}): ${raw.slice(0, 180).replace(/\s+/g, " ").trim()}`
         : `Request failed: ${res.status}`);
-    if (res.status === 403 && typeof data === "object" && data !== null && (data as { code?: string }).code === "party_member_required") {
+    if (
+      res.status === 403 &&
+      typeof data === "object" &&
+      data !== null &&
+      ((data as { code?: string }).code === "party_member_required" ||
+        (data as { code?: string }).code === "party_read_required")
+    ) {
       throw new PartyMemberAccessError(errorMessage);
     }
     throw new Error(errorMessage);
@@ -415,8 +421,30 @@ export async function syncPartyMember(payload: SyncPayload): Promise<void> {
   await memberApi.syncPartyMember(payload);
 }
 
-export async function fetchPartyMembers(code: string): Promise<{ code: string; members: PartyMemberSummary[] }> {
-  const response = await apiRequest<{ code: string; members: PartyMemberSummary[] }>(`/party/${code}/members`);
+async function partyReadHeaders(code: string, memberId?: string): Promise<Record<string, string>> {
+  if (memberId) {
+    const memberToken = await AsyncStorage.getItem(`party-member-token.v1:${code}:${memberId}`);
+    if (memberToken) return { Authorization: `Bearer ${memberToken}`, "X-Party-Member-Id": memberId };
+  }
+
+  const hostToken = await AsyncStorage.getItem(`party-host-token.v1:${code}`);
+  if (hostToken) return { Authorization: `Bearer ${hostToken}` };
+
+  const memberPrefix = `party-member-token.v1:${code}:`;
+  const memberKey = (await AsyncStorage.getAllKeys()).find((key) => key.startsWith(memberPrefix));
+  if (memberKey) {
+    const token = await AsyncStorage.getItem(memberKey);
+    const storedMemberId = memberKey.slice(memberPrefix.length);
+    if (token && storedMemberId) return { Authorization: `Bearer ${token}`, "X-Party-Member-Id": storedMemberId };
+  }
+
+  throw new PartyMemberAccessError("Party access is missing. Rejoin this party or open it from the host device.");
+}
+
+export async function fetchPartyMembers(code: string, memberId?: string): Promise<{ code: string; members: PartyMemberSummary[] }> {
+  const response = await apiRequest<{ code: string; members: PartyMemberSummary[] }>(`/party/${code}/members`, {
+    headers: await partyReadHeaders(code, memberId),
+  });
   const members = [...response.members].sort((a, b) => {
     const nameCompare = a.characterName.localeCompare(b.characterName, undefined, { sensitivity: "base" });
     if (nameCompare !== 0) return nameCompare;
@@ -429,8 +457,10 @@ export const leaveParty = memberApi.leaveParty;
 
 export const disbandParty = hostApi.disbandParty;
 
-export async function fetchPartyCombatState(code: string): Promise<PartyCombatState> {
-  return apiRequest<PartyCombatState>(`/party/${code}/combat-state`);
+export async function fetchPartyCombatState(code: string, memberId?: string): Promise<PartyCombatState> {
+  return apiRequest<PartyCombatState>(`/party/${code}/combat-state`, {
+    headers: await partyReadHeaders(code, memberId),
+  });
 }
 
 export interface PartyInitiativeStartResult {
