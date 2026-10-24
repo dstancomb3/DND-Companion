@@ -1397,6 +1397,17 @@ async function ensureActiveSession(code: string) {
   return { ok: true as const };
 }
 
+async function authorizePartyRead(req: { get(name: string): string | undefined }, code: string, session: { hostTokenHash?: string | null }) {
+  const authorization = req.get("authorization");
+  if (hasPartyHostToken(authorization, session.hostTokenHash)) return true;
+  const memberId = req.get("x-party-member-id");
+  if (!memberId) return false;
+  const members = await db.select().from(partyMembers).where(
+    and(eq(partyMembers.id, memberId), eq(partyMembers.partyCode, code))
+  );
+  return hasPartyHostToken(authorization, members[0]?.memberTokenHash);
+}
+
 async function getLiveMembers(code: string) {
   const members = await db.select().from(partyMembers).where(eq(partyMembers.partyCode, code));
   const state = await getOrHydrateCombatState(code);
@@ -1521,6 +1532,11 @@ router.post("/party/join/:code", async (req, res) => {
 
     if (sessions.length === 0) {
       res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+
+    if (!await authorizePartyRead(req, code, sessions[0])) {
+      res.status(403).json({ code: "party_read_required", error: "Party membership or host access is required to read party state." });
       return;
     }
 
@@ -1880,6 +1896,15 @@ router.post("/party/:code/disband", async (req, res) => {
 router.get("/party/:code/combat-state", async (req, res) => {
   try {
     const { code } = req.params;
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, code));
+    if (sessions.length === 0) {
+      res.status(404).json({ error: "Party session not found" });
+      return;
+    }
+    if (!await authorizePartyRead(req, code, sessions[0])) {
+      res.status(403).json({ code: "party_read_required", error: "Party membership or host access is required to read party state." });
+      return;
+    }
     const session = await ensureActiveSession(code);
     if (!session.ok) {
       res.status(session.status).json({ error: session.error });
