@@ -6,6 +6,7 @@ export interface CompanionAdmission {
   memberId: string;
   companionId: string;
   detachedAt?: string;
+  recoveredFrom?: { memberId: string; detachedAt: string; recoveredAt: string };
 }
 
 export interface RuntimeSnapshotPayload {

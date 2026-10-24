@@ -193,3 +193,9 @@ a serializable transaction. partyRuntimeStore accepts an optional transaction
 executor; ordinary callers retain their default executor. Server-stamped
 companions are retained with detachedAt provenance and excluded from encounter
 admission/order. See companion-projection-permissions.md for recovery limits.
+
+
+CompanionRecoveryPanel provides the retained-companion DM review/confirm flow.
+partyHostApi sends the original-host capability plus exact reviewed runtime
+revision and detachment stamp. The server recovery route serializes host/target
+revalidation, binding update and history save; encounter placement is separate.

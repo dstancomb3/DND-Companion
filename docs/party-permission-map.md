@@ -18,7 +18,7 @@ member IDs, assignedBy/resolvedBy and isDmOverride flags are identifiers or disp
 data, not proof. Existing gameplay checks for actor/turn/target identity are
 necessary but do not authenticate the caller.
 
-The table accounts for all 33 declared party handlers. It describes application
+The table accounts for all 34 declared party handlers after O02-A12. It describes application
 route-level proof, not network/gateway protection or a penetration test. Bootstrap
 access is intentionally distinct from member/DM privilege. Proposed policies in
 open rows are design requirements for later bounded passes, not implemented
@@ -36,7 +36,7 @@ validated combat/companion ownership, transaction safety or abuse protection.
 | POST | `/party/:code/register-member` | Invite bootstrap | Issue member UUID + private capability | Caller cannot choose/claim existing identity; enrollment abuse limits remain open. |
 | PUT | `/party/sync` | Member proof | Own member projection + runtime sync | Existing exact party/member token check; further serialization/races remain open. |
 | GET | `/party/:code/members` | Open read | Member/stat projection; expiry handling | No caller proof. Decide scoped read/DM-secret policy; do not infer read authorization from code. |
-| DELETE | `/party/leave` | Member or host proof | Remove self or host-remove another member | Existing proof; removal is not a ban, and runtime serialization remains open. |
+| DELETE | `/party/leave` | Member or host proof | Remove self or host-remove another member | O02-A11 commits locked proof, membership removal and durable companion detachment together; removal is not a ban. |
 | POST | `/party/:code/disband` | Host proof | Delete session/members/runtime | Existing original-host check; delegated DM/recovery not implemented. |
 | GET | `/party/:code/combat-state` | Open read | Read/hydrate runtime; refresh activity | No caller proof; read privacy and pre-auth activity/expiry side effects remain open. |
 | POST | `/party/:code/initiative/start` | Host proof (O02-A5) | Start initiative/change participants and order | Live original-host proof before activity/runtime work; AI DM uses the same host capability. |
@@ -57,6 +57,7 @@ validated combat/companion ownership, transaction safety or abuse protection.
 | PUT | `/party/:code/note-assignments/:assignmentId/accept` | Recipient member proof | Mark DM notes accepted | Live exact party/member proof plus assignment target check. Local journal save/recovery remains separate. |
 | PUT | `/party/:code/note-assignments/:assignmentId/decline` | Recipient member proof | Decline/remove assignment | Live exact party/member proof plus assignment target and accepted-state checks. |
 | POST | `/party/:code/combat-npcs` | Host or companion submitter proof (O02-A9/A10) | Create/seed NPC, dummy or player companion | Ordinary NPCs require host proof; companion admission requires exact live member proof and own-battle scope. Character/creature ownership and stats remain client claims. |
+| POST | `/party/:code/combat-npcs/:npcId/recover-companion` | Host proof (O02-A12) | Explicit retained companion reassignment | Locked host/live target proof, reviewed revision + detachment stamp, transactional binding/event save; no automatic encounter placement or canonical ownership claim. |
 | PUT | `/party/:code/combat-npcs/:npcId/dummy-state` | Host proof (O02-A8) | Update NPC/dummy state | Host proof plus party-local instance lookup; existing HP/action normalization retained. |
 | PUT | `/party/:code/combat-npcs/:npcId/gear` | Host proof (O02-A8) | Replace NPC gear | Host proof plus party-local instance lookup; canonical effect validation remains separate. |
 | PUT | `/party/:code/combat-npcs/:npcId/visible-stats` | Host proof (O02-A8) | Choose NPC stats visible to players | Host proof plus party-local instance lookup; public reads still expose full data. |
@@ -419,3 +420,14 @@ Encounter rebuild/start/add exclude retained detached instances. New enrollment
 does not inherit old membership bindings. Counts remain 28 proof-gated mutations,
 three public bootstrap handlers and two open reads. Explicit recovery/transfer,
 canonical source ownership and wider proof-to-commit races remain open.
+
+
+## O02-A12: reviewed host recovery
+
+One new non-bootstrap mutation brings the current inventory to 34 route
+declarations: 29 proof-gated mutations, three public bootstrap handlers and two
+open reads. The recovery route requires original host proof; member/watch
+capabilities cannot substitute. Host/target revalidation and binding/event save
+share a serializable transaction. Review/version guards reject stale, duplicate
+and replayed requests. This bounded recovery does not close canonical source
+ownership, active transfer, permanent history or general admission races.

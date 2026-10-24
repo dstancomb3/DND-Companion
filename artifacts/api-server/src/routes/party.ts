@@ -1145,6 +1145,19 @@ async function getOrHydrateCombatState(code: string): Promise<PartyCombatState> 
   return state;
 }
 
+function transactionFailureCode(error: unknown): string | undefined {
+  let failure = error as { code?: string; cause?: unknown } | undefined;
+  for (let depth = 0; failure && depth < 5; depth++) {
+    if (failure.code) return failure.code;
+    failure = failure.cause as typeof failure;
+  }
+  return undefined;
+}
+
+class CompanionRecoveryError extends Error {
+  constructor(readonly status: number, readonly code: string, message: string) { super(message); }
+}
+
 export class RuntimeConflictError extends Error {
   readonly expectedRevision: number;
   readonly currentRevision: number | null;
@@ -1822,12 +1835,7 @@ router.delete("/party/leave", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
-    let failure: { code?: string; cause?: unknown } | undefined = err as { code?: string; cause?: unknown };
-    let code = failure?.code;
-    for (let depth = 0; !code && failure?.cause && depth < 4; depth++) {
-      failure = failure.cause as typeof failure;
-      code = failure?.code;
-    }
+    const code = transactionFailureCode(err);
     if (code === "party_member_required") {
       res.status(403).json({ code, error: "Only this member or the original host can remove a player." });
       return;
@@ -3557,6 +3565,90 @@ router.post("/party/:code/combat-npcs", async (req, res) => {
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     res.status(500).json({ error: "Failed to add combat NPC" });
+  }
+});
+
+router.post("/party/:code/combat-npcs/:npcId/recover-companion", async (req, res) => {
+  try {
+    const { code, npcId } = req.params;
+    const access = await authorizePartyHost(code, req.get("authorization"), "recover companions");
+    if (!access.ok) {
+      res.status(access.status).json({ error: access.error, code: access.code }); return;
+    }
+    const { expectedRevision, expectedDetachedAt, targetMemberId } = req.body ?? {};
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
+        typeof expectedDetachedAt !== "string" || !expectedDetachedAt || expectedDetachedAt.length > 64 ||
+        typeof targetMemberId !== "string" || !targetMemberId || targetMemberId.length > 128 ||
+        reason.length < 3 || reason.length > 240) {
+      res.status(400).json({ error: "Review the retained companion, choose a member and provide a reason (3–240 characters)." }); return;
+    }
+    const npc = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash)) {
+        throw new CompanionRecoveryError(403, "party_host_required", "Only the original host can recover companions.");
+      }
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) {
+        throw new CompanionRecoveryError(404, "party_not_found", "Party is absent or expired.");
+      }
+      const targets = await tx.select().from(partyMembers)
+        .where(and(eq(partyMembers.id, targetMemberId), eq(partyMembers.partyCode, code))).for("update");
+      if (!targets[0] || typeof targets[0].memberTokenHash !== "string" || !/^[a-f0-9]{64}$/.test(targets[0].memberTokenHash)) {
+        throw new CompanionRecoveryError(400, "recovery_target_required", "Choose a currently enrolled member of this party.");
+      }
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable || durable.stateRevision !== expectedRevision) {
+        throw new RuntimeConflictError(expectedRevision, durable?.stateRevision ?? null);
+      }
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      const retained = state.combatNpcs.find(entry => entry.id === npcId);
+      const binding = retained?.companionAdmission;
+      if (!retained || binding?.schemaVersion !== "companion-admission.v1" ||
+          !binding.detachedAt || binding.detachedAt !== expectedDetachedAt ||
+          typeof binding.companionId !== "string" || !binding.companionId) {
+        throw new CompanionRecoveryError(409, "companion_recovery_conflict", "This companion is no longer the retained instance you reviewed.");
+      }
+      if (state.combatNpcs.some(entry => entry.id !== npcId &&
+          entry.companionAdmission?.schemaVersion === "companion-admission.v1" &&
+          entry.companionAdmission.memberId === targetMemberId &&
+          entry.companionAdmission.companionId === binding.companionId)) {
+        throw new CompanionRecoveryError(409, "companion_recovery_conflict", "That member already has a bound instance of this companion. Review duplicates before recovery.");
+      }
+      const previousMemberId = binding.memberId, detachedAt = binding.detachedAt;
+      const recoveredAt = new Date().toISOString();
+      retained.companionAdmission = {
+        schemaVersion: "companion-admission.v1", memberId: targetMemberId, companionId: binding.companionId,
+        recoveredFrom: { memberId: previousMemberId, detachedAt, recoveredAt },
+      };
+      if (retained.projection) retained.projection = { ...retained.projection, ownerMemberId: targetMemberId };
+      // Restore ownership only. Encounter admission is a separate explicit action.
+      delete state.participantBattleById[npcId];
+      delete state.initiativeByMember[npcId];
+      delete state.playerEconomyByMember[npcId];
+      const members = await tx.select().from(partyMembers).where(eq(partyMembers.partyCode, code));
+      rebuildTurnOrder(state, members.map(member => member.id));
+      appendEvent(state, {
+        type: "companion_recovered", memberId: targetMemberId,
+        message: `DM restored ${retained.name} to ${targets[0].characterName || "an enrolled member"}: ${reason}`,
+        metadata: { npcId, actor: "original_host", previousMemberId, targetMemberId,
+          companionId: binding.companionId, detachedAt, recoveredAt, reason },
+      });
+      const saved = await savePartyRuntimeSnapshot({
+        partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision,
+      }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(expectedRevision, saved.conflictRevision);
+      return retained;
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, npc });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionRecoveryError) {
+      res.status(error.status).json({ code: error.code, error: error.message }); return;
+    }
+    const code = transactionFailureCode(error);
+    if (code === "40001" || code === "40P01") throw new RuntimeConflictError(0, null);
+    res.status(500).json({ error: "Failed to recover companion. Refresh and review before trying again." });
   }
 });
 

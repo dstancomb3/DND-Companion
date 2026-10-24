@@ -583,6 +583,61 @@ paths:
           description: Party not found or expired
         "409":
           description: Runtime revision conflict
+  /party/{code}/combat-npcs/{npcId}/recover-companion:
+    post:
+      operationId: recoverPartyCompanion
+      tags: [party]
+      summary: Restore a retained companion to an explicitly selected enrolled member
+      description: Original host proof is revalidated with target enrollment in one serializable runtime transaction. Requires the reviewed runtime revision and exact detachedAt stamp. Preserves live data, records reason and previous binding, and leaves the companion outside encounters. Duplicate target bindings and stale or repeated requests conflict; no automatic retry or canonical source ownership verification.
+      security:
+        - partyCapability: []
+      parameters:
+        - $ref: "#/components/parameters/PartyCode"
+        - name: npcId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetMemberId, expectedRevision, expectedDetachedAt, reason]
+              properties:
+                targetMemberId:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                expectedRevision:
+                  type: integer
+                  minimum: 1
+                expectedDetachedAt:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 240
+      responses:
+        "200":
+          description: Ownership restored after transaction commit; NPC includes updated companionAdmission and recoveredFrom metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenericObject"
+        "400":
+          description: Invalid review data or target enrollment
+        "403":
+          description: Missing or revoked original host proof
+        "404":
+          description: Party absent or expired
+        "409":
+          description: Stale revision, detachment mismatch or duplicate binding; refresh and review
+        "500":
+          description: Recovery failed without success acknowledgement
   /party/{code}/combat-npcs/{npcId}/dummy-state:
     put:
       operationId: updateCombatNpcDummyState
