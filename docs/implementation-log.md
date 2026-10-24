@@ -920,3 +920,26 @@ Finding status and remaining acceptance:
 Scope decision / dependency:
 ```
 
+## O02-A14: private party-state reads
+
+2026-10-24 / branch `fix/party-read-privacy`.
+
+Scope: remaining O02 code-only read exposure. GET `/party/:code/members` and
+GET `/party/:code/combat-state` now require either original-host proof or a
+live member bearer capability plus the member identity header. Denial occurs
+before activity refresh, expiry cleanup, member projection or runtime hydration.
+The three bootstrap handlers remain public by design.
+
+Client reads now choose a stored host token or existing member token automatically,
+preserving the current exported read-call signatures. `party_read_required`
+maps to lost party access. No database/schema/capability-format/lockfile change.
+
+Focused regressions cover denial without writes/runtime hydration and authenticated
+member projection still excluding credential hashes. The prior PostgreSQL
+combat-state freshness path remains intact. Field-level host/member redaction,
+bootstrap abuse limits, canonical combat/inventory truth and proof-to-commit races
+remain outside this bounded slice, so O02 remains partial.
+
+Next planned safety work after this PR: O05 AI endpoint caller authorization,
+usage/concurrency controls and bounded expensive input handling. Cloud setup stays
+paused; AI DM roll-prompt reliability resumes after the safety backlog.
