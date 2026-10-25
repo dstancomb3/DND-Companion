@@ -1,3 +1,4 @@
+import { claimRollContinuation, rollContinuationReceiptKey } from "@/utils/adventure/aiDmRollContinuationReceipt";
 import { shouldBlockStoryInputForPendingRolls } from "@/utils/adventure/oneOffPendingRollGate";
 import { shouldAutoCreateOneOffParty } from "@/utils/adventure/oneOffPartyRecovery";
 import { createRollSubmissionGate } from "@/utils/adventure/aiDmRollSubmissionGate";
@@ -1221,10 +1222,22 @@ export default function AdventureSessionPlaceholderScreen() {
         encounterGateActive: encounterGateVisibility?.isActive === true,
         remainingTargetedRolls: remainingChecks.length,
       })) {
-        await handleCampaignRuntimeTurn(
-          `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
-          { silent: true },
-        );
+        const receiptKey = rollContinuationReceiptKey(sessionId, memberId, request.id);
+        if (await claimRollContinuation(receiptKey, AsyncStorage)) {
+          const completed = await handleCampaignRuntimeTurn(
+            `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
+            { silent: true },
+          );
+          if (completed) {
+            await AsyncStorage.setItem(receiptKey, "completed");
+          } else {
+            setEntries((prev) => [...prev, {
+              id: createFeedEntryId("roll-continuation-uncertain"),
+              role: "system",
+              text: "Roll saved, but DM continuation could not be confirmed. The session will not automatically replay it; review the narrative before continuing.",
+            }]);
+          }
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to submit roll response.";
@@ -1327,8 +1340,8 @@ export default function AdventureSessionPlaceholderScreen() {
     }
   }
 
-  async function handleCampaignRuntimeTurn(playerText: string, options: { silent?: boolean }) {
-    if (isCampaignRuntimeTurnPending) return;
+  async function handleCampaignRuntimeTurn(playerText: string, options: { silent?: boolean }): Promise<boolean> {
+    if (isCampaignRuntimeTurnPending) return false;
     setIsCampaignRuntimeTurnPending(true);
     setIsStreamingResponse(true);
     setStreamingResponseText("");
@@ -1723,6 +1736,7 @@ export default function AdventureSessionPlaceholderScreen() {
 
       setIsStreamingResponse(false);
       setStreamingResponseText("");
+      return resolvedTurnOutcome !== null;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const runtimeMessage = `AI DM turn failed: ${message}`;
@@ -1735,6 +1749,7 @@ export default function AdventureSessionPlaceholderScreen() {
         },
       ]);
       setCampaignRuntimeStatus(runtimeMessage);
+      return false;
     } finally {
       setIsCampaignRuntimeTurnPending(false);
       setIsStreamingResponse(false);
