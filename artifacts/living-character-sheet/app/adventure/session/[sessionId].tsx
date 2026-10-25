@@ -550,6 +550,18 @@ export default function AdventureSessionPlaceholderScreen() {
     return () => { cancelled = true; };
   }, [isCampaignScaffold, isOneOffSessionHydrated, memberId, sessionId, combatState?.rollRequests]);
 
+  // Only the party combat projection can establish that this member is in a battle.
+  // AI narration / encounter text must never be treated as an attack result.
+  const activeOneOffBattleId = !isCampaignScaffold && memberId
+    ? combatState?.participantBattleById?.[memberId] ?? null
+    : null;
+
+  const goToCombatControls = () => {
+    if (combatSectionYRef.current !== null) {
+      sessionScrollRef.current?.scrollTo({ y: combatSectionYRef.current, animated: true });
+    }
+  };
+
   const shouldShowEncounterSnapshot = useMemo(() => {
     if (isCampaignScaffold) return false;
     if (isRebindingOneOffParty) return false;
@@ -1103,6 +1115,15 @@ export default function AdventureSessionPlaceholderScreen() {
   );
 
   function handleInputSubmit(playerText: string) {
+    if (activeOneOffBattleId) {
+      setEntries((prev) => [...prev, {
+        id: createFeedEntryId("combat-action-block"),
+        role: "system",
+        text: "Combat is active. Choose a target and resolve your attack or action using Combat / Targets below. The AI DM cannot adjudicate an attack from story text.",
+      }]);
+      goToCombatControls();
+      return;
+    }
     if (shouldBlockStoryInputForPendingRolls({
       isOneOff: !isCampaignScaffold,
       pendingTargetedRollCount: pendingRollRequests.length,
@@ -1137,6 +1158,15 @@ export default function AdventureSessionPlaceholderScreen() {
 
   function handleChoiceSelect(choice: string) {
     if (isCampaignRuntimeTurnPending) return;
+    if (activeOneOffBattleId) {
+      setEntries((prev) => [...prev, {
+        id: createFeedEntryId("combat-choice-block"),
+        role: "system",
+        text: "Combat is active. Use the Combat / Targets controls to resolve your turn.",
+      }]);
+      goToCombatControls();
+      return;
+    }
     if (shouldBlockStoryInputForPendingRolls({
       isOneOff: !isCampaignScaffold,
       pendingTargetedRollCount: pendingRollRequests.length,
@@ -2049,6 +2079,28 @@ export default function AdventureSessionPlaceholderScreen() {
         ) : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
+          <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.primary }]}>
+            <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>
+              {activeOneOffBattleId ? "Combat in progress" : "Encounter controls available"}
+            </Text>
+            <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+              {activeOneOffBattleId
+                ? "Use the combat controls to select a target, roll attacks, and apply outcomes. Story text cannot resolve hits or damage."
+                : "An encounter has been detected. Open the controls below to review targets and available actions."}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Open combat controls"
+              onPress={goToCombatControls}
+              style={[styles.rollPromptButton, { backgroundColor: c.primary }]}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.rollPromptButtonText}>Open Combat / Targets</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View style={styles.encounterGateActionsRow}>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to story"
               onPress={() => sessionScrollRef.current?.scrollTo({ y: 0, animated: true })}
@@ -2056,10 +2108,7 @@ export default function AdventureSessionPlaceholderScreen() {
               <Text style={[styles.encounterGateActionBtnText, { color: c.foreground }]}>Story</Text>
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to combat actions and targets"
-              onPress={() => {
-                if (combatSectionYRef.current !== null)
-                  sessionScrollRef.current?.scrollTo({ y: combatSectionYRef.current, animated: true });
-              }}
+              onPress={goToCombatControls}
               style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}>
               <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Combat / Targets</Text>
             </TouchableOpacity>
