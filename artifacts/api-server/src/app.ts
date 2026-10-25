@@ -9,6 +9,7 @@ import { logAIIdempotencyHealthCheck } from "./lib/aiIdempotencyHealthCheck";
 
 import { createCloudPreview } from "./lib/cloudPreview";
 import { createAiConcurrencyGuard } from "./lib/aiConcurrencyGuard";
+import { createAiAttemptBudget } from "./lib/aiAttemptBudget";
 
 const app: Express = express();
 const cloudPreview = createCloudPreview();
@@ -42,8 +43,9 @@ app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
 const aiGuard = createAiConcurrencyGuard();
-app.use("/api/ai", aiGuard);
-app.use("/api/adventure/campaign-runtime/turn", aiGuard);
+const aiBudget = createAiAttemptBudget();
+app.use("/api/ai", aiBudget, aiGuard);
+app.use("/api/adventure/campaign-runtime/turn", aiBudget, aiGuard);
 app.use("/api", router);
 cloudPreview?.serve(app);
 
