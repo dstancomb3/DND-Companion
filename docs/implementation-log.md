@@ -1019,3 +1019,9 @@ The existing roll button now uses a synchronous per-roll in-flight gate in addit
 ## AI DM R3: reject conflicting roll retries (2026-10-25)
 
 For the existing party roll-response route, a member's first persisted roll is authoritative. A replay with the same sanitized roll/modifier/total now returns success without changing the response timestamp or appending another event. A conflicting repeat returns HTTP 409 with code `roll_response_already_recorded`, rather than silently rewriting a roll. Added deterministic replay-classifier regressions to CI. This is a single-route sequential replay guard; full transactional multi-worker arbitration, persistent end-to-end continuation receipts, and restored narrative handshakes remain outstanding. No schema or cloud changes.
+
+## AI DM R4: no silent party replacement on existing one-off reload (2026-10-25)
+
+An existing one-off with conversation history can no longer silently auto-create a fresh party when its prior party identity is missing during hydration. The session shows a visible reconnect warning instead, preserving the possibility of rejoining the original authority carrying unresolved rolls and combat state. Fresh new one-offs retain their initial party bootstrap path. Focused policy tests are included in CI.
+
+This is a fail-closed recovery containment, not automated restoration of missing credentials, a fully persistent roll handshake, or an end-to-end multi-device test. Existing session history stays local; original party proof must still be recovered through the supported join process. No server migration or cloud changes.

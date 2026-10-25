@@ -1,3 +1,4 @@
+import { shouldAutoCreateOneOffParty } from "@/utils/adventure/oneOffPartyRecovery";
 import { createRollSubmissionGate } from "@/utils/adventure/aiDmRollSubmissionGate";
 import { shouldResumeNarrationAfterRoll } from "@/utils/adventure/aiDmRollContinuation";
 import React, { useMemo, useRef, useState } from "react";
@@ -697,8 +698,11 @@ export default function AdventureSessionPlaceholderScreen() {
 
     const hasActivePartySession = Boolean(partyCode?.trim() && memberId?.trim());
     const shouldForceFreshPartyForNewOneOff = source === "new-oneoff" && !hasPlayerConversationEntry;
-
-    if (!shouldForceFreshPartyForNewOneOff && hasActivePartySession) return;
+    if (!shouldAutoCreateOneOffParty({
+      hasSavedConversation: hasPlayerConversationEntry,
+      hasActivePartySession,
+      launchedAsNewOneOff: shouldForceFreshPartyForNewOneOff,
+    })) return;
     if (autoPartyBootstrapStartedRef.current) return;
 
     autoPartyBootstrapStartedRef.current = true;
@@ -2130,6 +2134,17 @@ export default function AdventureSessionPlaceholderScreen() {
             ) : null}
             <Text style={[styles.encounterGateSummary, { color: encounterGateVisibility.isActive ? c.mutedForeground : c.primary }]}>
               {encounterGateVisibility.summary}
+            </Text>
+          </View>
+        ) : null}
+
+        {!isCampaignScaffold && isPartyHydrated && isOneOffSessionHydrated &&
+          hasPlayerConversationEntry && (!partyCode?.trim() || !memberId?.trim()) ? (
+          <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.destructive }]}>
+            <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>Session connection missing</Text>
+            <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+              Your previous party connection is unavailable. Existing rolls and combat state have not been replaced.
+              Reconnect to the original party before continuing this adventure.
             </Text>
           </View>
         ) : null}
