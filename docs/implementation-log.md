@@ -1015,3 +1015,7 @@ tests before marking AI DM runtime complete.
 ## AI DM R2: synchronous roll submission single-flight (2026-10-25)
 
 The existing roll button now uses a synchronous per-roll in-flight gate in addition to render-state disabling. Repeated rapid taps for one request cannot submit a second response while the first submission/continuation is in progress. Missing party-member identity and all success/error exits release the gate, preserving explicit retries. Focused deterministic regressions are run in CI. This does not yet provide durable exactly-once roll operations across reloads, process failures or multiple devices. Continue roll handshake persistence and end-to-end acceptance before declaring fixed.
+
+## AI DM R3: reject conflicting roll retries (2026-10-25)
+
+For the existing party roll-response route, a member's first persisted roll is authoritative. A replay with the same sanitized roll/modifier/total now returns success without changing the response timestamp or appending another event. A conflicting repeat returns HTTP 409 with code `roll_response_already_recorded`, rather than silently rewriting a roll. Added deterministic replay-classifier regressions to CI. This is a single-route sequential replay guard; full transactional multi-worker arbitration, persistent end-to-end continuation receipts, and restored narrative handshakes remain outstanding. No schema or cloud changes.
