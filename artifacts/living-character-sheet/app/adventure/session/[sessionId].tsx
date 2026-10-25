@@ -1,3 +1,4 @@
+import { claimRollContinuation, rollContinuationReceiptKey } from "@/utils/adventure/aiDmRollContinuationReceipt";
 import { shouldBlockStoryInputForPendingRolls } from "@/utils/adventure/oneOffPendingRollGate";
 import { shouldAutoCreateOneOffParty } from "@/utils/adventure/oneOffPartyRecovery";
 import { createRollSubmissionGate } from "@/utils/adventure/aiDmRollSubmissionGate";
@@ -434,6 +435,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const rollSubmissionGateRef = useRef(createRollSubmissionGate());
+  const reportedUncertainRollsRef = useRef(new Set<string>());
   const [pendingChoices, setPendingChoices] = useState<string[]>([]);
   const [prologueDone, setPrologueDone] = useState(false);
   const [isCampaignArchiveHydrated, setIsCampaignArchiveHydrated] = useState(!isCampaignScaffold);
@@ -519,6 +521,31 @@ export default function AdventureSessionPlaceholderScreen() {
       (request) => request.targetMemberIds.includes(memberId) && !request.responses.some((response) => response.memberId === memberId),
     );
   }, [isCampaignScaffold, combatState?.rollRequests, memberId]);
+
+  React.useEffect(() => {
+    if (isCampaignScaffold || !isOneOffSessionHydrated || !memberId) return;
+    let cancelled = false;
+    void (async () => {
+      for (const request of combatState?.rollRequests ?? []) {
+        if (!request.targetMemberIds.includes(memberId) ||
+            !request.responses.some((response) => response.memberId === memberId) ||
+            request.statKey === "initiative") continue;
+        const key = rollContinuationReceiptKey(sessionId, memberId, request.id);
+        if (reportedUncertainRollsRef.current.has(key)) continue;
+        const receipt = await AsyncStorage.getItem(key);
+        if (cancelled) return;
+        if (receipt === "dispatching") {
+          reportedUncertainRollsRef.current.add(key);
+          setEntries((prev) => [...prev, {
+            id: createFeedEntryId("roll-recovery-warning"),
+            role: "system",
+            text: `The ${request.label} roll is recorded, but the prior DM narration may have been interrupted. Check the last DM response before choosing to continue; narration will not replay automatically.`,
+          }]);
+        }
+      }
+    })().catch(() => { /* Missing local storage must not invent a roll outcome. */ });
+    return () => { cancelled = true; };
+  }, [isCampaignScaffold, isOneOffSessionHydrated, memberId, sessionId, combatState?.rollRequests]);
 
   const shouldShowEncounterSnapshot = useMemo(() => {
     if (isCampaignScaffold) return false;
@@ -1221,10 +1248,22 @@ export default function AdventureSessionPlaceholderScreen() {
         encounterGateActive: encounterGateVisibility?.isActive === true,
         remainingTargetedRolls: remainingChecks.length,
       })) {
-        await handleCampaignRuntimeTurn(
-          `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
-          { silent: true },
-        );
+        const receiptKey = rollContinuationReceiptKey(sessionId, memberId, request.id);
+        if (await claimRollContinuation(receiptKey, AsyncStorage)) {
+          const completed = await handleCampaignRuntimeTurn(
+            `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
+            { silent: true },
+          );
+          if (completed) {
+            await AsyncStorage.setItem(receiptKey, "completed");
+          } else {
+            setEntries((prev) => [...prev, {
+              id: createFeedEntryId("roll-continuation-uncertain"),
+              role: "system",
+              text: "Roll saved, but DM continuation could not be confirmed. The session will not automatically replay it; review the narrative before continuing.",
+            }]);
+          }
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to submit roll response.";
@@ -1327,8 +1366,8 @@ export default function AdventureSessionPlaceholderScreen() {
     }
   }
 
-  async function handleCampaignRuntimeTurn(playerText: string, options: { silent?: boolean }) {
-    if (isCampaignRuntimeTurnPending) return;
+  async function handleCampaignRuntimeTurn(playerText: string, options: { silent?: boolean }): Promise<boolean> {
+    if (isCampaignRuntimeTurnPending) return false;
     setIsCampaignRuntimeTurnPending(true);
     setIsStreamingResponse(true);
     setStreamingResponseText("");
@@ -1723,6 +1762,7 @@ export default function AdventureSessionPlaceholderScreen() {
 
       setIsStreamingResponse(false);
       setStreamingResponseText("");
+      return resolvedTurnOutcome !== null;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const runtimeMessage = `AI DM turn failed: ${message}`;
@@ -1735,6 +1775,7 @@ export default function AdventureSessionPlaceholderScreen() {
         },
       ]);
       setCampaignRuntimeStatus(runtimeMessage);
+      return false;
     } finally {
       setIsCampaignRuntimeTurnPending(false);
       setIsStreamingResponse(false);
