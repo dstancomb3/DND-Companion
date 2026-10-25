@@ -433,6 +433,8 @@ export default function AdventureSessionPlaceholderScreen() {
   const [isStreamingResponse, setIsStreamingResponse] = useState(false);
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
+  const sessionScrollRef = useRef<ScrollView>(null);
+  const combatSectionYRef = useRef<number | null>(null);
   const rollSubmissionGateRef = useRef(createRollSubmissionGate());
   const [pendingChoices, setPendingChoices] = useState<string[]>([]);
   const [prologueDone, setPrologueDone] = useState(false);
@@ -1950,7 +1952,7 @@ export default function AdventureSessionPlaceholderScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={sessionScrollRef} contentContainerStyle={styles.content}>
         <View style={styles.sessionHeader}>
           <AdventureHeaderBackButton destination={AI_DM_ROUTES.adventure.home} />
           <TouchableOpacity
@@ -1990,6 +1992,30 @@ export default function AdventureSessionPlaceholderScreen() {
           </>
         ) : null}
 
+        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
+          <View style={styles.encounterGateActionsRow}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Go to story"
+              onPress={() => sessionScrollRef.current?.scrollTo({ y: 0, animated: true })}
+              style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.card }]}
+            >
+              <Text style={[styles.encounterGateActionBtnText, { color: c.foreground }]}>Story</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Go to combat actions and targets"
+              onPress={() => {
+                if (combatSectionYRef.current !== null) {
+                  sessionScrollRef.current?.scrollTo({ y: combatSectionYRef.current, animated: true });
+                }
+              }}
+              style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
+            >
+              <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Combat / Targets</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <AiDmSessionFeedShell
           entries={entries}
           guidanceSource={feedSeed.guidanceSource}
@@ -2210,7 +2236,7 @@ export default function AdventureSessionPlaceholderScreen() {
         ) : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
-          <View style={[styles.encounterSnapshotCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }} style={[styles.encounterSnapshotCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterSnapshotHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
               <Text style={[styles.encounterSnapshotTitle, { color: c.foreground }]}>Encounter Snapshot</Text>
