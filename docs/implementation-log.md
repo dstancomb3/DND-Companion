@@ -1025,3 +1025,7 @@ For the existing party roll-response route, a member's first persisted roll is a
 An existing one-off with conversation history can no longer silently auto-create a fresh party when its prior party identity is missing during hydration. The session shows a visible reconnect warning instead, preserving the possibility of rejoining the original authority carrying unresolved rolls and combat state. Fresh new one-offs retain their initial party bootstrap path. Focused policy tests are included in CI.
 
 This is a fail-closed recovery containment, not automated restoration of missing credentials, a fully persistent roll handshake, or an end-to-end multi-device test. Existing session history stays local; original party proof must still be recovered through the supported join process. No server migration or cloud changes.
+
+## AI DM R5: block one-off story bypass while roll pending (2026-10-25)
+
+The one-off session now rejects additional free-text and suggested-choice story turns while the current player has outstanding authoritative targeted roll prompts, preserving the DM roll card as the required next action. Campaign scaffold retains its own encounter gate logic. The denial displays a visible system explanation without dispatching another model turn. Deterministic decision tests are included in CI. Does not cover other clients, server-side request authority, or durable narrative replay receipts; full cross-reload roll orchestration remains incomplete.
