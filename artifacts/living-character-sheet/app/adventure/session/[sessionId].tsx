@@ -1,3 +1,4 @@
+import { shouldResumeNarrationAfterRoll } from "@/utils/adventure/aiDmRollContinuation";
 import React, { useMemo, useRef, useState } from "react";
 import { Feather } from "@expo/vector-icons";
 
@@ -1162,15 +1163,38 @@ export default function AdventureSessionPlaceholderScreen() {
         modifier,
         total,
       });
-      await refreshCombatState(partyCode);
+      const refreshedState = await refreshCombatState(partyCode);
+      const rollSummary = `Roll submitted for ${request.label}: ${roll} ${modifier >= 0 ? `+ ${modifier}` : `- ${Math.abs(modifier)}`} = ${total}.`;
       setEntries((prev) => [
         ...prev,
         {
           id: createFeedEntryId("roll-response"),
           role: "tool",
-          text: `Roll submitted for ${request.label}: ${roll} ${modifier >= 0 ? `+ ${modifier}` : `- ${Math.abs(modifier)}`} = ${total}.`,
+          text: rollSummary,
         },
       ]);
+      // Resume narrative only after authoritative acknowledgment and when every
+      // targeted roll has a response. Initiative/encounter gates retain their
+      // separate authoritative resolution path.
+      const remainingChecks = (refreshedState?.rollRequests ?? []).filter(
+        (pending) => pending.targetMemberIds.includes(memberId) &&
+          !pending.responses.some((response) => response.memberId === memberId),
+      );
+      const acknowledgedRoll = refreshedState?.rollRequests.some(
+        (pending) => pending.id === request.id &&
+          pending.responses.some((response) => response.memberId === memberId),
+      ) === true;
+      if (shouldResumeNarrationAfterRoll({
+        confirmed: acknowledgedRoll,
+        isInitiative: request.statKey === "initiative",
+        encounterGateActive: encounterGateVisibility?.isActive === true,
+        remainingTargetedRolls: remainingChecks.length,
+      })) {
+        await handleCampaignRuntimeTurn(
+          `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
+          { silent: true },
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to submit roll response.";
       setEntries((prev) => [
@@ -1201,7 +1225,9 @@ export default function AdventureSessionPlaceholderScreen() {
       return;
     }
 
-    let targetMemberIds = connectedMemberIds;
+    // A newly bootstrapped one-off can have a registered member before the
+    // separate party-members projection/poll has hydrated.
+    let targetMemberIds = connectedMemberIds.length > 0 ? connectedMemberIds : memberId ? [memberId] : [];
     if (targetMemberIds.length === 0) {
       try {
         const liveMembers = await fetchPartyMembers(effectivePartyCode);
