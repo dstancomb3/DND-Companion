@@ -949,3 +949,19 @@ paused; AI DM roll-prompt reliability resumes after the safety backlog.
 Scoped input-containment slice on `fix/o05-ai-input-limits`. Before the general 25 MB application JSON parser, /api/ai and the model-backed Adventure campaign-runtime turn now use a 4 MB streaming JSON parser limit. The AI loot-image endpoint changes from a 20 MB memory-buffer cap to 8 MB, and bounds multipart fields/parts/count. Express/body-parser and Multer oversize errors are translated to HTTP 413 with `ai_input_too_large`. Other import and party endpoints keep their existing request-size contract.
 
 This is a conservative per-request memory/input ceiling, not caller authorization, global byte-budget enforcement, model token counting, per-IP/account quotas, distributed concurrency, image pixel/decompression validation, or full O05. Existing clients with inputs beyond these ceilings will receive explicit errors. No SQL/schema or client credential change. The next slices must design real caller/session authorization and distributed usage budgets before claiming publicly reachable AI safety. Cloud deployment remains paused.
+
+## O05-I2: bounded in-flight AI admission (2026-10-24)
+
+Scope: per-process concurrency containment only. A shared middleware guard admits up
+to four simultaneous requests across the eleven /api/ai handlers and the model-backed
+Adventure campaign-runtime turn. Surplus requests fail with HTTP 429,
+`ai_capacity_exceeded` and Retry-After: 2. Response finish or disconnect releases
+occupancy exactly once; synchronous handler setup errors also release it.
+Focused tests cover saturation, release and invalid configuration. CI workflow
+includes those regressions alongside the established party/PostgreSQL checks.
+
+This is NOT caller authentication, per-user/IP quota, token/cost budgeting,
+cluster-wide distributed concurrency, cross-process fairness or prevention of
+slow-request resource exhaustion. Every server process has its own capacity.
+No migration, client change or cloud deployment. O05 stays open and the remaining
+authorization/usage protections must be addressed before public AI deployment.
