@@ -993,3 +993,21 @@ No client, schema, deployment, authentication, cost ledger or distributed quota
 change. O05 is still open; account/campaign-level caller identity, durable usage
 limits, field-level authorization and budget accounting require separate work.
 Cloud setup stays paused.
+
+## AI DM R1: one-off roll response handoff (2026-10-25)
+
+Focused gameplay slice: in the existing one-off session route, adjudication roll
+creation now targets the locally registered member when the separate member list
+has not hydrated yet. After successful server-side submission, the client reloads
+authoritative combat state and confirms that the specific member response was
+persisted and that no other targeted requests remain. Only then, and only outside
+initiative/encounter gates, it sends a silent continuation turn containing the
+confirmed dice result, so the AI DM can adjudicate and continue narration instead
+of leaving the session stalled. Existing roll cards and local combat panels remain
+unchanged. The session requires network connectivity for the handoff.
+
+Limits: this is a bounded one-off adjudication-path repair, not a persisted
+session roll state machine. It has not yet proven reload/reconnect idempotency,
+multi-player orchestration, general saving throw timing or full deterministic
+combat authority. Continue the roll handshake and its end-to-end acceptance
+tests before marking AI DM runtime complete.
