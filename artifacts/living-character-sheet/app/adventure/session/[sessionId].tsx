@@ -435,6 +435,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const rollSubmissionGateRef = useRef(createRollSubmissionGate());
+  const reportedUncertainRollsRef = useRef(new Set<string>());
   const [pendingChoices, setPendingChoices] = useState<string[]>([]);
   const [prologueDone, setPrologueDone] = useState(false);
   const [isCampaignArchiveHydrated, setIsCampaignArchiveHydrated] = useState(!isCampaignScaffold);
@@ -520,6 +521,31 @@ export default function AdventureSessionPlaceholderScreen() {
       (request) => request.targetMemberIds.includes(memberId) && !request.responses.some((response) => response.memberId === memberId),
     );
   }, [isCampaignScaffold, combatState?.rollRequests, memberId]);
+
+  React.useEffect(() => {
+    if (isCampaignScaffold || !isOneOffSessionHydrated || !memberId) return;
+    let cancelled = false;
+    void (async () => {
+      for (const request of combatState?.rollRequests ?? []) {
+        if (!request.targetMemberIds.includes(memberId) ||
+            !request.responses.some((response) => response.memberId === memberId) ||
+            request.statKey === "initiative") continue;
+        const key = rollContinuationReceiptKey(sessionId, memberId, request.id);
+        if (reportedUncertainRollsRef.current.has(key)) continue;
+        const receipt = await AsyncStorage.getItem(key);
+        if (cancelled) return;
+        if (receipt === "dispatching") {
+          reportedUncertainRollsRef.current.add(key);
+          setEntries((prev) => [...prev, {
+            id: createFeedEntryId("roll-recovery-warning"),
+            role: "system",
+            text: `The ${request.label} roll is recorded, but the prior DM narration may have been interrupted. Check the last DM response before choosing to continue; narration will not replay automatically.`,
+          }]);
+        }
+      }
+    })().catch(() => { /* Missing local storage must not invent a roll outcome. */ });
+    return () => { cancelled = true; };
+  }, [isCampaignScaffold, isOneOffSessionHydrated, memberId, sessionId, combatState?.rollRequests]);
 
   const shouldShowEncounterSnapshot = useMemo(() => {
     if (isCampaignScaffold) return false;
