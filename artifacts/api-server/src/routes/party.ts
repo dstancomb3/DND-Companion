@@ -1,3 +1,4 @@
+import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
 import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
@@ -2689,7 +2690,22 @@ router.put("/party/:code/roll-requests/:requestId/respond", async (req, res) => 
     // Never trust client totals; always derive from sanitized d20 roll and modifier.
     const cleanTotal = Math.max(1, cleanRoll + cleanModifier);
 
-    const existingIndex = request.responses.findIndex((r) => r.memberId === memberId);
+    const existingResponse = request.responses.find((r) => r.memberId === memberId);
+    const repeated = classifyRepeatedRoll(existingResponse, {
+      roll: cleanRoll, modifier: cleanModifier, total: cleanTotal,
+    });
+    if (repeated === "replay") {
+      // A retry after a lost HTTP acknowledgment must not append another event.
+      res.json({ ok: true, request, replayed: true });
+      return;
+    }
+    if (repeated === "conflict") {
+      res.status(409).json({
+        code: "roll_response_already_recorded",
+        error: "This member's roll is already recorded and cannot be replaced.",
+      });
+      return;
+    }
     const response: RollRequestResponse = {
       memberId,
       roll: cleanRoll,
@@ -2697,12 +2713,7 @@ router.put("/party/:code/roll-requests/:requestId/respond", async (req, res) => 
       total: cleanTotal,
       respondedAt: new Date().toISOString(),
     };
-
-    if (existingIndex >= 0) {
-      request.responses[existingIndex] = response;
-    } else {
-      request.responses.push(response);
-    }
+    request.responses.push(response);
 
     if (request.statKey === "initiative") {
       if (request.battleId) {
