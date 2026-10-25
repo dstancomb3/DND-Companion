@@ -2,6 +2,7 @@ import { validateCreationItem, itemProposalVariantKey, hasUnsupportedDamageRespo
 import { Router } from "express";
 import multer from "multer";
 import OpenAI from "openai";
+import { AI_UPSTREAM_REQUEST_OPTIONS } from "../../lib/aiUpstreamRequestOptions";
 import { normalizeParserItemMechanics } from "../../lib/mechanics/itemMechanicsBoundary";
 import {
   completeAICallIdempotency,
@@ -17,7 +18,7 @@ function getOpenAI(): OpenAI {
   if (!apiKey || !baseURL) {
     throw new Error("AI integration is not configured. Missing OpenAI env vars.");
   }
-  _openai = new OpenAI({ apiKey, baseURL });
+  _openai = new OpenAI({ apiKey, baseURL, ...AI_UPSTREAM_REQUEST_OPTIONS });
   return _openai;
 }
 
