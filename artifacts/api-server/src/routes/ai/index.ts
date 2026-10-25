@@ -1116,7 +1116,7 @@ export function normalizeLootAnalysisResult(parsed: unknown): Record<string, unk
   };
 }
 
-const AI_MODEL = process.env["OPENAI_MODEL"] ?? "gpt-3.5-turbo";
+const AI_MODEL = process.env["OPENAI_MODEL"] ?? "gpt-4o-mini";
 const AI_VISION_MODEL = process.env["OPENAI_VISION_MODEL"] ?? "gpt-4o-mini";
 
 function parseNumberEnv(name: string, fallback: number, min: number, max: number): number {
