@@ -20,6 +20,7 @@ import { AiDmSessionQuickActionsRow } from "@/components/adventure/session/AiDmS
 import { AiDmCombatSubmodePanel } from "@/components/adventure/session/AiDmCombatSubmodePanel";
 import { AiDmSessionOutcomeShell } from "@/components/adventure/session/AiDmSessionOutcomeShell";
 import { PartyMiniList } from "@/components/attacks/PartyMiniList";
+import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmCombatTargetPicker";
 import { AttackCard } from "@/components/attacks/AttackCard";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { ResourceRow } from "@/components/resources/ResourceRow";
@@ -2278,6 +2279,8 @@ export default function AdventureSessionPlaceholderScreen() {
             <PartyMiniList npcNameOverridesById={npcNameOverridesById} />
           </View>
         ) : null}
+
+        {!isCampaignScaffold && shouldShowEncounterSnapshot ? <AiDmCombatTargetPicker /> : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
