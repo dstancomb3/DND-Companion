@@ -1035,3 +1035,9 @@ The one-off session now rejects additional free-text and suggested-choice story 
 After the party server confirms a one-off adjudication roll and no other targeted checks remain, the client writes a session/member/request-scoped local receipt before invoking the AI DM. It records completed status following successful response processing. Existing or uncertain receipts prevent automatic duplicate narration after a rerender/reload; reopening a session with an uncertain receipt surfaces a review warning instead of automatically replaying the turn. Storage failures prevent the continuation dispatch. Regression tests cover scoped keys, first claim, uncertain/completed duplicate suppression and storage failure.
 
 Scope limit: the receipt is local to this device, not a distributed transactional checkpoint. A crash after model completion but before local receipt completion can leave the outcome uncertain; the safe behavior is to avoid automatic replay, not claim exactly-once delivery. Server idempotent AI turn receipts, authoritative per-session roll continuation, multiplayer reconnection and full end-to-end session acceptance are still deferred. No server schema, deployment or cloud setup changes.
+
+## Combat UI C6.1: in-session Story / Combat navigation (2026-10-25)
+
+When an active one-off encounter snapshot is visible, Story and Combat / Targets controls scroll within the same adventure to the existing party target snapshot, attacks, consumables, actions, bonus actions and resources. The same shared combat cards and resolution logic are reused; no duplicate combat authority or navigation to the full sheet is required for supported actions.
+
+This is navigation integration only, not full engine convergence, a verified mobile acceptance run, a new targeting authority, or expanded spell/reaction coverage. Gameplay testing remains needed.
