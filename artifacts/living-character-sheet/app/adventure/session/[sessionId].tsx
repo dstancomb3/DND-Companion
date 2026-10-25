@@ -1,3 +1,4 @@
+import { shouldBlockStoryInputForPendingRolls } from "@/utils/adventure/oneOffPendingRollGate";
 import { shouldAutoCreateOneOffParty } from "@/utils/adventure/oneOffPartyRecovery";
 import { createRollSubmissionGate } from "@/utils/adventure/aiDmRollSubmissionGate";
 import { shouldResumeNarrationAfterRoll } from "@/utils/adventure/aiDmRollContinuation";
@@ -1058,6 +1059,17 @@ export default function AdventureSessionPlaceholderScreen() {
   );
 
   function handleInputSubmit(playerText: string) {
+    if (shouldBlockStoryInputForPendingRolls({
+      isOneOff: !isCampaignScaffold,
+      pendingTargetedRollCount: pendingRollRequests.length,
+    })) {
+      setEntries((prev) => [...prev, {
+        id: createFeedEntryId("pending-roll-block"),
+        role: "system",
+        text: "The DM is waiting for your roll. Use the Roll button above before taking another story action.",
+      }]);
+      return;
+    }
     if (isCampaignScaffold) {
       if (encounterGateVisibility?.isActive) {
         setEntries((prev) => [
@@ -1081,6 +1093,17 @@ export default function AdventureSessionPlaceholderScreen() {
 
   function handleChoiceSelect(choice: string) {
     if (isCampaignRuntimeTurnPending) return;
+    if (shouldBlockStoryInputForPendingRolls({
+      isOneOff: !isCampaignScaffold,
+      pendingTargetedRollCount: pendingRollRequests.length,
+    })) {
+      setEntries((prev) => [...prev, {
+        id: createFeedEntryId("pending-roll-block"),
+        role: "system",
+        text: "Resolve the DM roll request before choosing the next action.",
+      }]);
+      return;
+    }
     if (isCampaignScaffold && encounterGateVisibility?.isActive) {
       setEntries((prev) => [
         ...prev,
