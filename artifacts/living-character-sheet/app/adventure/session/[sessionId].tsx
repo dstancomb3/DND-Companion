@@ -1179,8 +1179,12 @@ export default function AdventureSessionPlaceholderScreen() {
         (pending) => pending.targetMemberIds.includes(memberId) &&
           !pending.responses.some((response) => response.memberId === memberId),
       );
-      if (request.statKey !== "initiative" && !encounterGateVisibility?.isActive &&
-          remainingChecks.length === 0) {
+      const acknowledgedRoll = refreshedState?.rollRequests.some(
+        (pending) => pending.id === request.id &&
+          pending.responses.some((response) => response.memberId === memberId),
+      ) === true;
+      if (acknowledgedRoll && request.statKey !== "initiative" &&
+          !encounterGateVisibility?.isActive && remainingChecks.length === 0) {
         await handleCampaignRuntimeTurn(
           `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
           { silent: true },
