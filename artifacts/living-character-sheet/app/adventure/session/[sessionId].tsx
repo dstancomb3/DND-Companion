@@ -613,6 +613,20 @@ export default function AdventureSessionPlaceholderScreen() {
     return [...new Set(fromCombatState)];
   }, [members, combatState]);
 
+  function formatRollCheckName(statKey: string): string {
+    if (statKey === "initiative") return "Initiative check";
+    const abilities: Record<string, string> = { strength: "Strength", dexterity: "Dexterity", constitution: "Constitution", intelligence: "Intelligence", wisdom: "Wisdom", charisma: "Charisma" };
+    if (statKey.endsWith("_save")) return (abilities[statKey.slice(0, -5)] ?? statKey) + " saving throw";
+    if (abilities[statKey]) return abilities[statKey] + " ability check";
+    const skillAbilities: Record<string, string> = {
+      acrobatics: "Dexterity", animal_handling: "Wisdom", arcana: "Intelligence", athletics: "Strength", deception: "Charisma",
+      history: "Intelligence", insight: "Wisdom", intimidation: "Charisma", investigation: "Intelligence", medicine: "Wisdom",
+      nature: "Intelligence", perception: "Wisdom", performance: "Charisma", persuasion: "Charisma", religion: "Intelligence",
+      sleight_of_hand: "Dexterity", stealth: "Dexterity", survival: "Wisdom",
+    };
+    const skill = statKey.replace(/_/g, " ").replace(/\b\w/g, (value) => value.toUpperCase());
+    return skillAbilities[statKey] ? skillAbilities[statKey] + " (" + skill + ") check" : skill + " check";
+  }
   function getModifierForStatKey(statKey: string): number {
     if (statKey === "initiative") return character.initiative ?? 0;
 
@@ -2250,6 +2264,7 @@ export default function AdventureSessionPlaceholderScreen() {
               return (
                 <View key={request.id} style={[styles.rollPromptRequestCard, { backgroundColor: c.background, borderColor: "#f59e0b44" }]}>
                   <Text style={[styles.rollPromptRequestTitle, { color: c.foreground }]}>{request.label}</Text>
+                  <Text style={[styles.rollPromptBody, { color: c.foreground }]}>{formatRollCheckName(request.statKey)}</Text>
                   <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
                     Your modifier: {modifier >= 0 ? `+${modifier}` : `${modifier}`}
                   </Text>
