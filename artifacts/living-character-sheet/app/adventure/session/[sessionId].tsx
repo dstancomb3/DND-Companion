@@ -1,3 +1,4 @@
+import { shouldResumeNarrationAfterRoll } from "@/utils/adventure/aiDmRollContinuation";
 import React, { useMemo, useRef, useState } from "react";
 import { Feather } from "@expo/vector-icons";
 
@@ -1183,8 +1184,12 @@ export default function AdventureSessionPlaceholderScreen() {
         (pending) => pending.id === request.id &&
           pending.responses.some((response) => response.memberId === memberId),
       ) === true;
-      if (acknowledgedRoll && request.statKey !== "initiative" &&
-          !encounterGateVisibility?.isActive && remainingChecks.length === 0) {
+      if (shouldResumeNarrationAfterRoll({
+        confirmed: acknowledgedRoll,
+        isInitiative: request.statKey === "initiative",
+        encounterGateActive: encounterGateVisibility?.isActive === true,
+        remainingTargetedRolls: remainingChecks.length,
+      })) {
         await handleCampaignRuntimeTurn(
           `The requested ${request.label} check has been rolled: d20 ${roll}, modifier ${modifier}, total ${total}. Continue the scene and adjudicate this result without requesting the same roll again.`,
           { silent: true },
