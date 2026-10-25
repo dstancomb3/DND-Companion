@@ -2138,6 +2138,17 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
+        {!isCampaignScaffold && isPartyHydrated && isOneOffSessionHydrated &&
+          hasPlayerConversationEntry && (!partyCode?.trim() || !memberId?.trim()) ? (
+          <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.destructive }]}>
+            <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>Session connection missing</Text>
+            <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+              Your previous party connection is unavailable. Existing rolls and combat state have not been replaced.
+              Reconnect to the original party before continuing this adventure.
+            </Text>
+          </View>
+        ) : null}
+
         {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
           <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
             <View style={styles.rollPromptHeaderRow}>
