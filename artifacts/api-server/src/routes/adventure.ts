@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import OpenAI from "openai";
+import { AI_UPSTREAM_REQUEST_OPTIONS } from "../lib/aiUpstreamRequestOptions";
 import { randomUUID } from "node:crypto";
 
 import { startAICallIdempotency, completeAICallIdempotency } from "../lib/aiIdempotencyStore";
@@ -29,7 +30,7 @@ function getOpenAI(): OpenAI {
   if (!apiKey || !baseURL) {
     throw new Error("AI integration is not configured. Missing OpenAI env vars.");
   }
-  _openai = new OpenAI({ apiKey, baseURL });
+  _openai = new OpenAI({ apiKey, baseURL, ...AI_UPSTREAM_REQUEST_OPTIONS });
   return _openai;
 }
 
