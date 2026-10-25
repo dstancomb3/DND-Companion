@@ -1011,3 +1011,7 @@ session roll state machine. It has not yet proven reload/reconnect idempotency,
 multi-player orchestration, general saving throw timing or full deterministic
 combat authority. Continue the roll handshake and its end-to-end acceptance
 tests before marking AI DM runtime complete.
+
+## AI DM R2: synchronous roll submission single-flight (2026-10-25)
+
+The existing roll button now uses a synchronous per-roll in-flight gate in addition to render-state disabling. Repeated rapid taps for one request cannot submit a second response while the first submission/continuation is in progress. Missing party-member identity and all success/error exits release the gate, preserving explicit retries. Focused deterministic regressions are run in CI. This does not yet provide durable exactly-once roll operations across reloads, process failures or multiple devices. Continue roll handshake persistence and end-to-end acceptance before declaring fixed.
