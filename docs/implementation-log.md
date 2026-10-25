@@ -978,3 +978,18 @@ A process-local global cap is deliberately not an authenticated per-user quota,
 distributed limit, expenditure/token budget, or denial-of-service guarantee.
 Multiple API processes each retain independent windows. No caller identity,
 cloud setup, schema, model or client contract is changed; O05 remains open.
+
+## O05-I4: bounded upstream model transport (2026-10-25)
+
+The standalone AI model route and Adventure campaign-runtime model route now use
+one shared SDK configuration: 120-second upstream timeout and zero automatic
+OpenAI SDK retries. This prevents hidden provider retry multiplication and
+caps provider wait duration for calls routed through these two clients.
+Focused policy regression is included in CI. A timeout may still incur provider
+usage and does not cancel or undo an already accepted logical gameplay operation.
+Existing HTTP response semantics remain unchanged.
+
+No client, schema, deployment, authentication, cost ledger or distributed quota
+change. O05 is still open; account/campaign-level caller identity, durable usage
+limits, field-level authorization and budget accounting require separate work.
+Cloud setup stays paused.
