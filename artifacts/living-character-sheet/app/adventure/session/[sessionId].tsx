@@ -1,3 +1,4 @@
+import { createRollSubmissionGate } from "@/utils/adventure/aiDmRollSubmissionGate";
 import { shouldResumeNarrationAfterRoll } from "@/utils/adventure/aiDmRollContinuation";
 import React, { useMemo, useRef, useState } from "react";
 import { Feather } from "@expo/vector-icons";
@@ -430,6 +431,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [isStreamingResponse, setIsStreamingResponse] = useState(false);
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
+  const rollSubmissionGateRef = useRef(createRollSubmissionGate());
   const [pendingChoices, setPendingChoices] = useState<string[]>([]);
   const [prologueDone, setPrologueDone] = useState(false);
   const [isCampaignArchiveHydrated, setIsCampaignArchiveHydrated] = useState(!isCampaignScaffold);
@@ -1140,6 +1142,7 @@ export default function AdventureSessionPlaceholderScreen() {
   }
 
   async function handlePendingRollResponse(request: PartyRollRequest) {
+    if (!rollSubmissionGateRef.current.begin(request.id)) return;
     if (!partyCode || !memberId) {
       setEntries((prev) => [
         ...prev,
@@ -1149,6 +1152,7 @@ export default function AdventureSessionPlaceholderScreen() {
           text: "Roll request is pending, but this session is not connected as a party member.",
         },
       ]);
+      rollSubmissionGateRef.current.end(request.id);
       return;
     }
 
@@ -1206,6 +1210,7 @@ export default function AdventureSessionPlaceholderScreen() {
         },
       ]);
     } finally {
+      rollSubmissionGateRef.current.end(request.id);
       setRollingRequestId(null);
     }
   }
