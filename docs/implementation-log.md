@@ -1029,3 +1029,9 @@ This is a fail-closed recovery containment, not automated restoration of missing
 ## AI DM R5: block one-off story bypass while roll pending (2026-10-25)
 
 The one-off session now rejects additional free-text and suggested-choice story turns while the current player has outstanding authoritative targeted roll prompts, preserving the DM roll card as the required next action. Campaign scaffold retains its own encounter gate logic. The denial displays a visible system explanation without dispatching another model turn. Deterministic decision tests are included in CI. Does not cover other clients, server-side request authority, or durable narrative replay receipts; full cross-reload roll orchestration remains incomplete.
+
+## Combat UI C6.1: in-session Story / Combat navigation (2026-10-25)
+
+When an active one-off encounter snapshot is visible, the adventure session now presents Story and Combat / Targets controls that scroll within the same session to the existing party-target snapshot, attacks, consumables, actions, bonus actions and resources. These are the existing shared combat cards and resolution paths, not duplicated custom mechanics; no full character-sheet navigation is required for the supported actions. The controls are accessible buttons and only appear when an encounter is shown.
+
+This is navigation/visibility integration only, not a new battle authority model, spell coverage expansion, canonical target-selection audit, or an end-to-end combat acceptance result. Existing combat regression/typecheck validation remains necessary; full engine convergence is still partial.
