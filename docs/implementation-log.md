@@ -965,3 +965,16 @@ cluster-wide distributed concurrency, cross-process fairness or prevention of
 slow-request resource exhaustion. Every server process has its own capacity.
 No migration, client change or cloud deployment. O05 stays open and the remaining
 authorization/usage protections must be addressed before public AI deployment.
+
+## O05-I3: process-local AI attempt budget (2026-10-24)
+
+Bounded shared admission cap of 60 request attempts per 60-second fixed window,
+applied before concurrency middleware to /api/ai and the Adventure runtime turn.
+Excess calls fail HTTP 429 with Retry-After and ai_attempt_budget_exceeded.
+Deterministic tests cover acceptance, saturation, window reset, clock rollback
+and invalid configuration. Added the focused test to the PostgreSQL CI workflow.
+
+A process-local global cap is deliberately not an authenticated per-user quota,
+distributed limit, expenditure/token budget, or denial-of-service guarantee.
+Multiple API processes each retain independent windows. No caller identity,
+cloud setup, schema, model or client contract is changed; O05 remains open.
