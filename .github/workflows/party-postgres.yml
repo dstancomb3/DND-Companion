@@ -43,6 +43,7 @@ jobs:
       - name: Party route and client regressions
         run: >-
           node --import tsx --test
+          artifacts/living-character-sheet/utils/adventure/aiDmRollContinuation.test.ts
           artifacts/api-server/src/lib/aiUpstreamRequestOptions.test.ts
           artifacts/api-server/src/lib/aiAttemptBudget.test.ts
           artifacts/api-server/src/lib/aiConcurrencyGuard.test.ts
