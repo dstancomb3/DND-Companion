@@ -1,3 +1,4 @@
+import { shouldAutoCreateOneOffParty } from "@/utils/adventure/oneOffPartyRecovery";
 import { createRollSubmissionGate } from "@/utils/adventure/aiDmRollSubmissionGate";
 import { shouldResumeNarrationAfterRoll } from "@/utils/adventure/aiDmRollContinuation";
 import React, { useMemo, useRef, useState } from "react";
@@ -697,8 +698,11 @@ export default function AdventureSessionPlaceholderScreen() {
 
     const hasActivePartySession = Boolean(partyCode?.trim() && memberId?.trim());
     const shouldForceFreshPartyForNewOneOff = source === "new-oneoff" && !hasPlayerConversationEntry;
-
-    if (!shouldForceFreshPartyForNewOneOff && hasActivePartySession) return;
+    if (!shouldAutoCreateOneOffParty({
+      hasSavedConversation: hasPlayerConversationEntry,
+      hasActivePartySession,
+      launchedAsNewOneOff: shouldForceFreshPartyForNewOneOff,
+    })) return;
     if (autoPartyBootstrapStartedRef.current) return;
 
     autoPartyBootstrapStartedRef.current = true;
