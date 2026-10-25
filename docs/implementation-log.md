@@ -1041,3 +1041,9 @@ Scope limit: the receipt is local to this device, not a distributed transactiona
 When an active one-off encounter snapshot is visible, Story and Combat / Targets controls scroll within the same adventure to the existing party target snapshot, attacks, consumables, actions, bonus actions and resources. The same shared combat cards and resolution logic are reused; no duplicate combat authority or navigation to the full sheet is required for supported actions.
 
 This is navigation integration only, not full engine convergence, a verified mobile acceptance run, a new targeting authority, or expanded spell/reaction coverage. Gameplay testing remains needed.
+
+## Combat UI C6.2: shared target picker in one-off session (2026-10-25)
+
+During a visible active encounter, the adventure screen now offers an inline target picker that uses the exact CombatContext partyTargets/selectedTargetIds/toggleTargetId/clearTargetIds contract consumed by existing AttackCard and ActionCard components. Selected party members and creatures are clearly distinguished and selectable without leaving the session. Target selection remains subject to the existing combat resolver and server authority checks. No separate session target state or damage engine is introduced.
+
+Validation: workspace typecheck/combat and existing PostgreSQL CI. This slice does not assert verified mobile/manual end-to-end attack-and-damage completion or complete combat engine convergence. Cross-device target hydration and full initiative/spell/reaction integration remain outstanding.
