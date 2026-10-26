@@ -1,5 +1,6 @@
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
 import { randomUUID, randomInt } from "node:crypto";
+import { parseNpcWeaponDice } from "../lib/npcWeaponDice";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { partySessions, partyMembers } from "@workspace/db/schema";
@@ -2171,8 +2172,8 @@ router.post("/party/:code/npc-weapon-turn", async (req, res) => {
         throw new CompanionLifecycleError(409, "npc_unavailable", "NPC cannot use this hostile action.");
       }
       const weapon = (npc.gear ?? []).find(entry => entry.id === weaponId && entry.category === "weapon" && entry.equipped);
-      const dice = typeof weapon?.damageDice === "string" ? /^(\d{1,2})d(4|6|8|10|12)(?:\s*([+-])\s*(\d{1,2}))?$/i.exec(weapon.damageDice.trim()) : null;
-      if (!weapon || !dice || Number(dice[1]) < 1 || Number(dice[1]) > 20 ||
+      const dice = parseNpcWeaponDice(weapon?.damageDice);
+      if (!weapon || !dice ||
           !Number.isInteger(weapon.attackBonus) || Math.abs(weapon.attackBonus!) > 40 ||
           !Number.isInteger(weapon.damageModifier ?? 0) || Math.abs(weapon.damageModifier ?? 0) > 40 ||
           !weapon.range?.trim() || !weapon.damageType?.trim()) {
@@ -2188,11 +2189,11 @@ router.post("/party/:code/npc-weapon-turn", async (req, res) => {
       const naturalRoll = randomInt(1, 21);
       const hit = naturalRoll === 20 || (naturalRoll !== 1 && naturalRoll + weapon.attackBonus! >= target.armorClass);
       const critical = naturalRoll === 20;
-      const count = Number(dice[1]) * (critical ? 2 : 1), sides = Number(dice[2]);
+      const count = dice.count * (critical ? 2 : 1), sides = dice.sides;
       let rawDamage = 0;
       if (hit) {
         for (let i = 0; i < count; i++) rawDamage += randomInt(1, sides + 1);
-        rawDamage += (weapon.damageModifier ?? 0) + (dice[3] ? (dice[3] === "-" ? -1 : 1) * Number(dice[4]) : 0);
+        rawDamage += (weapon.damageModifier ?? 0) + dice.flatModifier;
       }
       const defenses = state.memberDefensesById[targetMemberId];
       const damageType = weapon.damageType.trim().toLowerCase();
