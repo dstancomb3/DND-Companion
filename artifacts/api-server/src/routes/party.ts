@@ -1,5 +1,5 @@
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomInt } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { partySessions, partyMembers } from "@workspace/db/schema";
@@ -2114,6 +2114,130 @@ router.put("/party/:code/initiative/roll", async (req, res) => {
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     res.status(500).json({ error: "Failed to record initiative roll" });
+  }
+});
+
+/**
+ * Host-authorized atomic NPC weapon turn, first executable NPC action family.
+ * The AI DM must select from canonical weapon IDs; it cannot supply rolls,
+ * damage, attacker modifiers, narration or player HP.
+ */
+router.post("/party/:code/npc-weapon-turn", async (req, res) => {
+  const { code } = req.params;
+  const commandId = typeof req.body?.commandId === "string" ? req.body.commandId.trim() : "";
+  const battleId = typeof req.body?.battleId === "string" ? req.body.battleId.trim() : "";
+  const npcId = typeof req.body?.npcId === "string" ? req.body.npcId.trim() : "";
+  const weaponId = typeof req.body?.weaponId === "string" ? req.body.weaponId.trim() : "";
+  const targetMemberId = typeof req.body?.targetMemberId === "string" ? req.body.targetMemberId.trim() : "";
+  const expectedRevision = req.body?.expectedRevision;
+  if (![commandId, battleId, npcId, weaponId, targetMemberId].every(x => x.length > 0 && x.length <= 128) ||
+      !Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    res.status(400).json({ error: "Valid command, battle, NPC, weapon, target and expected revision are required." });
+    return;
+  }
+  try {
+    const receipt = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash)) {
+        throw new CompanionLifecycleError(403, "party_host_required", "Only the original host may execute NPC turns.");
+      }
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) {
+        throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      }
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable) throw new CompanionLifecycleError(409, "combat_state_missing", "No committed combat state.");
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      state.stateRevision = durable.stateRevision;
+      // Idempotency: an already committed command must never re-roll or re-apply HP.
+      const replay = state.eventLog.find(entry =>
+        entry.type === "npc_weapon_turn_committed" &&
+        entry.metadata?.commandId === commandId);
+      if (replay) {
+        if (replay.metadata?.battleId !== battleId || replay.metadata?.npcId !== npcId ||
+            replay.metadata?.weaponId !== weaponId || replay.metadata?.targetMemberId !== targetMemberId) {
+          throw new CompanionLifecycleError(409, "command_id_conflict", "Command ID already used with different parameters.");
+        }
+        return { replayed: true, receipt: replay.metadata };
+      }
+      if (durable.stateRevision !== expectedRevision) throw new RuntimeConflictError(expectedRevision, durable.stateRevision);
+      if (state.currentTurnIdByBattle[battleId] !== npcId || state.participantBattleById[npcId] !== battleId ||
+          state.participantBattleById[targetMemberId] !== battleId) {
+        throw new CompanionLifecycleError(409, "npc_turn_changed", "NPC turn or target battle changed.");
+      }
+      const npc = state.combatNpcs.find(entry => entry.id === npcId);
+      if (!npc || npc.disposition !== "hostile" || npc.projection?.combatantKind === "companion" ||
+          npc.dummyState?.currentHp !== undefined && npc.dummyState.currentHp <= 0 ||
+          (npc.conditions ?? []).some(c => /^(incapacitated|stunned|paralyzed|petrified|unconscious)$/i.test(c.name))) {
+        throw new CompanionLifecycleError(409, "npc_unavailable", "NPC cannot use this hostile action.");
+      }
+      const weapon = (npc.gear ?? []).find(entry => entry.id === weaponId && entry.category === "weapon" && entry.equipped);
+      const dice = typeof weapon?.damageDice === "string" ? /^(\\d{1,2})d(4|6|8|10|12)(?:\\s*([+-])\\s*(\\d{1,2}))?$/i.exec(weapon.damageDice.trim()) : null;
+      if (!weapon || !dice || Number(dice[1]) < 1 || Number(dice[1]) > 20 ||
+          !Number.isInteger(weapon.attackBonus) || Math.abs(weapon.attackBonus!) > 40 ||
+          !Number.isInteger(weapon.damageModifier ?? 0) || Math.abs(weapon.damageModifier ?? 0) > 40 ||
+          !weapon.range?.trim() || !weapon.damageType?.trim()) {
+        throw new CompanionLifecycleError(422, "unsupported_npc_weapon", "Equipped weapon lacks supported mechanics.");
+      }
+      const targets = await tx.select().from(partyMembers)
+        .where(and(eq(partyMembers.id, targetMemberId), eq(partyMembers.partyCode, code))).for("update");
+      const target = targets[0];
+      if (!target || target.currentHp === null || target.armorClass === null ||
+          !Number.isFinite(target.currentHp) || !Number.isFinite(target.armorClass)) {
+        throw new CompanionLifecycleError(409, "target_unavailable", "Target has no authoritative HP/AC.");
+      }
+      const naturalRoll = randomInt(1, 21);
+      const hit = naturalRoll === 20 || (naturalRoll !== 1 && naturalRoll + weapon.attackBonus! >= target.armorClass);
+      const critical = naturalRoll === 20;
+      const count = Number(dice[1]) * (critical ? 2 : 1), sides = Number(dice[2]);
+      let rawDamage = 0;
+      if (hit) {
+        for (let i = 0; i < count; i++) rawDamage += randomInt(1, sides + 1);
+        rawDamage += (weapon.damageModifier ?? 0) + (dice[3] ? (dice[3] === "-" ? -1 : 1) * Number(dice[4]) : 0);
+      }
+      const defenses = state.memberDefensesById[targetMemberId];
+      const damageType = weapon.damageType.trim().toLowerCase();
+      const immune = defenses?.damageImmunities.some(type => type.toLowerCase() === damageType) ?? false;
+      const resistant = defenses?.damageResistances.some(type => type.toLowerCase() === damageType) ?? false;
+      const appliedDamage = !hit || immune ? 0 : resistant ? Math.floor(Math.max(0, rawDamage) / 2) : Math.max(0, rawDamage);
+      const absorbedTempHp = Math.min(Math.max(0, target.tempHp ?? 0), appliedDamage);
+      const nextTempHp = Math.max(0, (target.tempHp ?? 0) - absorbedTempHp);
+      const nextHp = Math.max(0, target.currentHp - (appliedDamage - absorbedTempHp));
+      if (hit) {
+        await tx.update(partyMembers).set({ currentHp: nextHp, tempHp: nextTempHp, updatedAt: new Date() })
+          .where(and(eq(partyMembers.id, targetMemberId), eq(partyMembers.partyCode, code)));
+      }
+      const order = state.battleTurnOrderById[battleId] ?? [];
+      const idx = order.indexOf(npcId);
+      if (idx < 0 || order.length < 2) throw new CompanionLifecycleError(409, "turn_order_invalid", "Initiative order cannot advance.");
+      const nextTurnId = order[(idx + 1) % order.length];
+      state.currentTurnIdByBattle[battleId] = nextTurnId;
+      syncLegacyTurnState(state);
+      const result = {
+        schemaVersion: 1, status: "committed", commandId, battleId, npcId, weaponId, targetMemberId,
+        sourceRevision: durable.stateRevision, committedRevision: durable.stateRevision + 1,
+        naturalRoll, attackTotal: naturalRoll + weapon.attackBonus!, hit, critical,
+        damageApplied: appliedDamage, damageToHp: appliedDamage - absorbedTempHp,
+        damageType: weapon.damageType, nextTurnId,
+      };
+      appendEvent(state, { type: "npc_weapon_turn_committed",
+        message: `${npc.name} ${hit ? "hit" : "missed"} ${target.characterName} with ${weapon.name}.`,
+        metadata: result });
+      const saved = await savePartyRuntimeSnapshot({
+        partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision: durable.stateRevision,
+      }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(durable.stateRevision, saved.conflictRevision);
+      return { replayed: false, receipt: result };
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, ...receipt });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) {
+      res.status(error.status).json({ code: error.code, error: error.message }); return;
+    }
+    const failureCode = transactionFailureCode(error);
+    if (failureCode === "40001" || failureCode === "40P01") throw new RuntimeConflictError(expectedRevision, null);
+    res.status(500).json({ error: "NPC attack could not commit; refresh before retrying." });
   }
 });
 
