@@ -16,6 +16,11 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
     return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   }
   return {
+    async hasLocalHostCapability(code: string): Promise<boolean> {
+      if (!code.trim()) return false;
+      const token = await storage.getItem(tokenKey(code));
+      return typeof token === "string" && token.length > 0;
+    },
     async recoverPartyCompanion(code: string, npcId: string, payload: RecoverCompanionPayload): Promise<{ ok: true; npc: CombatNpc }> {
       return request(`/party/${code}/combat-npcs/${npcId}/recover-companion`, {
         method: "POST", headers: await encounterHeaders(code, "recover companions"), body: JSON.stringify(payload),
