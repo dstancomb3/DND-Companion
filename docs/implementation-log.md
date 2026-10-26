@@ -1138,3 +1138,36 @@ registry are subsequent slices. The reusable shell does not yet route human-DM
 parties into an Adventure narrative or complete AI campaign/one-off mechanics.
 Movement economy, NPC execution and session orchestration retain prior limits.
 Rollback restores the previous presentation with no data/schema migration.
+
+## Combat UI W3: working attack-card submission (2026-10-26)
+
+[PR #81](https://github.com/dstancomb3/DND-Companion/pull/81).
+
+User-reported defect while testing the new one-off workspace: Use Attack appeared
+to do nothing. Source inspection found primary damage was mandatory but its input
+row was absent; validation/rejection/outcome feedback relied on platform alerts.
+The previous assistant instruction to scroll to that missing row was incorrect.
+
+Client-only repair: restore the primary damage row, put submission after damage
+controls, and make an explicit Use Attack click roll missing To Hit/primary damage
+using the existing client dice helper. Entered rolls remain unchanged; generated
+rolls stay in the inputs for deliberate retries. Unsupported primary dice formulas
+still require explicit input instead of an invented fallback. Existing resolver,
+selected targets, damage modifiers, authority and server command paths remain.
+Inline feedback covers validation, rejection, accepted/preview outcome summaries
+and unexpected failures. A synchronous gate prevents duplicate in-flight clicks.
+The button disables during submission and while another actor has the turn.
+
+Validation: workspace typecheck passed. All 146 combat tests passed under Node
+20.20.2, including six new rendered-card regressions for missing rolls, preserved
+rolls/targets/damage, rejection, failure/retry and repeated clicks. Chromium source-
+component fixture verified that entering To Hit=12 and clicking Use Attack once
+rolls missing primary damage, sends one resolver command to the selected wolf and
+shows acknowledgement. Its resolver/context are fixtures; this does not prove live
+server damage application, complete NPC turns or AI narration. The six regressions
+are included in the standard combat baseline. CI evidence is linked in the PR.
+
+Scope: bounded gameplay input/UI repair, not another engine or server authority
+migration. No SQL, API, credentials, dependency or layout-preference change.
+Rollback restores the broken missing-input interaction. Remote combat limitations,
+W2 customization backlog, O02 partial and REC-01 retain their previous status.

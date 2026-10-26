@@ -1495,3 +1495,12 @@ SQL or session JSON migration. Pending-roll/combat navigation now targets the
 action-panel scroll offsets. Rollback restores earlier rendering and scroll
 behavior without deleting gameplay state. Fixed Balanced layout only; no runtime
 or human-DM screen cutover is claimed.
+
+### 2026-10-26 Attack-card input repair
+
+No schema/API/storage migration. Restores primary damage controls and changes
+explicit Use Attack clicks to roll missing supported dice before the existing
+resolver submission. Existing rolls are preserved across deliberate retries.
+Manual input remains available; command authority and combat mechanics are
+unchanged. Feedback is rendered inline instead of relying on platform alerts.
+Rollback restores the previous missing-damage-row failure.

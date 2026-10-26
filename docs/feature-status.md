@@ -679,3 +679,12 @@ reading pauses streaming auto-scroll and offers Jump to latest. Existing action,
 roll and target components/callbacks are reused. Inventory and party/log summaries
 are read-only. This is a fixed Balanced shell, not saved customization, presets,
 Simplify, full human/AI runtime convergence or autonomous combat completion.
+
+### Combat UI W3: attack submission repair (2026-10-26)
+
+Restored the missing primary damage input in AttackCard. Use Attack now rolls
+missing attack/primary damage dice on the explicit click, preserving entered and
+previously generated rolls, then submits through the existing resolver. Submission
+is single-flight and outcome/rejection feedback is visible inline on web/native.
+Six focused card regressions are part of the combat baseline. This does not expand
+server combat authority, NPC automation or AI narration coverage.
