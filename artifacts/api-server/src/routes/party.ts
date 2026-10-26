@@ -296,6 +296,7 @@ interface PartyCombatState {
   activeMemberIds: string[];
   participantBattleById: Record<string, string>;
   encounterDistances: import("../lib/encounterDistances").EncounterDistance[];
+  encounterPositions: import("../lib/encounterPositions").EncounterPosition[];
   battleTurnOrderById: Record<string, string[]>;
   turnOrder: string[];
   currentTurnIdByBattle: Record<string, string | null>;
@@ -606,6 +607,7 @@ function buildDefaultCombatState(code: string): PartyCombatState {
     activeMemberIds: [],
     participantBattleById: {},
     encounterDistances: [],
+    encounterPositions: [],
     battleTurnOrderById: {},
     turnOrder: [],
     currentTurnIdByBattle: {},
@@ -1066,6 +1068,7 @@ function toRuntimeSnapshotPayload(state: PartyCombatState): RuntimeSnapshotPaylo
       activeMemberIds: state.activeMemberIds,
       participantBattleById: state.participantBattleById,
       encounterDistances: state.encounterDistances,
+      encounterPositions: state.encounterPositions,
       battleTurnOrderById: state.battleTurnOrderById,
       turnOrder: state.turnOrder,
       currentTurnIdByBattle: state.currentTurnIdByBattle,
@@ -1098,6 +1101,7 @@ function hydrateRuntimeSnapshotToCombatState(code: string, snapshot: RuntimeSnap
     activeMemberIds: normalized.activeMemberIds,
     participantBattleById: normalized.participantBattleById,
     encounterDistances: normalized.encounterDistances,
+    encounterPositions: normalized.encounterPositions,
     battleTurnOrderById: normalized.battleTurnOrderById,
     turnOrder: normalized.turnOrder,
     currentTurnIdByBattle: normalized.currentTurnIdByBattle,
@@ -1951,6 +1955,55 @@ router.get("/party/:code/combat-state", async (req, res) => {
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     res.status(500).json({ error: "Failed to fetch combat state" });
+  }
+});
+
+router.put("/party/:code/encounter-positions", async (req, res) => {
+  const { code } = req.params;
+  const expectedRevision = req.body?.expectedRevision;
+  const { normalizeEncounterPositions } = await import("../lib/encounterPositions");
+  const positions = normalizeEncounterPositions(req.body?.positions);
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
+      !Array.isArray(req.body?.positions) || !req.body.positions.length ||
+      positions.length !== req.body.positions.length) {
+    res.status(400).json({ error: "Valid expected revision and confirmed positions required." }); return;
+  }
+  try {
+    const result = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash)) {
+        throw new CompanionLifecycleError(403, "party_host_required", "Only the original host may confirm encounter positions.");
+      }
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) {
+        throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      }
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable || durable.stateRevision !== expectedRevision)
+        throw new RuntimeConflictError(expectedRevision, durable?.stateRevision ?? null);
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      state.stateRevision = durable.stateRevision;
+      for (const p of positions) {
+        if (p.source !== "dm_confirmed" || state.participantBattleById[p.combatantId] !== p.battleId)
+          throw new CompanionLifecycleError(409, "position_participant_conflict", "Positions must identify current battle participants and have DM confirmation.");
+      }
+      const keys = new Set(positions.map(p => JSON.stringify([p.battleId, p.combatantId])));
+      state.encounterPositions = [
+        ...state.encounterPositions.filter(p => !keys.has(JSON.stringify([p.battleId, p.combatantId]))), ...positions,
+      ];
+      const saved = await savePartyRuntimeSnapshot({
+        partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision,
+      }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(expectedRevision, saved.conflictRevision);
+      return { revision: saved.value.stateRevision };
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) {
+      res.status(error.status).json({ code: error.code, error: error.message }); return;
+    }
+    res.status(500).json({ error: "Could not commit encounter positions." });
   }
 });
 

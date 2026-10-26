@@ -94,6 +94,15 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
         body: JSON.stringify(payload),
       });
     },
+    async confirmEncounterPositions(code: string, payload: {
+      expectedRevision: number;
+      positions: import("./combat/combatProximity").EncounterPosition[];
+    }): Promise<{ ok: true; revision: number }> {
+      return request(`/party/${code}/encounter-positions`, {
+        method: "PUT", headers: await encounterHeaders(code, "confirm combat positions"),
+        body: JSON.stringify(payload),
+      });
+    },
     async confirmEncounterDistances(code: string, payload: {
       expectedRevision: number;
       distances: import("./combat/combatProximity").CombatantDistanceObservation[];
