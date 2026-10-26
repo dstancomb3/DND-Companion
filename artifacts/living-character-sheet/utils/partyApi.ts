@@ -243,6 +243,7 @@ export interface CombatNpc {
 }
 
 export interface PartyCombatState {
+  encounterDistances?: import("./combat/combatProximity").CombatantDistanceObservation[];
   code: string;
   environmentTurnId: string;
   schemaVersion?: number;
@@ -473,6 +474,7 @@ export interface PartyInitiativeStartResult {
 }
 
 export const startPartyInitiative = hostApi.startPartyInitiative;
+export const confirmEncounterDistances = hostApi.confirmEncounterDistances;
 export const executeNpcWeaponTurn = hostApi.executeNpcWeaponTurn;
 
 export type CreateCombatNpcPayload = {
