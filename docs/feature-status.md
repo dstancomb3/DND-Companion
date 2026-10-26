@@ -659,3 +659,13 @@ read callers keep their API shape. No SQL/schema migration. This closes code-onl
 read disclosure but does not yet implement host-vs-player field redaction inside
 the authenticated combat-state projection. O02 therefore remains partial.
 Cloud setup stays paused; O05 AI request authorization/input limits remains next.
+
+### Workspace W1: shared encounter status and DM tool visibility (2026-10-26)
+
+Initial common SessionMode/SessionAuthority and encounter view-model projection
+are now used by a read-only widget in party and adventure combat screens. The
+adventure panel hides every DM mutation control while original-host capability
+is absent/checking, and clears drafts on party/battle changes. Server permissions
+are unchanged. Mode projections do not grant AI command authority. Full session
+view-model, six-zone layout/panel registry, movement and autonomous NPC turns
+remain incomplete. See implementation-log.md for scoped validation and limits.

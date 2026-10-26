@@ -1,3 +1,5 @@
+import { SessionEncounterStatus } from "@/components/adventure/workspace/SessionEncounterStatus";
+import { projectSessionView } from "@/utils/adventure/sessionWorkspace";
 import React, { useMemo, useRef, useState } from "react";
 import {
   View,
@@ -773,6 +775,8 @@ export default function PartyScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          <SessionEncounterStatus showMode={false} session={projectSessionView({ mode: "human_dm", partyCode, memberId, members, combatState })} />
 
           <View style={[styles.segmentedControl, { backgroundColor: c.card, borderColor: c.border }]}> 
             <TouchableOpacity
