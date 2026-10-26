@@ -26,7 +26,7 @@ export function workspacePanelFrames(width: number, height: number, base = "bala
     party: { left: 0, top: 0, width: left, height: leftTop },
     inventory: { left: 0, top: leftTop + gap, width: left, height: height - leftTop - gap },
     narrative: { left: left + gap, top: 0, width: center, height: story },
-    actions: { left: rail + gap, top: story + gap, width: center, height: height - story - gap },
+    actions: { left: left + gap, top: story + gap, width: center, height: height - story - gap },
     encounter: { left: width - right, top: 0, width: right, height: rightTop },
     events: { left: width - right, top: rightTop + gap, width: right, height: height - rightTop - gap },
   };
