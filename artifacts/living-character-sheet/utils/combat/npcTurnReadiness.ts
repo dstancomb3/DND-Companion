@@ -1,4 +1,4 @@
-import type { CombatNpc, PartyCombatState } from "../../partyApi";
+import type { PartyCombatState } from "../partyApi";
 
 export type NpcTurnReadiness =
   | { status: "not_npc_turn" }
