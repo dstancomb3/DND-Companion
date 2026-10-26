@@ -582,17 +582,6 @@ export default function AdventureSessionPlaceholderScreen() {
   const sessionAttacks = useMemo(() => buildSessionCombatAttacks(attacks, inventory, character), [attacks, inventory, character]);
   const composerAttackOptions = useMemo(() => buildComposerAttackOptions(sessionAttacks, inventory), [sessionAttacks, inventory]);
   const availableAttackGroups = useMemo(() => getAvailableAttackGroups(composerAttackOptions), [composerAttackOptions]);
-  const availableCombatCategories = useMemo(() => {
-    const available: Array<"attack" | "items" | "actions" | "bonus" | "resources"> = [];
-    if (availableAttackGroups.length > 0) available.push("attack");
-    if (encounterConsumables.length > 0) available.push("items");
-    if (encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0) available.push("actions");
-    if (encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0) available.push("bonus");
-    if (resources.length > 0) available.push("resources");
-    return available;
-  }, [availableAttackGroups, encounterConsumables, encounterFeatureActions, encounterCombatActions, resources]);
-  const activeCombatCategory = availableCombatCategories.includes(combatCategory)
-    ? combatCategory : availableCombatCategories[0] ?? "attack";
   const effectiveAttackGroup = selectedAttackGroup && availableAttackGroups.includes(selectedAttackGroup)
     ? selectedAttackGroup
     : availableAttackGroups[0] ?? null;
@@ -617,6 +606,17 @@ export default function AdventureSessionPlaceholderScreen() {
     [inventory],
   );
 
+  const availableCombatCategories = useMemo(() => {
+    const available: Array<"attack" | "items" | "actions" | "bonus" | "resources"> = [];
+    if (availableAttackGroups.length > 0) available.push("attack");
+    if (encounterConsumables.length > 0) available.push("items");
+    if (encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0) available.push("actions");
+    if (encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0) available.push("bonus");
+    if (resources.length > 0) available.push("resources");
+    return available;
+  }, [availableAttackGroups, encounterConsumables, encounterFeatureActions, encounterCombatActions, resources]);
+  const activeCombatCategory = availableCombatCategories.includes(combatCategory)
+    ? combatCategory : availableCombatCategories[0] ?? "attack";
   const npcNameOverridesById = useMemo(() => {
     const overrides: Record<string, string> = {};
     for (const actor of canonicalEncounterActorRegistryRef.current.values()) {
