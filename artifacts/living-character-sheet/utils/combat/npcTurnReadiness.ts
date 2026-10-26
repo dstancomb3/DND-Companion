@@ -59,7 +59,7 @@ export function planNpcAttackChoices(
       targetId,
       attackBonus: weapon.mechanics!.attackBonus!,
       damageDice: weapon.mechanics!.damageDice!,
-      damageModifier: weapon.damageModifier ?? 0,
+      damageModifier: weapon.mechanics!.damageModifier!,
       damageType: weapon.mechanics!.damageType!,
     }))),
   };
