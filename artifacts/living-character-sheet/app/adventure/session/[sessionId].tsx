@@ -22,6 +22,7 @@ import { AiDmSessionOutcomeShell } from "@/components/adventure/session/AiDmSess
 import { PartyMiniList } from "@/components/attacks/PartyMiniList";
 import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmCombatTargetPicker";
 import { AttackCard } from "@/components/attacks/AttackCard";
+import { buildComposerAttackOptions, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
@@ -435,6 +436,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [isStreamingResponse, setIsStreamingResponse] = useState(false);
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
+  const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
   const sessionScrollRef = useRef<ScrollView>(null);
   const combatSectionYRef = useRef<number | null>(null);
   const rollSubmissionGateRef = useRef(createRollSubmissionGate());
@@ -571,6 +573,12 @@ export default function AdventureSessionPlaceholderScreen() {
     if (activeBattleId) return true;
     return (combatState.combatNpcs?.length ?? 0) > 0 || pendingRollRequests.length > 0;
   }, [isCampaignScaffold, isRebindingOneOffParty, hasPlayerConversationEntry, combatState, memberId, pendingRollRequests.length]);
+
+  const composerAttackOptions = useMemo(() => buildComposerAttackOptions(attacks, inventory), [attacks, inventory]);
+  const availableAttackGroups = useMemo(() => getAvailableAttackGroups(composerAttackOptions), [composerAttackOptions]);
+  const effectiveAttackGroup = selectedAttackGroup && availableAttackGroups.includes(selectedAttackGroup)
+    ? selectedAttackGroup
+    : availableAttackGroups[0] ?? null;
 
   const encounterCombatActions = useMemo(() => {
     const actionable = collectActionableItemEffects(inventory);
@@ -2353,14 +2361,36 @@ export default function AdventureSessionPlaceholderScreen() {
               <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Encounter Actions</Text>
             </View>
 
-            {attacks.length > 0 ? (
+            {availableAttackGroups.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>ATTACKS</Text>
-                {attacks.map((attack) => (
+                <View style={styles.composerAttackTabs}>
+                  {availableAttackGroups.map((group) => (
+                    <TouchableOpacity
+                      key={group}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: effectiveAttackGroup === group }}
+                      onPress={() => setSelectedAttackGroup(group)}
+                      style={[styles.composerAttackTab, {
+                        borderColor: effectiveAttackGroup === group ? c.primary : c.border,
+                        backgroundColor: effectiveAttackGroup === group ? c.primary + "1A" : c.background,
+                      }]}
+                    >
+                      <Text style={{ color: effectiveAttackGroup === group ? c.primary : c.foreground, fontWeight: "700" }}>
+                        {group === "melee" ? "Melee" : group === "ranged" ? "Ranged" : "Other"}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
                   <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true} />
                 ))}
               </>
-            ) : null}
+            ) : (
+              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+                No ready attacks from your character or equipped weapons. Unequipped weapons require an equipment change; switching costs will depend on your session rules.
+              </Text>
+            )}
 
             {encounterConsumables.length > 0 ? (
               <>
@@ -2528,6 +2558,8 @@ export default function AdventureSessionPlaceholderScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
+  composerAttackTabs: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+  composerAttackTab: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 },
   actionDockTitle: { fontSize: 14, fontWeight: "800" },
   actionDockHint: { fontSize: 12, lineHeight: 18 },
   actionDockCombatButton: { borderRadius: 10, paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
