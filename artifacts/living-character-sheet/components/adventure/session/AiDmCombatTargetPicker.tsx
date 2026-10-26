@@ -16,7 +16,7 @@ export function AiDmCombatTargetPicker({ attackRanges = [] }: { attackRanges?: A
   // Self-only abilities should resolve their own target without this list.
   const battleId = memberId ? combatState?.participantBattleById?.[memberId] ?? null : null;
   // No server-supported position snapshot exists yet. Unknown is not zero feet.
-  const eligibleTargets = buildCombatProximityRows({ viewerId: memberId, battleId, targets: combat.partyTargets, observations: combatState?.encounterDistances });
+  const eligibleTargets = buildCombatProximityRows({ viewerId: memberId, battleId, targets: combat.partyTargets, observations: combatState?.encounterDistances, positions: combatState?.encounterPositions });
   const referenceAttack = attackRanges.find(attack => attack.id === referenceAttackId) ?? null;
   if (!combat.active || eligibleTargets.length === 0) return null;
 
