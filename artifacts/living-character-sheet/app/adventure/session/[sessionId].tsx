@@ -2484,18 +2484,53 @@ export default function AdventureSessionPlaceholderScreen() {
           }}
         />
         )}
-        <AiDmSessionInputComposer 
-          onSubmit={handleInputSubmit} 
-          isPending={isCampaignRuntimeTurnPending}
-        />
-
       </ScrollView>
+      <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
+        {!isCampaignScaffold && activeOneOffBattleId ? (
+          <>
+            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
+            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
+              Describe your intent through combat actions; only resolved rolls determine hits and damage.
+            </Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open combat actions"
+              onPress={goToCombatControls}
+              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
+              activeOpacity={0.85}>
+              <Feather name="crosshair" color={c.primaryForeground} size={16} />
+              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Combat / Targets</Text>
+            </TouchableOpacity>
+          </>
+        ) : !isCampaignScaffold && pendingRollRequests.length > 0 ? (
+          <>
+            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Roll requested</Text>
+            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
+              Resolve the pending check in the scene before continuing.
+            </Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to pending roll"
+              onPress={() => sessionScrollRef.current?.scrollToEnd({ animated: true })}
+              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
+              activeOpacity={0.85}>
+              <Feather name="target" color={c.primaryForeground} size={16} />
+              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Find Roll Request</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <AiDmSessionInputComposer
+            onSubmit={handleInputSubmit}
+            isPending={isCampaignRuntimeTurnPending}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
+  actionDockTitle: { fontSize: 14, fontWeight: "800" },
+  actionDockHint: { fontSize: 12, lineHeight: 18 },
+  actionDockCombatButton: { borderRadius: 10, paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 26, fontWeight: "800" },
   subtitle: { fontSize: 14 },
