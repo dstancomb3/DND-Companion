@@ -8,7 +8,7 @@ test("[smoke:adventure] enemy stats, confirmed attack story and member End Turn"
     const state={code:'TEST-42',schemaVersion:1,stateRevision:4,environmentTurnId:'environment',currentTurnIdByBattle:{battle:'player'},currentTurnId:'player',battleTurnOrderById:{battle:['player','wolf']},turnOrder:['player','wolf'],initiative:[],activeMemberIds:['player'],participantBattleById:{player:'battle',wolf:'battle'},combatNpcs:[{id:'wolf',name:'Shadow Creature',sourceType:'manual',disposition:'hostile',coreStats:{speed:30,initiativeBonus:1,strength:12,dexterity:12,constitution:12,intelligence:8,wisdom:10,charisma:8},visibleStatKeys:[],dummyState:{currentHp:20,maxHp:30,armorClass:10,actionUsed:false},conditions:[],createdAt:new Date().toISOString()}],rollRequests:[],lootAssignments:[],noteAssignments:[],restRequests:[],eventLog:[],playerEconomyByMember:{player:economy},updatedAt:new Date().toISOString()};
     let turnCalls=0;
     await page.route('**/api/**',async route=>{
-      const url=route.request().url(), body=route.request().postDataJSON();let data={ok:true};
+      const url=route.request().url(), body=route.request().postDataJSON();let data: unknown={ok:true};
       if(url.endsWith('/members'))data={code:'TEST-42',members:[member]};
       else if(url.endsWith('/combat-state'))data=state;
       else if(url.endsWith('/economy/spend')){economy.actionsUsed=1;state.stateRevision++;data={ok:true,economy};}
