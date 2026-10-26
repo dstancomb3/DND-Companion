@@ -18,8 +18,9 @@ export function validateNpcAttackSpatialAdjudication(
   const normalized = range.trim().toLowerCase();
   const melee = /^(?:melee|reach)(?:\s*\(?\s*(\d+)\s*(?:ft|feet)\s*\)?)?$/i.exec(normalized);
   const ranged = /^(\d+)\s*(?:\/\s*(\d+))?\s*(?:ft|feet|ft\.)?$/i.exec(normalized);
-  const maxFeet = melee ? (melee[1] ? Number(melee[1]) : 5) : ranged ? Number(ranged[2] ?? ranged[1]) : NaN;
+  const maxFeet = melee ? (melee[1] ? Number(melee[1]) : 5) : ranged ? Number(ranged[1]) : NaN;
   if (!Number.isFinite(maxFeet) || maxFeet <= 0) return { ok: false, reason: "unsupported_range_notation" };
-  if (a.distanceFeet > maxFeet) return { ok: false, reason: "target_out_of_range" };
+  // Long range requires disadvantage, which the bounded endpoint does not yet resolve.
+  if (a.distanceFeet > maxFeet) return { ok: false, reason: "target_out_of_range_or_requires_disadvantage" };
   return { ok: true, distanceFeet: a.distanceFeet };
 }
