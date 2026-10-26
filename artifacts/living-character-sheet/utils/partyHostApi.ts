@@ -84,6 +84,15 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
     async rollNpcInitiative(code: string, npcId: string, initiativeRoll: number, initiativeBonus?: number): Promise<{ initiativeTotal: number }> {
       return request(`/party/${code}/combat-npcs/${npcId}/initiative`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify({ initiativeRoll, initiativeBonus }) });
     },
+    async executeNpcWeaponTurn(code: string, payload: {
+      commandId: string; battleId: string; npcId: string; weaponId: string;
+      targetMemberId: string; expectedRevision: number;
+    }): Promise<{ ok: true; replayed: boolean; receipt: import("./combat/npcCommittedNarration").HostNpcWeaponTurnReceipt }> {
+      return request(`/party/${code}/npc-weapon-turn`, {
+        method: "POST", headers: await encounterHeaders(code, "execute NPC turns"),
+        body: JSON.stringify(payload),
+      });
+    },
     async sendPartyEndTurn(code: string, payload: EndPartyTurnPayload = {}): Promise<void> {
       await request(`/party/${code}/end-turn`, { method: "POST", headers: await encounterHeaders(code), body: JSON.stringify(payload) });
     },
