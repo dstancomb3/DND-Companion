@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-nati
 import { useColors } from "@/hooks/useColors";
 
 import { useWorkspacePreferences } from "../../../hooks/useWorkspacePreferences";
-import { presetWorkspaceLayout, saveCustomWorkspace, selectWorkspacePreset, swapWorkspacePanels, toggleWorkspacePanel, type WorkspaceLayout, type WorkspacePanelId, type WorkspaceSlotId } from "../../../utils/adventure/workspaceLayoutPreferences";
+import { presetWorkspaceLayout, saveCustomWorkspace, selectWorkspacePreset, swapWorkspacePanels, toggleWorkspacePanel, replaceWorkspacePanel, type WorkspaceLayout, type WorkspacePanelId, type WorkspaceSlotId } from "../../../utils/adventure/workspaceLayoutPreferences";
 export type { WorkspacePanelId } from "../../../utils/adventure/workspaceLayoutPreferences";
 export interface WorkspacePanel { title: string; content: ReactNode; footer?: ReactNode }
 export type WorkspacePanels = Record<WorkspacePanelId, WorkspacePanel>;
@@ -29,7 +29,7 @@ export function workspacePanelFrames(width: number, height: number, base = "bala
   };
 }
 
-export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels: WorkspacePanels; preferenceKey?: string; statusSummary?: string }>(function AdventureWorkspace({ panels, preferenceKey = "default", statusSummary }, ref) {
+export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels: WorkspacePanels; preferenceKey?: string; statusSummary?: string; alternatives?: Partial<Record<WorkspacePanelId, Record<string, WorkspacePanel>>> }>(function AdventureWorkspace({ panels, preferenceKey = "default", statusSummary, alternatives }, ref) {
   const c = useColors();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const { preferences, ready, error, update, retry } = useWorkspacePreferences(preferenceKey);
@@ -38,6 +38,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   const [focusExpanded, setFocusExpanded] = useState<WorkspacePanelId[]>([]);
   useEffect(() => { setDraft(null); setSwapFrom(null); setFocusExpanded([]); }, [preferenceKey]);
   const layout = draft ?? preferences.layout;
+  const visiblePanels = Object.fromEntries(panelOrder.map(id => [id, (layout.replacements?.[id] && alternatives?.[id]?.[layout.replacements[id]!]) || panels[id]])) as WorkspacePanels;
   const focused = !draft && (preferences.simplify || layout.base === "immersive");
   const temporaryFocus = !draft && preferences.simplify;
   const positions = temporaryFocus ? presetWorkspaceLayout().positions : layout.positions;
@@ -93,12 +94,16 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
       <ScrollView ref={outerRef} scrollEnabled={!frames} style={styles.root}
         contentContainerStyle={frames ? { height: size.height } : styles.mobileContent}>
         {panelOrder.map(id => (
-          <View key={id} testID={`workspace-${id}`} accessibilityLabel={panels[id].title}
+          <View key={id} testID={`workspace-${id}`} accessibilityLabel={visiblePanels[id].title}
             onLayout={id === "actions" ? event => { actionY.current = event.nativeEvent.layout.y; } : undefined}
             style={[styles.panel, { backgroundColor: c.card, borderColor: c.border },
               frames ? { position: "absolute", ...frames[id] } : id === "narrative" && !hidden(id) ? { height: Math.max(300, Math.min(480, size.height * 0.6)) } : undefined]}>
             <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: c.border, minHeight: 39 }}>
-              <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: c.mutedForeground, flex: 1 }]}>{panels[id].title}</Text>
+              <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: c.mutedForeground, flex: 1 }]}>{visiblePanels[id].title}</Text>
+              {draft && id === "inventory" && alternatives?.inventory?.["character-summary"] ? button(
+                layout.replacements?.inventory === "character-summary" ? "Replace with Inventory" : "Replace with Character Summary",
+                () => setDraft(replaceWorkspacePanel(draft, "inventory", layout.replacements?.inventory === "character-summary" ? null : "character-summary"))
+              ) : null}
               {draft ? button(swapFrom && swapFrom !== id ? `Swap ${panels[swapFrom].title} with ${panels[id].title}` : `Swap ${panels[id].title}`, () => {
                 if (swapFrom && swapFrom !== id) { setDraft(swapWorkspacePanels(draft, swapFrom, id)); setSwapFrom(null); }
                 else setSwapFrom(swapFrom === id ? null : id);
@@ -110,14 +115,14 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
             </View>
             <View style={hidden(id) ? { display: "none" } : frames || id === "narrative" ? styles.root : undefined}
               importantForAccessibility={hidden(id) ? "no-hide-descendants" : "auto"}>
-            {id === "narrative" ? <View style={styles.story}>{panels[id].content}</View> : (
+            {id === "narrative" ? <View style={styles.story}>{visiblePanels[id].content}</View> : (
               <ScrollView ref={id === "actions" ? actionRef : undefined}
                 nestedScrollEnabled style={frames ? styles.root : { maxHeight: id === "actions" ? 640 : 360 }}
                 contentContainerStyle={styles.body}>
                 {panels[id].content}
               </ScrollView>
             )}
-            {panels[id].footer ? <View style={{ padding: 10, borderTopWidth: 1, borderTopColor: c.border }}>{panels[id].footer}</View> : null}
+            {visiblePanels[id].footer ? <View style={{ padding: 10, borderTopWidth: 1, borderTopColor: c.border }}>{visiblePanels[id].footer}</View> : null}
             </View>
           </View>
         ))}
