@@ -1174,6 +1174,8 @@ W2 customization backlog, O02 partial and REC-01 retain their previous status.
 
 ## Combat UI W4: enemy status, End Turn and confirmed attack story (2026-10-26)
 
+[PR #82](https://github.com/dstancomb3/DND-Companion/pull/82).
+
 User live-test follow-up to PR #81: attacks submitted, but the Adventure encounter
 panel showed only enemy names; the workspace had no End Turn, and the story feed
 never received attacks. Card feedback remained a preview even after the existing
@@ -1181,8 +1183,8 @@ party API acknowledged application. Client-only vertical slice, no server rules
 or authorization migration.
 
 Encounter rows now show canonical shared NPC HP/max HP, AC and conditions, with
-unknown values explicitly identified. No invented stats. The action dock exposes
-End Turn and remaining action/bonus counts, through the existing CombatContext
+unknown values explicitly identified. No invented stats. The action panel keeps
+End Turn visible in a footer outside its scrolling controls and remaining action/bonus counts, through the existing CombatContext
 and member-authorized turn endpoint. The shared endTurn method now acknowledges
 success/failure asynchronously, prevents overlapping submissions, checks the
 acting member's turn, and only performs local turn/concentration cleanup after

@@ -2093,13 +2093,14 @@ export default function AdventureSessionPlaceholderScreen() {
           streamingText={streamingResponseText}
         />
     ) },
-    actions: { title: "Your next action", content: (
+    actions: { title: "Your next action",
+      footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
+      content: (
       <>
       <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
         {!isCampaignScaffold && activeOneOffBattleId ? (
           <>
             <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
-            <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} />
             <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
               Describe your intent through combat actions; only resolved rolls determine hits and damage.
             </Text>
