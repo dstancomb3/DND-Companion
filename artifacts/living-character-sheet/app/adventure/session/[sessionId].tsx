@@ -2650,7 +2650,7 @@ export default function AdventureSessionPlaceholderScreen() {
         <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
 
       </View>
-      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} preferenceKey={`character:${character.id}`}
+      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} alternatives={{ inventory: { "character-summary": { title: "Character Summary", content: <View style={{ gap: 8 }}><Text style={{ color: c.foreground, fontSize: 16, fontWeight: "700" }}>{character.name}</Text><Text style={{ color: c.foreground }}>{`${character.currentHp}/${character.maxHp} HP`}</Text><Text style={{ color: c.foreground }}>{`Initiative ${character.initiative ?? 0}`}</Text><Text style={{ color: c.mutedForeground }}>{conditions.length ? conditions.map(condition => condition.name).join(", ") : "No active conditions"}</Text></View> } } }} preferenceKey={`character:${character.id}`}
         statusSummary={`${character.currentHp}/${character.maxHp} HP${conditions.length ? ` · ${conditions.map(condition => condition.name).join(", ")}` : ""}${pendingRollRequests.length ? ` · ${pendingRollRequests.length} roll request(s)` : ""}${workspaceSession.encounter.status === "combat" ? workspaceSession.encounter.isPlayerTurn ? " · Your turn" : ` · ${workspaceSession.encounter.currentActorName ?? "Waiting for initiative"}` : ""}`} /></View>
     </SafeAreaView>
   );
