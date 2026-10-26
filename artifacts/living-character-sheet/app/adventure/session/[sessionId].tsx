@@ -437,6 +437,9 @@ export default function AdventureSessionPlaceholderScreen() {
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
+  const [combatPanelOpen, setCombatPanelOpen] = useState(false);
+  const [showSessionTools, setShowSessionTools] = useState(false);
+  const [showEncounterDetails, setShowEncounterDetails] = useState(false);
   const sessionScrollRef = useRef<ScrollView>(null);
   const combatSectionYRef = useRef<number | null>(null);
   const rollSubmissionGateRef = useRef(createRollSubmissionGate());
@@ -559,9 +562,10 @@ export default function AdventureSessionPlaceholderScreen() {
     : null;
 
   const goToCombatControls = () => {
-    if (combatSectionYRef.current !== null) {
-      sessionScrollRef.current?.scrollTo({ y: combatSectionYRef.current, animated: true });
-    }
+    setCombatPanelOpen(true);
+    setTimeout(() => {
+      if (combatSectionYRef.current !== null) sessionScrollRef.current?.scrollTo({ y: combatSectionYRef.current, animated: true });
+    }, 100);
   };
 
   const shouldShowEncounterSnapshot = useMemo(() => {
@@ -2075,54 +2079,7 @@ export default function AdventureSessionPlaceholderScreen() {
           </TouchableOpacity>
         </View>
 
-        {!isCampaignScaffold ? (
-          <>
-            <Text style={[styles.title, { color: c.foreground }]}>Adventure Session</Text>
-            <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
-              <Text style={[styles.label, { color: c.mutedForeground }]}>Title</Text>
-              <Text style={[styles.value, { color: c.foreground }]}>{params.title ?? "n/a"}</Text>
-              <Text style={[styles.label, { color: c.mutedForeground, marginTop: 8 }]}>Difficulty / Style</Text>
-              <Text style={[styles.value, { color: c.foreground }]}>{`${params.difficulty ?? "n/a"} / ${params.stylePreset ?? "n/a"}`}</Text>
-            </View>
-          </>
-        ) : null}
-
-        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
-          <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.primary }]}>
-            <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>
-              {activeOneOffBattleId ? "Combat in progress" : "Encounter controls available"}
-            </Text>
-            <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
-              {activeOneOffBattleId
-                ? "Use the combat controls to select a target, roll attacks, and apply outcomes. Story text cannot resolve hits or damage."
-                : "An encounter has been detected. Open the controls below to review targets and available actions."}
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Open combat controls"
-              onPress={goToCombatControls}
-              style={[styles.rollPromptButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.rollPromptButtonText}>Open Combat / Targets</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
-          <View style={styles.encounterGateActionsRow}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to story"
-              onPress={() => sessionScrollRef.current?.scrollTo({ y: 0, animated: true })}
-              style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.card }]}>
-              <Text style={[styles.encounterGateActionBtnText, { color: c.foreground }]}>Story</Text>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to combat actions and targets"
-              onPress={goToCombatControls}
-              style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}>
-              <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Combat / Targets</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
         <AiDmSessionFeedShell
           entries={entries}
           guidanceSource={feedSeed.guidanceSource}
@@ -2202,6 +2159,14 @@ export default function AdventureSessionPlaceholderScreen() {
             {encounterGateVisibility.isActive && encounterGateVisibility.status !== "cleared" ? (
               <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
             ) : null}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={showEncounterDetails ? "Hide encounter details" : "Show encounter details"}
+              onPress={() => setShowEncounterDetails((open) => !open)}
+              style={[styles.composerDisclosureRow, { borderColor: c.border }]}>
+              <Text style={{ color: c.mutedForeground }}>Encounter details</Text>
+              <Feather name={showEncounterDetails ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
+            </TouchableOpacity>
+            {showEncounterDetails ? (
+              <>
             <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Required rolls: {encounterGateVisibility.requiredRolls.join(", ") || "none"}</Text>
             <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Created rolls: {encounterGateVisibility.createdRolls.join(", ") || "none"}</Text>
             <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Failed rolls: {encounterGateVisibility.failedRolls.join(", ") || "none"}</Text>
@@ -2240,6 +2205,8 @@ export default function AdventureSessionPlaceholderScreen() {
             ) : null}
             {encounterGateConfirmation.reopenedAfterConfirmation && encounterGateVisibility.isActive ? (
               <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate reopened after combat update. Re-resolve required prompts.</Text>
+            ) : null}
+              </>
             ) : null}
             {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
               <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Ready to continue. Confirm and continue to unblock narration.</Text>
@@ -2344,6 +2311,16 @@ export default function AdventureSessionPlaceholderScreen() {
         ) : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
+          <TouchableOpacity accessibilityRole="button"
+            accessibilityLabel={combatPanelOpen ? "Hide combat actions" : "Show combat actions"}
+            onPress={() => setCombatPanelOpen((open) => !open)}
+            onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }}
+            style={[styles.composerDisclosureRow, { borderColor: c.border, backgroundColor: c.card }]}>
+            <Text style={{ color: c.foreground, fontWeight: "700" }}>Combat actions and targets</Text>
+            <Feather name={combatPanelOpen ? "chevron-up" : "chevron-down"} color={c.primary} size={18} />
+          </TouchableOpacity>
+        ) : null}
+        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
           <View onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }} style={[styles.encounterSnapshotCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterSnapshotHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
@@ -2353,9 +2330,9 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold && shouldShowEncounterSnapshot ? <AiDmCombatTargetPicker /> : null}
+        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? <AiDmCombatTargetPicker /> : null}
 
-        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
+        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
           <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterToolsHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
@@ -2499,8 +2476,16 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold ? <AiDmSessionQuickActionsRow onAction={handleQuickAction} /> : null}
-        {!isCampaignScaffold ? <AiDmCombatSubmodePanel onToolEvent={handleCombatPanelToolEvent} /> : null}
+        {!isCampaignScaffold ? (
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={showSessionTools ? "Hide more tools" : "Show more tools"}
+            onPress={() => setShowSessionTools((open) => !open)}
+            style={[styles.composerDisclosureRow, { borderColor: c.border, backgroundColor: c.card }]}>
+            <Text style={{ color: c.foreground }}>More tools</Text>
+            <Feather name={showSessionTools ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
+          </TouchableOpacity>
+        ) : null}
+        {!isCampaignScaffold && showSessionTools ? <AiDmSessionQuickActionsRow onAction={handleQuickAction} /> : null}
+        {!isCampaignScaffold && showSessionTools ? <AiDmCombatSubmodePanel onToolEvent={handleCombatPanelToolEvent} /> : null}
         {isCampaignScaffold ? null : (
         <AiDmSessionOutcomeShell
           outcomeState={outcomeState}
@@ -2559,6 +2544,7 @@ export default function AdventureSessionPlaceholderScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
+  composerDisclosureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderRadius: 10, marginVertical: 6 },
   composerAttackTabs: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
   composerAttackTab: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 },
   actionDockTitle: { fontSize: 14, fontWeight: "800" },
