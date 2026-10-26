@@ -127,3 +127,20 @@ test("customizing Immersive keeps the saved swap instead of forcing its default 
     assert.equal(restored.left, 0);
   } finally { act(() => tree.unmount()); }
 });
+
+test("panel replacement is a validated saved view preference, preserved through presets", () => {
+  const { replaceWorkspacePanel } = require("../../utils/adventure/workspaceLayoutPreferences");
+  let p = defaultWorkspacePreferences();
+  const changed = replaceWorkspacePanel(p.layout, "inventory", "character-summary");
+  assert.equal(changed.replacements.inventory, "character-summary");
+  assert.equal(p.layout.replacements.inventory, undefined);
+  assert.deepEqual(replaceWorkspacePanel(changed, "actions", "character-summary"), changed);
+  assert.deepEqual(replaceWorkspacePanel(changed, "inventory", "bogus"), changed);
+  p = saveCustomWorkspace(p, changed);
+  p = selectWorkspacePreset(p, "tactical");
+  p = selectWorkspacePreset(p, "custom");
+  assert.equal(parseWorkspacePreferences(JSON.stringify(p)).layout.replacements.inventory, "character-summary");
+  const invalid = JSON.parse(JSON.stringify(p)); invalid.layout.replacements.actions = "character-summary";
+  assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
+  assert.equal(replaceWorkspacePanel(changed, "inventory", null).replacements.inventory, undefined);
+});
