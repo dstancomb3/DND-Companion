@@ -23,17 +23,17 @@ export interface PersonalGameplayPreferences {
   showCombatEffectiveness: "off" | "discovered" | "assisted";
 }
 
-export const DEFAULT_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Object.freeze({
+export const DEFAULT_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Object.freeze<GameplayRulesProfile>({
   schemaVersion: 1,
   id: "dnd5e_2014",
   equipment: { switchWeaponCost: "object_interaction" },
 });
-export const TACTICAL_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Object.freeze({
+export const TACTICAL_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Object.freeze<GameplayRulesProfile>({
   schemaVersion: 1,
   id: "tactical_bg3_inspired",
   equipment: { switchWeaponCost: "action" },
 });
-export const DEFAULT_PERSONAL_GAMEPLAY_PREFERENCES: Readonly<PersonalGameplayPreferences> = Object.freeze({
+export const DEFAULT_PERSONAL_GAMEPLAY_PREFERENCES: Readonly<PersonalGameplayPreferences> = Object.freeze<PersonalGameplayPreferences>({
   schemaVersion: 1,
   presentation: "standard",
   showDetailedCombatLog: false,
