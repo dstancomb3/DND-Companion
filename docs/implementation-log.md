@@ -1050,6 +1050,8 @@ Validation: workspace typecheck/combat and existing PostgreSQL CI. This slice do
 
 ## Workspace W1 / O02: shared encounter projection and DM tool separation (2026-10-26)
 
+[PR #79](https://github.com/dstancomb3/DND-Companion/pull/79).
+
 Scope decision: the user authorized progression beyond merged PRs #77/#78 toward
 one human/AI adventure workspace. Inspection confirmed those PRs hide the position
 editor, but leave Start/End Encounter, Add Members and stalled-NPC recovery visible
@@ -1073,7 +1075,10 @@ Async lookup completion from an obsolete party cannot restore host controls.
 Validation: focused rendered-component and projection regressions cover members,
 host coordinate submission, all three mode permission projections, pending/error
 lookup and party-switch races. Added these to existing PostgreSQL CI. Baseline and
-CI results are recorded with the PR. No production deployment or manual multi-device
+CI results are recorded with the PR. Local workspace typecheck passed; all 145
+combat/projection/component tests passed under CI-matching Node 20.20.2. The default
+Node 24 runtime failed pre-existing ESM/CommonJS test imports; no application module
+format was changed to accommodate it. No production deployment or manual multi-device
 acceptance claimed.
 
 Migration/rollback: no SQL, credentials, API, gameplay, storage or lockfile changes.
