@@ -1141,6 +1141,8 @@ Rollback restores the previous presentation with no data/schema migration.
 
 ## Combat UI W3: working attack-card submission (2026-10-26)
 
+[PR #81](https://github.com/dstancomb3/DND-Companion/pull/81).
+
 User-reported defect while testing the new one-off workspace: Use Attack appeared
 to do nothing. Source inspection found primary damage was mandatory but its input
 row was absent; validation/rejection/outcome feedback relied on platform alerts.
