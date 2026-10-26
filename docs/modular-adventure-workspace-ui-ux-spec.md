@@ -167,3 +167,33 @@ Follow the current app screenshots: dark charcoal/navy surfaces, restrained viol
 - How should currently active required interactions interrupt a heavily customized layout without overriding the user's rearrangement?
 
 **Decision:** Proceed with desktop modular workspace as a design direction. This document authorizes no production deployment or assertion of completed implementation.
+
+## 11. Unified session surface and positioning authority (2026-10-26)
+
+These two desktop references further clarify the target product. The first image illustrates the six-zone customizable tactical workspace; the second illustrates narrative-first storytelling with contextual actions and compact side rails. Neither depicts shipped UI. They are **two presentations of the same session**, not two different game modes or separate apps.
+
+### Common runtime modes
+
+- **Human-DM hosted party:** The original party host is the authoritative DM for encounter creation, NPC control, spatial setup, adjudication and private tools. Joined players receive party story, combat state and their own allowed actions, but not DM editing controls.
+- **AI-DM one-off:** The AI DM drives narrative, encounters and NPC decision proposals through the same server-authoritative commands, with host-side AI orchestration. Unsupported mechanical actions require an explicit adjudication path.
+- **AI-DM campaign:** Same core screen and combat/party authority, with continuation, checkpoint, multi-session memory and chapter navigation. Campaign persistence is an extension of the common session runtime, not a duplicate combat engine.
+
+All variants should use a common **SessionMode**, **SessionAuthority**, **SessionViewModel** and reusable panel registry. Widgets should take projected state and allowed actions, not independently decide who has permission. Host vs player privileges must always be enforced on server mutations; local host-capability checks only hide irrelevant UI, never replace authorization.
+
+### Positioning migration
+
+- Canonical encounter coordinates are a host-controlled shared 2D space in feet, persisted per encounter/combatant.
+- Player-facing target distance and ordering derive from positions. Moving one combatant recalculates its relationship to all others.
+- The retired relative-distance editor is not the canonical movement interface; older pairwise measurements remain as migration fallback until every active combatant is positioned.
+- DM-only coordinate edits must remain hidden on joined member devices. Host requests still require the server's bearer capability and revision validation.
+- AI DM sessions must use an explicit host-authorized command mechanism, not an AI-authored role flag or a pretend DM token.
+- Tactical coordinates alone do **not** establish line of sight, traversability, occupied creature footprint, cover, movement economy or real-world geometry. Those require subsequent authority rules.
+- The common Adventure workspace should show player target distances without exposing any coordinate editing surface.
+
+### Incremental rollout
+
+1. **This implementation:** Host-only coordinate editor in existing combat submode, shared coordinate projection and non-host read-only distance display.
+2. Define common mode/authority/view-model interfaces, map existing human-party and AI session state to them, and start extracting reusable panels without duplicating runtime state.
+3. Implement desktop panel layout presets and swap/collapse preferences; keep narrative and required actions usable on mobile.
+4. Integrate movement path/economy/LOS and server-authoritative NPC execution and AI narration.
+5. Validate three end-to-end paths: human DM hosted group, AI one-off, AI campaign continuation. Verify different-device non-host cannot edit positions.
