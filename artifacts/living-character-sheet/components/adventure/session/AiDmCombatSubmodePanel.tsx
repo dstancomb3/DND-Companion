@@ -5,7 +5,8 @@ import { useColors } from "@/hooks/useColors";
 import { useParty } from "@/context/PartyContext";
 import {
   addToEncounter,
-  confirmEncounterDistances,
+  confirmEncounterPositions,
+  hasLocalPartyHostCapability,
   endEncounter,
   endPartyTurnForBattle,
   startPartyInitiative,
@@ -26,7 +27,14 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   const { partyCode, memberId, members, combatState, isInParty, refreshCombatState } = useParty();
   const [busy, setBusy] = useState(false);
   const [confirmSkipActorId, setConfirmSkipActorId] = useState<string | null>(null);
-  const [distanceDrafts, setDistanceDrafts] = useState<Record<string, string>>({});
+  const [positionDrafts, setPositionDrafts] = useState<Record<string, { x: string; y: string }>>({});
+  const [isHostDevice, setIsHostDevice] = useState(false);
+  React.useEffect(() => {
+    let active = true;
+    setIsHostDevice(false);
+    if (partyCode) void hasLocalPartyHostCapability(partyCode).then(ok => { if (active) setIsHostDevice(ok); }).catch(() => {});
+    return () => { active = false; };
+  }, [partyCode]);
   const [positionsOpen, setPositionsOpen] = useState(false);
 
   const battleId = useMemo(() => selectMemberBattleId(combatState, memberId), [combatState, memberId]);
@@ -41,39 +49,42 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
     ...members.filter((m) => combatState?.participantBattleById?.[m.id] === battleId)
       .map((m) => ({ id: m.id, label: m.characterName })),
     ...battleNpcs.map((n) => ({ id: n.id, label: n.name })),
-  ].filter((t) => t.id !== memberId);
+  ];
 
-  async function saveConfirmedDistances() {
-    if (!partyCode || !battleId || !memberId || !combatState || busy) return;
-    const observations = Object.entries(distanceDrafts)
-      .filter(([, text]) => text.trim() !== "")
-      .map(([targetId, text]) => ({ targetId, distanceFeet: Number(text.trim()) }));
-    if (!observations.length) {
-      onToolEvent("Enter at least one distance to confirm.");
+  async function saveConfirmedPositions() {
+    if (!partyCode || !battleId || !combatState || busy || !isHostDevice) return;
+    const draftRows = Object.entries(positionDrafts)
+      .filter(([, value]) => value.x.trim() !== "" || value.y.trim() !== "");
+    if (!draftRows.length) {
+      onToolEvent("Enter an X and Y coordinate for at least one combatant.");
       return;
     }
-    if (observations.some((x) => !positionTargets.some((t) => t.id === x.targetId) ||
-      !Number.isFinite(x.distanceFeet) || x.distanceFeet < 0 || x.distanceFeet > 10000)) {
-      onToolEvent("Distances must be valid values between 0 and 10,000 feet for current combatants.");
+    if (draftRows.some(([id, value]) =>
+      !positionTargets.some(target => target.id === id) ||
+      value.x.trim() === "" || value.y.trim() === "" ||
+      !Number.isFinite(Number(value.x)) || !Number.isFinite(Number(value.y)) ||
+      Math.abs(Number(value.x)) > 10000 || Math.abs(Number(value.y)) > 10000)) {
+      onToolEvent("Each edited combatant needs valid X and Y coordinates between -10,000 and 10,000 feet.");
       return;
     }
     if (!Number.isSafeInteger(combatState.stateRevision) || (combatState.stateRevision ?? 0) < 1) {
-      onToolEvent("Refresh the combat state before confirming distances.");
+      onToolEvent("Refresh the combat state before confirming positions.");
       return;
     }
     setBusy(true);
     try {
-      await confirmEncounterDistances(partyCode, {
+      await confirmEncounterPositions(partyCode, {
         expectedRevision: combatState.stateRevision!,
-        distances: observations.map(({ targetId, distanceFeet }) => ({
-          battleId, viewerId: memberId, targetId, distanceFeet, source: "dm_confirmed" as const,
+        positions: draftRows.map(([combatantId, value]) => ({
+          battleId, combatantId, xFeet: Number(value.x), yFeet: Number(value.y),
+          source: "dm_confirmed" as const,
         })),
       });
       await refreshCombatState(partyCode);
-      setDistanceDrafts({});
-      onToolEvent(`Confirmed ${observations.length} combat distance(s). These are relative to your character; no line of sight or movement was inferred.`);
+      setPositionDrafts({});
+      onToolEvent(`Confirmed positions for ${draftRows.length} combatant(s). All pairwise distances now derive from these shared coordinates.`);
     } catch (error) {
-      onToolEvent(`Distance confirmation failed: ${error instanceof Error ? error.message : "unknown error"}. Refresh and retry.`);
+      onToolEvent(`Position confirmation failed: ${error instanceof Error ? error.message : "unknown error"}. Refresh and retry.`);
     } finally {
       setBusy(false);
     }
@@ -189,38 +200,46 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
         <Text style={[styles.metaValue, { color: c.foreground }]}>{currentTurnId ?? "n/a"}</Text>
       </View>
 
-      {hasActiveBattle ? (
+      {hasActiveBattle && isHostDevice ? (
         <View style={[styles.metaCard, { borderColor: c.border, backgroundColor: c.background }]}>
           <TouchableOpacity accessibilityRole="button" onPress={() => setPositionsOpen(v => !v)}>
             <Text style={[styles.title, { color: c.foreground }]}>
-              {positionsOpen ? "Hide" : "Edit"} combat distances
+              {positionsOpen ? "Hide" : "Edit"} combatant positions
             </Text>
           </TouchableOpacity>
           {positionsOpen ? (
             <View style={{ gap: 8, marginTop: 8 }}>
               <Text style={[styles.body, { color: c.mutedForeground }]}>
-                DM-confirmed distances from your character. Leave a field blank to keep its previous value.
+                Host-only encounter coordinates in feet. Set positions once; moving one creature updates its distance to every other creature automatically. Leave both fields blank to preserve an existing position.
               </Text>
               {positionTargets.map(target => {
-                const current = combatState?.encounterDistances?.find(x =>
-                  x.battleId === battleId && x.viewerId === memberId && x.targetId === target.id);
+                const current = combatState?.encounterPositions?.find(x =>
+                  x.battleId === battleId && x.combatantId === target.id);
+                const draft = positionDrafts[target.id];
                 return (
                   <View key={target.id} style={{ gap: 4 }}>
                     <Text style={[styles.metaLabel, { color: c.foreground }]}>
-                      {target.label} · {current ? `${current.distanceFeet} ft confirmed` : "Unknown"}
+                      {target.label} · {current ? `(${current.xFeet}, ${current.yFeet}) ft` : "Position unknown"}
                     </Text>
-                    <TextInput keyboardType="decimal-pad" accessibilityLabel={`Distance to ${target.label} in feet`}
-                      placeholder="Distance in feet" placeholderTextColor={c.mutedForeground}
-                      value={distanceDrafts[target.id] ?? ""}
-                      onChangeText={value => setDistanceDrafts(prev => ({ ...prev, [target.id]: value }))}
-                      editable={!busy}
-                      style={{ color: c.foreground, borderWidth: 1, borderColor: c.border, borderRadius: 8, padding: 8 }} />
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      {(["x", "y"] as const).map(axis => (
+                        <TextInput key={axis} keyboardType="numbers-and-punctuation"
+                          accessibilityLabel={`${target.label} ${axis.toUpperCase()} coordinate in feet`}
+                          placeholder={axis.toUpperCase() + " ft"} placeholderTextColor={c.mutedForeground}
+                          value={draft?.[axis] ?? ""}
+                          onChangeText={value => setPositionDrafts(prev => ({
+                            ...prev, [target.id]: { x: prev[target.id]?.x ?? "", y: prev[target.id]?.y ?? "", [axis]: value },
+                          }))}
+                          editable={!busy}
+                          style={{ flex: 1, color: c.foreground, borderWidth: 1, borderColor: c.border, borderRadius: 8, padding: 8 }} />
+                      ))}
+                    </View>
                   </View>
                 );
               })}
-              <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void saveConfirmedDistances()}
+              <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void saveConfirmedPositions()}
                 style={[styles.actionBtn, { borderColor: c.primary, alignSelf: "flex-start" }]}>
-                <Text style={[styles.actionText, { color: c.primary }]}>Confirm distances</Text>
+                <Text style={[styles.actionText, { color: c.primary }]}>Confirm positions</Text>
               </TouchableOpacity>
             </View>
           ) : null}
