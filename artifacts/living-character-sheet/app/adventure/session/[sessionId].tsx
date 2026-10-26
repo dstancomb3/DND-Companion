@@ -22,7 +22,7 @@ import { AiDmSessionOutcomeShell } from "@/components/adventure/session/AiDmSess
 import { PartyMiniList } from "@/components/attacks/PartyMiniList";
 import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmCombatTargetPicker";
 import { AttackCard } from "@/components/attacks/AttackCard";
-import { buildComposerAttackOptions, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
+import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
@@ -574,7 +574,8 @@ export default function AdventureSessionPlaceholderScreen() {
     return (combatState.combatNpcs?.length ?? 0) > 0 || pendingRollRequests.length > 0;
   }, [isCampaignScaffold, isRebindingOneOffParty, hasPlayerConversationEntry, combatState, memberId, pendingRollRequests.length]);
 
-  const composerAttackOptions = useMemo(() => buildComposerAttackOptions(attacks, inventory), [attacks, inventory]);
+  const sessionAttacks = useMemo(() => buildSessionCombatAttacks(attacks, inventory, character), [attacks, inventory, character]);
+  const composerAttackOptions = useMemo(() => buildComposerAttackOptions(sessionAttacks, inventory), [sessionAttacks, inventory]);
   const availableAttackGroups = useMemo(() => getAvailableAttackGroups(composerAttackOptions), [composerAttackOptions]);
   const effectiveAttackGroup = selectedAttackGroup && availableAttackGroups.includes(selectedAttackGroup)
     ? selectedAttackGroup
