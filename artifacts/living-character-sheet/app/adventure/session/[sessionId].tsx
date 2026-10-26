@@ -438,6 +438,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
   const [combatPanelOpen, setCombatPanelOpen] = useState(false);
+  const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
   const [showSessionTools, setShowSessionTools] = useState(false);
   const [showEncounterDetails, setShowEncounterDetails] = useState(false);
   const sessionScrollRef = useRef<ScrollView>(null);
@@ -2336,10 +2337,31 @@ export default function AdventureSessionPlaceholderScreen() {
           <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterToolsHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
-              <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Encounter Actions</Text>
+              <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Choose an action</Text>
             </View>
 
-            {availableAttackGroups.length > 0 ? (
+            <View style={styles.composerAttackTabs}>
+              {([
+                ["attack", "Attack", "crosshair", availableAttackGroups.length > 0],
+                ["items", "Items", "package", encounterConsumables.length > 0],
+                ["actions", "Actions", "zap", encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0],
+                ["bonus", "Bonus", "plus-circle", encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0],
+                ["resources", "Resources", "activity", resources.length > 0],
+              ] as const).filter((category) => category[3]).map(([key, label, iconName]) => (
+                <TouchableOpacity key={key} accessibilityRole="button"
+                  accessibilityLabel={`Show ${label.toLowerCase()} options`}
+                  accessibilityState={{ selected: combatCategory === key }}
+                  onPress={() => setCombatCategory(key)}
+                  style={[styles.composerAttackTab, {
+                    borderColor: combatCategory === key ? c.primary : c.border,
+                    backgroundColor: combatCategory === key ? c.primary + "1A" : c.background,
+                  }]}>
+                  <Feather name={iconName} size={15} color={combatCategory === key ? c.primary : c.foreground} />
+                  <Text style={{ color: combatCategory === key ? c.primary : c.foreground, fontWeight: "700" }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {combatCategory === "attack" && availableAttackGroups.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>ATTACKS</Text>
                 <View style={styles.composerAttackTabs}>
@@ -2364,13 +2386,13 @@ export default function AdventureSessionPlaceholderScreen() {
                   <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true} />
                 ))}
               </>
-            ) : (
+            ) : combatCategory === "attack" ? (
               <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
                 No ready attacks from your character or equipped weapons. Unequipped weapons require an equipment change; switching costs will depend on your session rules.
               </Text>
             )}
 
-            {encounterConsumables.length > 0 ? (
+            {combatCategory === "items" && encounterConsumables.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>CONSUMABLES</Text>
                 {encounterConsumables.map((item) => (
@@ -2391,7 +2413,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {encounterFeatureActions.actions.length > 0 || encounterCombatActions.actions.length > 0 ? (
+            {combatCategory === "actions" && (encounterFeatureActions.actions.length > 0 || encounterCombatActions.actions.length > 0) ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: ATTACK_COLOR }]}>ACTIONS</Text>
                 {encounterFeatureActions.actions.map((feature) => (
@@ -2423,7 +2445,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {encounterFeatureActions.bonus.length > 0 || encounterCombatActions.bonus.length > 0 ? (
+            {combatCategory === "bonus" && (encounterFeatureActions.bonus.length > 0 || encounterCombatActions.bonus.length > 0) ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: BONUS_ACTION_COLOR }]}>BONUS ACTIONS</Text>
                 {encounterFeatureActions.bonus.map((feature) => (
@@ -2455,7 +2477,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {resources.length > 0 ? (
+            {combatCategory === "resources" && resources.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>RESOURCES</Text>
                 {resources.map((resource) => {
@@ -2546,7 +2568,7 @@ const styles = StyleSheet.create({
   actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
   composerDisclosureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderRadius: 10, marginVertical: 6 },
   composerAttackTabs: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
-  composerAttackTab: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14 },
+  composerAttackTab: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 6 },
   actionDockTitle: { fontSize: 14, fontWeight: "800" },
   actionDockHint: { fontSize: 12, lineHeight: 18 },
   actionDockCombatButton: { borderRadius: 10, paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
