@@ -1,6 +1,7 @@
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
 import { randomUUID, randomInt } from "node:crypto";
 import { parseNpcWeaponDice } from "../lib/npcWeaponDice";
+import { validateNpcAttackSpatialAdjudication } from "../lib/npcAttackSpatialAdjudication";
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { partySessions, partyMembers } from "@workspace/db/schema";
@@ -2154,8 +2155,10 @@ router.post("/party/:code/npc-weapon-turn", async (req, res) => {
         entry.type === "npc_weapon_turn_committed" &&
         entry.metadata?.commandId === commandId);
       if (replay) {
+        const priorSpatial = replay.metadata?.spatialAdjudication as { distanceFeet?: number } | undefined;
         if (replay.metadata?.battleId !== battleId || replay.metadata?.npcId !== npcId ||
-            replay.metadata?.weaponId !== weaponId || replay.metadata?.targetMemberId !== targetMemberId) {
+            replay.metadata?.weaponId !== weaponId || replay.metadata?.targetMemberId !== targetMemberId ||
+            priorSpatial?.distanceFeet !== req.body?.spatialAdjudication?.distanceFeet) {
           throw new CompanionLifecycleError(409, "command_id_conflict", "Command ID already used with different parameters.");
         }
         return { replayed: true, receipt: replay.metadata };
@@ -2178,6 +2181,11 @@ router.post("/party/:code/npc-weapon-turn", async (req, res) => {
           !Number.isInteger(weapon.damageModifier ?? 0) || Math.abs(weapon.damageModifier ?? 0) > 40 ||
           !weapon.range?.trim() || !weapon.damageType?.trim()) {
         throw new CompanionLifecycleError(422, "unsupported_npc_weapon", "Equipped weapon lacks supported mechanics.");
+      }
+      const spatial = validateNpcAttackSpatialAdjudication(weapon.range, req.body?.spatialAdjudication);
+      if (!spatial.ok) {
+        throw new CompanionLifecycleError(422, spatial.reason,
+          "A host DM must verify distance and line of sight before this weapon attack can execute.");
       }
       const targets = await tx.select().from(partyMembers)
         .where(and(eq(partyMembers.id, targetMemberId), eq(partyMembers.partyCode, code))).for("update");
@@ -2216,6 +2224,7 @@ router.post("/party/:code/npc-weapon-turn", async (req, res) => {
       const result = {
         schemaVersion: 1, status: "committed", commandId, battleId, npcId, weaponId, targetMemberId,
         sourceRevision: durable.stateRevision, committedRevision: durable.stateRevision + 1,
+        spatialAdjudication: { source: "host_dm", distanceFeet: spatial.distanceFeet },
         naturalRoll, attackTotal: naturalRoll + weapon.attackBonus!, hit, critical,
         damageApplied: appliedDamage, damageToHp: appliedDamage - absorbedTempHp,
         damageType: weapon.damageType, nextTurnId,
