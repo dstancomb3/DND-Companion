@@ -669,3 +669,13 @@ is absent/checking, and clears drafts on party/battle changes. Server permission
 are unchanged. Mode projections do not grant AI command authority. Full session
 view-model, six-zone layout/panel registry, movement and autonomous NPC turns
 remain incomplete. See implementation-log.md for scoped validation and limits.
+
+### Workspace W2: six-zone Balanced Adventure presentation (2026-10-26)
+
+The existing Adventure route now renders narrative/actions in the center with
+party/inventory and encounter/event-log rails on sufficiently large displays.
+The same widgets stack on small displays without losing composer drafts. Story
+reading pauses streaming auto-scroll and offers Jump to latest. Existing action,
+roll and target components/callbacks are reused. Inventory and party/log summaries
+are read-only. This is a fixed Balanced shell, not saved customization, presets,
+Simplify, full human/AI runtime convergence or autonomous combat completion.

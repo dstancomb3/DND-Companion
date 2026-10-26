@@ -1485,3 +1485,13 @@ party-scoped and fails closed; adventure DM tools share that visibility gate.
 No credential, SQL, API, persisted layout or runtime JSON migration. Rollback
 restores earlier UI visibility and removes the shared status widget. No full
 workspace or human/AI runtime cutover is claimed.
+
+### 2026-10-26 Workspace W2 layout extraction
+
+Adventure rendering moves into six stable presentation slots with separate scroll
+regions; story/action ownership stays in the existing session route and contexts.
+Responsive resizing preserves widget ancestry. No saved layout, API, credentials,
+SQL or session JSON migration. Pending-roll/combat navigation now targets the
+action-panel scroll offsets. Rollback restores earlier rendering and scroll
+behavior without deleting gameplay state. Fixed Balanced layout only; no runtime
+or human-DM screen cutover is claimed.

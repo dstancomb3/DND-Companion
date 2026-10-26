@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 import type { AiDmSessionFeedEntry } from "@/utils/adventure/aiDmSessionFeedScaffold";
@@ -15,31 +15,39 @@ interface AiDmSessionFeedShellProps {
 export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
   const c = useColors();
   const scrollViewRef = useRef<ScrollView>(null);
+  const followingLatest = useRef(true);
+  const [hasUnread, setHasUnread] = useState(false);
 
   const visibleEntries = props.campaignMode
     ? props.entries.filter((e) => e.role === "dm" || e.role === "player")
     : props.entries;
 
-  // Auto-scroll to bottom when streaming
   useEffect(() => {
-    if (props.isStreaming) {
-      // Delay scroll to ensure content is rendered
-      const timer = setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [props.isStreaming, props.streamingText]);
+    if (!followingLatest.current) setHasUnread(true);
+  }, [props.entries.length, props.streamingText]);
+
+  function jumpToLatest() {
+    followingLatest.current = true;
+    setHasUnread(false);
+    scrollViewRef.current?.scrollToEnd({ animated: false });
+  }
 
   return (
+    <View style={[styles.wrap, { borderColor: c.border, backgroundColor: c.card }]}>
     <ScrollView
       ref={scrollViewRef}
-      style={[styles.wrap, { borderColor: c.border, backgroundColor: c.card }]}
+      testID="adventure-narrative-scroll"
+      style={{ flex: 1, minHeight: 0 }}
       contentContainerStyle={styles.content}
+      scrollEventThrottle={100}
+      onScroll={event => {
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+        followingLatest.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 48;
+        if (followingLatest.current) setHasUnread(false);
+      }}
       onContentSizeChange={() => {
-        if (props.isStreaming) {
-          scrollViewRef.current?.scrollToEnd({ animated: false });
-        }
+        if (followingLatest.current) scrollViewRef.current?.scrollToEnd({ animated: false });
+        else setHasUnread(true);
       }}
     >
       {visibleEntries.length === 0 && !props.isStreaming ? (
@@ -89,14 +97,19 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
         </>
       )}
     </ScrollView>
+    {hasUnread ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Jump to latest story"
+      onPress={jumpToLatest} style={{ padding: 10, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.border }}>
+      <Text style={{ color: c.primary, fontWeight: "700", textAlign: "center" }}>Jump to latest</Text>
+    </TouchableOpacity> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
     borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 200,
+    borderRadius: 10,
+    minHeight: 0,
     flex: 1,
   },
   content: {
