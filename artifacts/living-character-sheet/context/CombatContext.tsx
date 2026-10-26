@@ -468,8 +468,9 @@ function CombatInner({ children }: { children: ReactNode }) {
 
     const preferredNpc = partyTargets.find((target) => target.type === "npc");
     const preferredOtherMember = partyTargets.find((target) => target.type === "member" && target.id !== memberId);
-    const fallback = preferredNpc ?? preferredOtherMember ?? partyTargets[0];
-    setSelectedTargetIds(new Set([fallback.id]));
+    const fallback = preferredNpc ?? preferredOtherMember;
+    // Never auto-target the acting character. Self-only abilities choose self explicitly.
+    if (fallback) setSelectedTargetIds(new Set([fallback.id]));
   }, [memberId, partyTargets, selectedTargetIds]);
 
   const toggleCombat = useCallback(() => {

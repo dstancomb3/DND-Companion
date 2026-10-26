@@ -561,6 +561,13 @@ export default function AdventureSessionPlaceholderScreen() {
   const activeOneOffBattleId = !isCampaignScaffold && memberId
     ? combatState?.participantBattleById?.[memberId] ?? null
     : null;
+  const currentOneOffTurnId = activeOneOffBattleId
+    ? combatState?.currentTurnIdByBattle?.[activeOneOffBattleId] ?? null
+    : null;
+  const canUseOneOffCombatActions = !activeOneOffBattleId || (
+    Boolean(memberId) && currentOneOffTurnId === memberId
+  );
+
 
   const goToCombatControls = () => {
     setCombatPanelOpen(true);
@@ -2342,7 +2349,12 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? <AiDmCombatTargetPicker /> : null}
+        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
+          <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
+            style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
+            <AiDmCombatTargetPicker />
+          </View>
+        ) : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
           <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -2372,6 +2384,13 @@ export default function AdventureSessionPlaceholderScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            {!canUseOneOffCombatActions ? (
+              <Text accessibilityRole="text" style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+                {currentOneOffTurnId ? "Another combatant is taking their turn. Your actions are available when your turn begins." : "Waiting for the current turn to be established."}
+              </Text>
+            ) : null}
+            <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
+              style={{ opacity: canUseOneOffCombatActions ? 1 : 0.4 }}>
             {activeCombatCategory === "attack" && availableAttackGroups.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>ATTACKS</Text>
@@ -2506,6 +2525,7 @@ export default function AdventureSessionPlaceholderScreen() {
                 })}
               </>
             ) : null}
+            </View>
           </View>
         ) : null}
 

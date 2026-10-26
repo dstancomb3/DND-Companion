@@ -1,13 +1,18 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useCombat } from "@/context/CombatContext";
+import { useParty } from "@/context/PartyContext";
 import { useColors } from "@/hooks/useColors";
 
 /** Uses the same selectedTargetIds consumed by AttackCard and ActionCard. */
 export function AiDmCombatTargetPicker() {
   const combat = useCombat();
   const c = useColors();
-  if (!combat.active || combat.partyTargets.length === 0) return null;
+  const { memberId } = useParty();
+  // The default attack picker is for other combatants, not the actor.
+  // Self-only abilities should resolve their own target without this list.
+  const eligibleTargets = combat.partyTargets.filter((target) => target.id !== memberId);
+  if (!combat.active || eligibleTargets.length === 0) return null;
 
   return (
     <View style={[styles.container, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -22,7 +27,7 @@ export function AiDmCombatTargetPicker() {
         Selected targets are used by the attack and action cards below.
       </Text>
       <View style={styles.targets}>
-        {combat.partyTargets.map((target) => {
+        {eligibleTargets.map((target) => {
           const selected = combat.selectedTargetIds.has(target.id);
           return (
             <TouchableOpacity key={target.id} accessibilityRole="checkbox"
