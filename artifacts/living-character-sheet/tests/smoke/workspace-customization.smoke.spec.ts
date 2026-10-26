@@ -31,6 +31,32 @@ test("[smoke:adventure] customize, save, focus and restore personal workspace", 
   await expect(page.getByRole("button", { name: "Expand Inventory", exact: true })).toBeVisible();
   await expect(page.getByText("Loading Companion", { exact: true })).toBeHidden();
   await expect.poll(async () => (await box("party")).x).toBe(right);
+  // Saved replacement and resizing must preserve the live action composer.
+  await click("Expand Inventory");
+  await click("Customize layout");
+  await click("Replace with Character Summary");
+  await expect(page.getByTestId("workspace-inventory")).toContainText("Character Summary");
+  const beforeResize = await box("narrative");
+  const leftDivider = page.getByLabel("Resize left column", { exact: true });
+  await expect(leftDivider).toBeVisible();
+  await leftDivider.focus();
+  await leftDivider.evaluate((element: HTMLElement) => {
+    // React Native Web exposes accessibility actions through its native bridge;
+    // pointer dragging is the cross-platform acceptance path.
+    element.dispatchEvent(new Event("focus"));
+  });
+  const rect = await leftDivider.boundingBox();
+  expect(rect).not.toBeNull();
+  await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + 60);
+  await page.mouse.down(); await page.mouse.move(rect!.x + rect!.width / 2 + 45, rect!.y + 60, { steps: 8 }); await page.mouse.up();
+  await expect.poll(async () => (await box("narrative")).width).toBeLessThan(beforeResize.width);
+  await click("Cancel layout changes");
+  await expect.poll(async () => (await box("narrative")).width).toBe(beforeResize.width);
+  await click("Customize layout"); await click("Replace with Character Summary");
+  await click("Save layout");
+  await page.reload();
+  await expect(page.getByTestId("workspace-inventory")).toContainText("Character Summary");
+  await expect(input).toBeVisible();
   await input.fill("Keep this draft on mobile");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(input).toHaveValue("Keep this draft on mobile"); await input.scrollIntoViewIfNeeded(); await expect(input).toBeVisible();
