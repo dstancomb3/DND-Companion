@@ -1,0 +1,37 @@
+import { expect, test } from "@playwright/test";
+
+test("[smoke:adventure] customize, save, focus and restore personal workspace", async ({ page }) => {
+  test.slow();
+  await page.addInitScript(() => localStorage.setItem("@lcs_app_settings", JSON.stringify({ showDevLandingDemoContent: true })));
+  await page.route("**/api/**", route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Presentation fixture" }) }));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/landing", { timeout: 90_000 });
+  await page.getByText("Try demo character (Lyra Shadowstep)").click();
+  await expect(page).toHaveURL(/\/(tabs)?\/?$/);
+  await page.goto("/adventure/session/customization-smoke?title=Workspace%20fixture", { timeout: 90_000 });
+  const click = (name: string) => page.getByRole("button", { name, exact: true }).click();
+  const box = async (id: string) => { const value = await page.getByTestId(`workspace-${id}`).boundingBox(); expect(value).not.toBeNull(); return value!; };
+  await expect(page.getByRole("button", { name: "Customize layout", exact: true })).toBeEnabled();
+  const left = (await box("party")).x, right = (await box("events")).x, normalWidth = (await box("narrative")).width;
+  const input = page.getByPlaceholder("Tell the DM what you do next");
+  await input.fill("I examine the door");
+  const swapParty = async () => { await click("Customize layout"); await click("Swap Party"); await click("Swap Party with Event log"); };
+  await swapParty();
+  await expect.poll(async () => (await box("party")).x).toBe(right);
+  await click("Cancel layout changes");
+  await expect.poll(async () => (await box("party")).x).toBe(left);
+  await swapParty(); await click("Save layout"); await click("Collapse Inventory");
+  await click("Simplify View");
+  await expect.poll(async () => (await box("narrative")).width).toBeGreaterThan(normalWidth);
+  await expect(input).toBeVisible();
+  await click("Exit Simplify View"); await click("Tactical");
+  await expect.poll(async () => (await box("actions")).height - (await box("narrative")).height).toBeGreaterThan(0);
+  await click("My layout"); await expect(input).toHaveValue("I examine the door");
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Expand Inventory", exact: true })).toBeVisible();
+  await expect(page.getByText("Loading Companion", { exact: true })).toBeHidden();
+  await expect.poll(async () => (await box("party")).x).toBe(right);
+  await input.fill("Keep this draft on mobile");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(input).toHaveValue("Keep this draft on mobile"); await input.scrollIntoViewIfNeeded(); await expect(input).toBeVisible();
+});

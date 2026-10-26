@@ -1514,3 +1514,14 @@ per-target fields already returned by the existing API, with additive receipt
 fields on local CombatActionResult. No SQL, credential, wire request or dependency
 migration. Adventure feed stores command-ID-deduplicated confirmed action entries
 in its existing session archive. No autonomous-NPC or broad runtime cutover.
+
+### 2026-10-26 Workspace W5 local view preferences
+
+New additive AsyncStorage namespace adventure-workspace.v1:<character scope>;
+version 1 stores six known widget-to-slot assignments, collapse state, preset,
+custom-layout backup and Simplify preference. Invalid/obsolete payloads recover
+to Balanced; no previous gameplay storage is migrated. Preferences contain no
+canonical HP, items, narrative, commands or authority. Read failures block writes
+until recovery; serialized writes preserve ordering and report failures. Rollback
+ignores these keys and restores fixed layout without modifying character/party
+state. Phone layout keeps story/actions first; desktop positions are preserved.
