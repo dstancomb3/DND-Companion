@@ -3,9 +3,9 @@ export type TargetRangeStatus = "normal" | "long_disadvantage" | "out_of_range" 
 export function assessTargetRange(range: string | null | undefined, distanceFeet: number | null): TargetRangeStatus {
   if (distanceFeet === null || !Number.isFinite(distanceFeet) || distanceFeet < 0 || !range) return "unknown";
   const r = range.trim().toLowerCase();
-  const melee = /^(?:melee|reach)(?:\\s*\\(?\\s*(\\d+)\\s*(?:ft|feet)\\s*\\)?)?$/.exec(r);
+  const melee = /^(?:melee|reach)(?:\s*\(?\s*(\d+)\s*(?:ft|feet)\s*\)?)?$/.exec(r);
   if (melee) return distanceFeet <= Number(melee[1] ?? 5) ? "normal" : "out_of_range";
-  const ranged = /^(\\d+)\\s*(?:\\/\\s*(\\d+))?\\s*(?:ft\\.?|feet)?$/.exec(r);
+  const ranged = /^(\d+)\s*(?:\/\s*(\d+))?\s*(?:ft\.?|feet)?$/.exec(r);
   if (!ranged) return "unknown";
   const normal = Number(ranged[1]), maximum = Number(ranged[2] ?? ranged[1]);
   if (normal <= 0 || maximum < normal || !Number.isFinite(maximum)) return "unknown";
