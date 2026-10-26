@@ -1174,8 +1174,6 @@ W2 customization backlog, O02 partial and REC-01 retain their previous status.
 
 ## Combat UI W4: enemy status, End Turn and confirmed attack story (2026-10-26)
 
-[PR #82](https://github.com/dstancomb3/DND-Companion/pull/82).
-
 User live-test follow-up to PR #81: attacks submitted, but the Adventure encounter
 panel showed only enemy names; the workspace had no End Turn, and the story feed
 never received attacks. Card feedback remained a preview even after the existing

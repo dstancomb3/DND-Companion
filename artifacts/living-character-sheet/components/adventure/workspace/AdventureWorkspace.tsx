@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 export type WorkspacePanelId = "narrative" | "actions" | "encounter" | "party" | "inventory" | "events";
-export interface WorkspacePanel { title: string; content: ReactNode }
+export interface WorkspacePanel { title: string; content: ReactNode; footer?: ReactNode }
 export type WorkspacePanels = Record<WorkspacePanelId, WorkspacePanel>;
 export interface AdventureWorkspaceHandle { focusActions: (y?: number) => void }
 
@@ -58,6 +58,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
                 {panels[id].content}
               </ScrollView>
             )}
+            {panels[id].footer ? <View style={{ padding: 10, borderTopWidth: 1, borderTopColor: c.border }}>{panels[id].footer}</View> : null}
           </View>
         ))}
       </ScrollView>
