@@ -4,9 +4,11 @@ import { useCombat } from "@/context/CombatContext";
 import { useParty } from "@/context/PartyContext";
 import { useColors } from "@/hooks/useColors";
 import { buildCombatProximityRows } from "@/utils/combat/combatProximity";
+import { assessTargetRange, rangeStatusLabel } from "@/utils/combat/targetRangeAssessment";
 
 /** Uses the same selectedTargetIds consumed by AttackCard and ActionCard. */
-export function AiDmCombatTargetPicker() {
+export function AiDmCombatTargetPicker({ attackRanges = [] }: { attackRanges?: Array<{ id: string; name: string; range?: string }> }) {
+  const [referenceAttackId, setReferenceAttackId] = React.useState<string | null>(null);
   const combat = useCombat();
   const c = useColors();
   const { memberId, combatState } = useParty();
@@ -15,6 +17,7 @@ export function AiDmCombatTargetPicker() {
   const battleId = memberId ? combatState?.participantBattleById?.[memberId] ?? null : null;
   // No server-supported position snapshot exists yet. Unknown is not zero feet.
   const eligibleTargets = buildCombatProximityRows({ viewerId: memberId, battleId, targets: combat.partyTargets, observations: combatState?.encounterDistances });
+  const referenceAttack = attackRanges.find(attack => attack.id === referenceAttackId) ?? null;
   if (!combat.active || eligibleTargets.length === 0) return null;
 
   return (
@@ -29,6 +32,21 @@ export function AiDmCombatTargetPicker() {
       <Text style={{ color: c.mutedForeground, fontSize: 12 }}>
         Known distances appear closest first. Unknown positions require DM confirmation.
       </Text>
+      {attackRanges.length > 0 ? (
+        <View style={{ gap: 6 }}>
+          <Text style={{ color: c.mutedForeground, fontSize: 12 }}>Check range for a weapon (informational only)</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {attackRanges.map(attack => (
+              <TouchableOpacity key={attack.id} accessibilityRole="button"
+                accessibilityState={{ selected: referenceAttack?.id === attack.id }}
+                onPress={() => setReferenceAttackId(current => current === attack.id ? null : attack.id)}
+                style={{ borderWidth: 1, borderRadius: 8, padding: 7, borderColor: referenceAttack?.id === attack.id ? c.primary : c.border }}>
+                <Text style={{ color: referenceAttack?.id === attack.id ? c.primary : c.foreground, fontSize: 12 }}>{attack.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
       <View style={styles.targets}>
         {eligibleTargets.map((target) => {
           const selected = combat.selectedTargetIds.has(target.id);
@@ -42,6 +60,7 @@ export function AiDmCombatTargetPicker() {
                 {selected ? "✓ " : ""}{target.name}
               </Text>
               <Text style={{ color: c.mutedForeground, fontSize: 11 }}>{target.type === "npc" ? "Creature" : "Party"} · {target.distanceLabel}</Text>
+              {referenceAttack ? <Text style={{ color: c.mutedForeground, fontSize: 11 }}>{rangeStatusLabel[assessTargetRange(referenceAttack.range, target.distanceFeet)]}</Text> : null}
             </TouchableOpacity>
           );
         })}
