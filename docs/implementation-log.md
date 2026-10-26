@@ -1171,3 +1171,45 @@ Scope: bounded gameplay input/UI repair, not another engine or server authority
 migration. No SQL, API, credentials, dependency or layout-preference change.
 Rollback restores the broken missing-input interaction. Remote combat limitations,
 W2 customization backlog, O02 partial and REC-01 retain their previous status.
+
+## Combat UI W4: enemy status, End Turn and confirmed attack story (2026-10-26)
+
+[PR #82](https://github.com/dstancomb3/DND-Companion/pull/82).
+
+User live-test follow-up to PR #81: attacks submitted, but the Adventure encounter
+panel showed only enemy names; the workspace had no End Turn, and the story feed
+never received attacks. Card feedback remained a preview even after the existing
+party API acknowledged application. Client-only vertical slice, no server rules
+or authorization migration.
+
+Encounter rows now show canonical shared NPC HP/max HP, AC and conditions, with
+unknown values explicitly identified. No invented stats. The action panel keeps
+End Turn visible in a footer outside its scrolling controls and remaining action/bonus counts, through the existing CombatContext
+and member-authorized turn endpoint. The shared endTurn method now acknowledges
+success/failure asynchronously, prevents overlapping submissions, checks the
+acting member's turn, and only performs local turn/concentration cleanup after
+server acknowledgement and refresh. Failures no longer disappear silently.
+
+The member adapter now preserves the existing server per-target application
+receipt. CombatContext carries it in results without relabeling local previews
+as authoritative mechanics. Card feedback uses the receipt and distinguishes
+replays, skipped targets and uncertain refresh. AttackCard's optional onResolved
+callback adds a deterministic attack sentence to the existing Adventure feed only
+for fresh acknowledged applied/no-op targets; no-op text identifies no recorded
+effect. Command-ID feed entries deduplicate saved narration. Rejected, uncertain,
+replayed, invalid or unknown-target outcomes do not fabricate story results.
+This is basic confirmed action narration, not AI embellishment or invented
+hit/damage/kill narration. NPC autonomous turns remain unfinished.
+
+Validation: workspace typecheck; 174 combat/remote-apply/idempotency tests passed
+under Node 20.20.2, including five new continuation/receipt/turn-control regressions
+added to the standard combat baseline. Full Expo/Chromium one-off route fixture
+verified canonical enemy HP/AC, attack submission and refreshed HP, the confirmed
+story line, and one member-scoped End Turn advancing the visible actor to the NPC.
+Its HTTP responses are test fixtures, not live multiplayer or autonomous NPC
+acceptance. Existing real PostgreSQL CI remains required and is linked in the PR.
+
+No SQL, dependency, capability, API route or wire request changes. The client reads
+additional fields the existing API already returns. Reverting loses these UI and
+receipt improvements without deleting party/session data. W2 personalization,
+full combat/AI convergence, O02 partial and REC-01 retain previous status.

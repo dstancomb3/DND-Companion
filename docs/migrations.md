@@ -1504,3 +1504,13 @@ resolver submission. Existing rolls are preserved across deliberate retries.
 Manual input remains available; command authority and combat mechanics are
 unchanged. Feedback is rendered inline instead of relying on platform alerts.
 Rollback restores the previous missing-damage-row failure.
+
+### 2026-10-26 Combat UI W4 receipt and turn contract
+
+Client endTurn now returns Promise<boolean>; existing HUD callbacks remain valid,
+and Adventure awaits it for pending/error handling. Party turn cleanup follows
+server acknowledgement and refresh. The remote-apply adapter retains optional
+per-target fields already returned by the existing API, with additive receipt
+fields on local CombatActionResult. No SQL, credential, wire request or dependency
+migration. Adventure feed stores command-ID-deduplicated confirmed action entries
+in its existing session archive. No autonomous-NPC or broad runtime cutover.

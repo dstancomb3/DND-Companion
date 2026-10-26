@@ -117,7 +117,7 @@ export interface CombatContextType {
   spendMovement: (feet: number) => void;
   refundMovement: (feet: number) => void;
   resolveCombatAction: (command: CombatActionCommand) => Promise<CombatActionResult>;
-  endTurn: () => void;
+  endTurn: () => Promise<boolean>;
 }
 
 const CombatContext = createContext<CombatContextType>({
@@ -180,7 +180,7 @@ const CombatContext = createContext<CombatContextType>({
     },
     debug: { pathway: "local" },
   }),
-  endTurn: () => {},
+  endTurn: async () => false,
 });
 
 // Keyword patterns that grant an extra full Action
@@ -827,7 +827,7 @@ function CombatInner({ children }: { children: ReactNode }) {
       character.currentHp
     );
 
-    const result = resolveCombatActionCommand(commandWithActorMetadata, {
+    let result = resolveCombatActionCommand(commandWithActorMetadata, {
       active: effectiveActive,
       isPartyAuthoritative,
       actorMemberId: memberId ?? null,
@@ -882,13 +882,15 @@ function CombatInner({ children }: { children: ReactNode }) {
 
       if (remotePreviewResults.length > 0) {
         try {
-          await applyRemoteCombatOutcomes(partyCode, {
+          const receipt = await applyRemoteCombatOutcomes(partyCode, {
             commandId: commandWithActorMetadata.commandId,
             sourceMemberId: memberId,
             targetResults: remotePreviewResults,
           });
+          result = { ...result, remoteApplication: receipt };
           setRemoteApplyFailureMessage(null);
-          await refreshCombatState(partyCode);
+          const refreshed = await refreshCombatState(partyCode);
+          if (!refreshed || refreshed.code !== partyCode) throw new Error("Encounter refresh was not confirmed");
         } catch (error) {
           setRemoteApplyFailureMessage("Remote outcomes did not sync. Verify party HP/conditions with the DM before retrying this action.");
           setActionFeedback({
@@ -903,6 +905,9 @@ function CombatInner({ children }: { children: ReactNode }) {
           }
           return {
             ...result,
+            remoteApplicationError: result.remoteApplication
+              ? "The server acknowledged this action, but refreshing the encounter failed. Refresh before taking another action."
+              : "The party server did not confirm this outcome. Refresh the encounter before retrying.",
             debug: {
               pathway: result.debug?.pathway ?? (isPartyAuthoritative ? "party" : "local"),
               notes: [...(result.debug?.notes ?? []), "remote_outcome_apply_failed"],
@@ -1055,36 +1060,33 @@ function CombatInner({ children }: { children: ReactNode }) {
     useAction,
     useBonusAction,
   ]);
-  // New: turn order and current turn logic (stub, to be implemented as needed)
-  // Example: setTurnOrder([/* member ids in initiative order */]); setCurrentTurnId(turnOrder[0]);
-  const endTurn = useCallback(() => {
-    decrementConcentrationRounds();
-
-    if (isInParty && partyCode) {
-      void (async () => {
-        try {
-          await sendPartyEndTurn(partyCode, {
-            ...(memberId ? { memberId } : {}),
-            ...(activeBattleId ? { battleId: activeBattleId } : {}),
-          });
-          await refreshCombatState(partyCode);
-          resetTurn();
-        } catch {
-          // Ignore transient network/server errors and keep current local state.
-        }
-      })();
-      return;
-    }
-
-    // Local fallback when not in a synced party.
-    setTurnOrder((order) => {
-      if (!order || order.length === 0) return order;
-      const next = order.slice(1).concat(order[0]);
-      setCurrentTurnId(next[0]);
-      return next;
-    });
-    resetTurn();
-  }, [activeBattleId, decrementConcentrationRounds, isInParty, memberId, partyCode, refreshCombatState]);
+  const endingTurnRef = useRef(false);
+  const endTurn = useCallback(async (): Promise<boolean> => {
+    if (endingTurnRef.current) return false;
+    endingTurnRef.current = true;
+    try {
+      if (isInParty && partyCode) {
+        if (!memberId || !activeBattleId || canonicalCurrentTurnId !== memberId) return false;
+        await sendPartyEndTurn(partyCode, { memberId, battleId: activeBattleId });
+        const refreshed = await refreshCombatState(partyCode);
+        if (!refreshed || refreshed.code !== partyCode) throw new Error("Turn refresh was not confirmed");
+      } else {
+        setTurnOrder(order => {
+          if (!order?.length) return order;
+          const next = order.slice(1).concat(order[0]);
+          setCurrentTurnId(next[0]);
+          return next;
+        });
+      }
+      decrementConcentrationRounds();
+      resetTurn();
+      return true;
+    } catch {
+      setActionFeedback({ level: "error", title: "Turn update not confirmed",
+        message: "Refresh the encounter to check the current turn before retrying.", at: Date.now() });
+      return false;
+    } finally { endingTurnRef.current = false; }
+  }, [activeBattleId, canonicalCurrentTurnId, decrementConcentrationRounds, isInParty, memberId, partyCode, refreshCombatState]);
 
   return (
     <CombatContext.Provider

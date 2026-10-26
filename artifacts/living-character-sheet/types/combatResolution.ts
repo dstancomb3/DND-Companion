@@ -113,7 +113,22 @@ export type CombatActionResultReasonCode =
   | "unsupported_mode"
   | "unknown";
 
+export interface RemoteCombatApplyReceipt {
+  ok: true;
+  appliedCount: number;
+  replayed: boolean;
+  targetResults?: Array<{
+    requestIndex: number;
+    targetType?: string;
+    targetId?: string;
+    status: "applied" | "skipped_invalid" | "skipped_missing_target" | "skipped_noop";
+    reason?: string;
+  }>;
+}
+
 export interface CombatActionResult {
+  remoteApplication?: RemoteCombatApplyReceipt;
+  remoteApplicationError?: string;
   commandId: string;
   resolvedAt: number;
   status: CombatActionResultStatus;

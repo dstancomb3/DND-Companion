@@ -105,3 +105,16 @@ test("required-action navigation scrolls to its actual action-panel offset", () 
     assert.deepEqual(scrolls, [{ y: 200, animated: true }]);
   } finally { act(() => tree.unmount()); }
 });
+
+test("turn footer stays outside the action scroll so End Turn remains visible", () => {
+  let tree: any;
+  const ids = ["narrative", "actions", "party", "inventory", "encounter", "events"];
+  const panels: any = Object.fromEntries(ids.map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
+  panels.actions.footer = React.createElement("Text", { testID: "turn-footer" }, "End Turn");
+  act(() => { tree = Renderer.create(React.createElement(Shell, { panels })); });
+  try {
+    const actionPanel = tree.root.findByProps({ testID: "workspace-actions" });
+    assert.equal(actionPanel.findAllByProps({ testID: "turn-footer" }).length, 1);
+    assert.equal(actionPanel.findByType("Scroll").findAllByProps({ testID: "turn-footer" }).length, 0);
+  } finally { act(() => tree.unmount()); }
+});

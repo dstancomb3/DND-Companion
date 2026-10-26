@@ -76,6 +76,13 @@ export function getCombatRejectMessage(reasonCode?: string | null): string {
  * Returns null if no meaningful summary is available.
  */
 export function formatOutcomeSummary(result: CombatActionResult): string | null {
+  if (result.remoteApplicationError) return result.remoteApplicationError;
+  if (result.remoteApplication?.ok) {
+    const receipt = result.remoteApplication;
+    if (receipt.replayed) return "This action was already processed.";
+    const skipped = receipt.targetResults?.filter(target => target.status !== "applied").length ?? 0;
+    return `Action confirmed for ${receipt.appliedCount} target(s).${skipped ? ` ${skipped} outcome(s) were not applied.` : ""}`;
+  }
   const targetResults = result.targetResults ?? [];
   const summary = result.resolutionSummary;
 

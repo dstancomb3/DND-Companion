@@ -1,3 +1,4 @@
+import type { RemoteCombatApplyReceipt } from "@/types/combatResolution";
 import type { NotesAssignment, LootAssignment, PartyRollRequest, PartyRestRequest, PartyRestType, EndPartyTurnPayload, PlayerTurnEconomy, ApplyRemoteCombatOutcomesPayload, LootAssignmentItem, CreateCombatNpcPayload, CompanionProjectionResult } from "./partyApi";
 
 interface MemberStorage {
@@ -80,7 +81,7 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
       const result = await authorizedRequest<{ ok: true; economy: PlayerTurnEconomy }>(code, memberId, `/party/${code}/economy/reset`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memberId }) });
       return result.economy;
     },
-    async applyRemoteCombatOutcomes(code: string, payload: ApplyRemoteCombatOutcomesPayload): Promise<{ ok: true; appliedCount: number; replayed: boolean }> {
+    async applyRemoteCombatOutcomes(code: string, payload: ApplyRemoteCombatOutcomesPayload): Promise<RemoteCombatApplyReceipt> {
       return authorizedRequest(code, payload.sourceMemberId, `/party/${code}/combat/apply-outcomes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
     async appendPartyEvent(code: string, payload: { type: string; message: string; memberId: string; metadata?: Record<string, unknown> }): Promise<void> {
