@@ -23,6 +23,7 @@ import { PartyMiniList } from "@/components/attacks/PartyMiniList";
 import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmCombatTargetPicker";
 import { AttackCard } from "@/components/attacks/AttackCard";
 import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
+import { getNpcTurnWaitingStatus } from "@/utils/combat/npcTurnWaitingStatus";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
@@ -564,6 +565,10 @@ export default function AdventureSessionPlaceholderScreen() {
   const currentOneOffTurnId = activeOneOffBattleId
     ? combatState?.currentTurnIdByBattle?.[activeOneOffBattleId] ?? null
     : null;
+  const npcTurnStatus = useMemo(
+    () => getNpcTurnWaitingStatus(combatState, activeOneOffBattleId, members.map(m => m.id)),
+    [combatState, activeOneOffBattleId, members],
+  );
   const canUseOneOffCombatActions = !activeOneOffBattleId || (
     Boolean(memberId) && currentOneOffTurnId === memberId
   );
@@ -2326,6 +2331,22 @@ export default function AdventureSessionPlaceholderScreen() {
                 </View>
               );
             })}
+          </View>
+        ) : null}
+
+        {!isCampaignScaffold && npcTurnStatus.kind === "npc_turn" ? (
+          <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>
+              {npcTurnStatus.npcName}'s turn
+            </Text>
+            <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+              {npcTurnStatus.detail} The DM must resolve this turn before initiative can continue.
+            </Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh NPC turn status"
+              onPress={() => { if (partyCode) void refreshCombatState(partyCode); }}
+              style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.background }]}>
+              <Text style={[styles.encounterGateActionBtnText, { color: c.foreground }]}>Refresh turn status</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
