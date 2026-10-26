@@ -87,6 +87,7 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
     async executeNpcWeaponTurn(code: string, payload: {
       commandId: string; battleId: string; npcId: string; weaponId: string;
       targetMemberId: string; expectedRevision: number;
+      spatialAdjudication: { source: "host_dm"; distanceFeet: number; clearLineOfSight: true };
     }): Promise<{ ok: true; replayed: boolean; receipt: import("./combat/npcCommittedNarration").HostNpcWeaponTurnReceipt }> {
       return request(`/party/${code}/npc-weapon-turn`, {
         method: "POST", headers: await encounterHeaders(code, "execute NPC turns"),
