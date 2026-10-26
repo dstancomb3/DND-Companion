@@ -3,8 +3,8 @@
  * This module describes profile policy; it does NOT spend economy or equip gear.
  * Session authority must validate the effective profile before mutations.
  */
-export type GameplayRulesProfileId = "dnd5e_2014" | "tactical_bg3_inspired" | "custom";
-export type EquipCostKind = "object_interaction" | "action";
+export type GameplayRulesProfileId = "dnd5e_2014" | "dnd5e_2024" | "tactical_bg3_inspired" | "custom";
+export type EquipCostKind = "object_interaction" | "action" | "attack_action_weapon_interaction";
 export type GameplayPresentationMode = "standard" | "cinematic";
 
 export interface GameplayRulesProfile {
@@ -27,6 +27,11 @@ export const DEFAULT_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Ob
   schemaVersion: 1,
   id: "dnd5e_2014",
   equipment: { switchWeaponCost: "object_interaction" },
+});
+export const DND_2024_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Object.freeze<GameplayRulesProfile>({
+  schemaVersion: 1,
+  id: "dnd5e_2024",
+  equipment: { switchWeaponCost: "attack_action_weapon_interaction" },
 });
 export const TACTICAL_GAMEPLAY_RULES_PROFILE: Readonly<GameplayRulesProfile> = Object.freeze<GameplayRulesProfile>({
   schemaVersion: 1,
@@ -58,6 +63,9 @@ export function parseGameplayRulesProfile(value: unknown): GameplayRulesProfile 
   if (p.id === "dnd5e_2014" && equipment.switchWeaponCost === "object_interaction") {
     return { schemaVersion: 1, id: "dnd5e_2014", equipment: { switchWeaponCost: "object_interaction" } };
   }
+  if (p.id === "dnd5e_2024" && equipment.switchWeaponCost === "attack_action_weapon_interaction") {
+    return { schemaVersion: 1, id: "dnd5e_2024", equipment: { switchWeaponCost: "attack_action_weapon_interaction" } };
+  }
   if (p.id === "tactical_bg3_inspired" && equipment.switchWeaponCost === "action") {
     return { schemaVersion: 1, id: "tactical_bg3_inspired", equipment: { switchWeaponCost: "action" } };
   }
@@ -69,15 +77,16 @@ export function parseGameplayRulesProfile(value: unknown): GameplayRulesProfile 
 
 export type EquipmentSwitchAvailability =
   | { available: true; cost: EquipCostKind }
-  | { available: false; cost: EquipCostKind; reason: "not_your_turn" | "no_action_available" | "object_interaction_used" | "incapacitated" };
+  | { available: false; cost: EquipCostKind; reason: "not_your_turn" | "no_action_available" | "object_interaction_used" | "incapacitated" | "attack_action_required" };
 
 export function previewEquipmentSwitch(
   profile: GameplayRulesProfile,
-  state: { isMyTurn: boolean; incapacitated: boolean; remainingActions: number; objectInteractionUsed: boolean },
+  state: { isMyTurn: boolean; incapacitated: boolean; remainingActions: number; objectInteractionUsed: boolean; hasAttackActionWeaponInteraction?: boolean },
 ): EquipmentSwitchAvailability {
   const cost = profile.equipment.switchWeaponCost;
   if (!state.isMyTurn) return { available: false, cost, reason: "not_your_turn" };
   if (state.incapacitated) return { available: false, cost, reason: "incapacitated" };
+  if (cost === "attack_action_weapon_interaction" && !state.hasAttackActionWeaponInteraction) return { available: false, cost, reason: "attack_action_required" };
   if (cost === "action" && state.remainingActions <= 0) return { available: false, cost, reason: "no_action_available" };
   if (cost === "object_interaction" && state.objectInteractionUsed) return { available: false, cost, reason: "object_interaction_used" };
   return { available: true, cost };
