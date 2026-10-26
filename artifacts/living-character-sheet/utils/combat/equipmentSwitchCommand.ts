@@ -30,7 +30,8 @@ export type EquipmentSwitchRejectedReason =
   | "not_your_turn"
   | "incapacitated"
   | "no_action_available"
-  | "object_interaction_used";
+  | "object_interaction_used"
+  | "attack_action_required";
 
 export type EquipmentSwitchPreflight =
   | { ok: true; cost: EquipCostKind; command: EquipmentSwitchCommand }
