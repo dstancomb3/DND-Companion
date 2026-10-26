@@ -39,12 +39,6 @@ test("[smoke:adventure] customize, save, focus and restore personal workspace", 
   const beforeResize = await box("narrative");
   const leftDivider = page.getByLabel("Resize left column", { exact: true });
   await expect(leftDivider).toBeVisible();
-  await leftDivider.focus();
-  await leftDivider.evaluate((element: HTMLElement) => {
-    // React Native Web exposes accessibility actions through its native bridge;
-    // pointer dragging is the cross-platform acceptance path.
-    element.dispatchEvent(new Event("focus"));
-  });
   const rect = await leftDivider.boundingBox();
   expect(rect).not.toBeNull();
   await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + 60);
