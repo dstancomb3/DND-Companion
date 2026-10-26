@@ -1216,6 +1216,8 @@ full combat/AI convergence, O02 partial and REC-01 retain previous status.
 
 ## Workspace W5: saved customization, collapse, presets and Simplify (2026-10-26)
 
+[PR #83](https://github.com/dstancomb3/DND-Companion/pull/83).
+
 Scope decision: resume the modular-workspace milestone interrupted by live combat
 repairs. Presentation preferences only; preserve W3/W4 attack, receipt, narration,
 member/host restrictions and End Turn. No gameplay engine, command, AI, API or
