@@ -62,8 +62,8 @@ test("[smoke:adventure] customize, save, focus and restore personal workspace", 
   await expect.poll(async () => (await box("narrative")).width).toBe(savedWidth);
   await expect(input).toBeVisible();
   await click("Customize layout");
-  await click("Swap Player actions");
-  await click("Swap Player actions with Party");
+  await click("Swap Your next action");
+  await click("Swap Your next action with Party");
   await expect(input).toBeAttached();
   await expect(input).toBeEnabled();
   await click("Cancel layout changes");
