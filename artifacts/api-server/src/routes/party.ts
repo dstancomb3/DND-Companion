@@ -1,3 +1,4 @@
+import { normalizeEncounterDistances } from "../lib/encounterDistances";
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
 import { randomUUID, randomInt } from "node:crypto";
 import { parseNpcWeaponDice } from "../lib/npcWeaponDice";
@@ -294,6 +295,7 @@ interface PartyCombatState {
   stateRevision: number;
   activeMemberIds: string[];
   participantBattleById: Record<string, string>;
+  encounterDistances: import("../lib/encounterDistances").EncounterDistance[];
   battleTurnOrderById: Record<string, string[]>;
   turnOrder: string[];
   currentTurnIdByBattle: Record<string, string | null>;
@@ -603,6 +605,7 @@ function buildDefaultCombatState(code: string): PartyCombatState {
     stateRevision: 0,
     activeMemberIds: [],
     participantBattleById: {},
+    encounterDistances: [],
     battleTurnOrderById: {},
     turnOrder: [],
     currentTurnIdByBattle: {},
@@ -1062,6 +1065,7 @@ function toRuntimeSnapshotPayload(state: PartyCombatState): RuntimeSnapshotPaylo
       partyCode: state.partyCode,
       activeMemberIds: state.activeMemberIds,
       participantBattleById: state.participantBattleById,
+      encounterDistances: state.encounterDistances,
       battleTurnOrderById: state.battleTurnOrderById,
       turnOrder: state.turnOrder,
       currentTurnIdByBattle: state.currentTurnIdByBattle,
@@ -1093,6 +1097,7 @@ function hydrateRuntimeSnapshotToCombatState(code: string, snapshot: RuntimeSnap
     stateRevision: 0,
     activeMemberIds: normalized.activeMemberIds,
     participantBattleById: normalized.participantBattleById,
+    encounterDistances: normalized.encounterDistances,
     battleTurnOrderById: normalized.battleTurnOrderById,
     turnOrder: normalized.turnOrder,
     currentTurnIdByBattle: normalized.currentTurnIdByBattle,
@@ -1933,6 +1938,7 @@ router.get("/party/:code/combat-state", async (req, res) => {
       initiative: Object.values(state.initiativeByMember),
       activeMemberIds: state.activeMemberIds,
       participantBattleById: state.participantBattleById,
+      encounterDistances: state.encounterDistances,
       combatNpcs: state.combatNpcs,
       rollRequests: state.rollRequests,
       lootAssignments: state.lootAssignments,
@@ -1945,6 +1951,55 @@ router.get("/party/:code/combat-state", async (req, res) => {
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     res.status(500).json({ error: "Failed to fetch combat state" });
+  }
+});
+
+router.put("/party/:code/encounter-distances", async (req, res) => {
+  const { code } = req.params;
+  const expectedRevision = req.body?.expectedRevision;
+  const distances = normalizeEncounterDistances(req.body?.distances);
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
+      !Array.isArray(req.body?.distances) || distances.length !== req.body.distances.length) {
+    res.status(400).json({ error: "Valid expected revision and distance observations required." }); return;
+  }
+  try {
+    const result = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash)) {
+        throw new CompanionLifecycleError(403, "party_host_required", "Only the original host may confirm distances.");
+      }
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) {
+        throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      }
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable || durable.stateRevision !== expectedRevision)
+        throw new RuntimeConflictError(expectedRevision, durable?.stateRevision ?? null);
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      state.stateRevision = durable.stateRevision;
+      for (const item of distances) {
+        if (state.participantBattleById[item.viewerId] !== item.battleId ||
+            state.participantBattleById[item.targetId] !== item.battleId)
+          throw new CompanionLifecycleError(409, "distance_participant_conflict", "Distance participants must share an active battle.");
+      }
+      const updatedKeys = new Set(distances.map(item => JSON.stringify([item.battleId, item.viewerId, item.targetId])));
+      state.encounterDistances = [
+        ...state.encounterDistances.filter(item => !updatedKeys.has(JSON.stringify([item.battleId, item.viewerId, item.targetId]))),
+        ...distances,
+      ];
+      const saved = await savePartyRuntimeSnapshot({
+        partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision,
+      }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(expectedRevision, saved.conflictRevision);
+      return { revision: saved.value.stateRevision };
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) {
+      res.status(error.status).json({ code: error.code, error: error.message }); return;
+    }
+    res.status(500).json({ error: "Could not commit encounter distances." });
   }
 });
 
