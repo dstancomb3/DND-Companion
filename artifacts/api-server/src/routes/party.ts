@@ -296,6 +296,7 @@ interface PartyCombatState {
   activeMemberIds: string[];
   participantBattleById: Record<string, string>;
   encounterDistances: import("../lib/encounterDistances").EncounterDistance[];
+  encounterPositions: import("../lib/encounterPositions").EncounterPosition[];
   battleTurnOrderById: Record<string, string[]>;
   turnOrder: string[];
   currentTurnIdByBattle: Record<string, string | null>;
@@ -606,6 +607,7 @@ function buildDefaultCombatState(code: string): PartyCombatState {
     activeMemberIds: [],
     participantBattleById: {},
     encounterDistances: [],
+    encounterPositions: [],
     battleTurnOrderById: {},
     turnOrder: [],
     currentTurnIdByBattle: {},
@@ -1066,6 +1068,7 @@ function toRuntimeSnapshotPayload(state: PartyCombatState): RuntimeSnapshotPaylo
       activeMemberIds: state.activeMemberIds,
       participantBattleById: state.participantBattleById,
       encounterDistances: state.encounterDistances,
+      encounterPositions: state.encounterPositions,
       battleTurnOrderById: state.battleTurnOrderById,
       turnOrder: state.turnOrder,
       currentTurnIdByBattle: state.currentTurnIdByBattle,
@@ -1098,6 +1101,7 @@ function hydrateRuntimeSnapshotToCombatState(code: string, snapshot: RuntimeSnap
     activeMemberIds: normalized.activeMemberIds,
     participantBattleById: normalized.participantBattleById,
     encounterDistances: normalized.encounterDistances,
+    encounterPositions: normalized.encounterPositions,
     battleTurnOrderById: normalized.battleTurnOrderById,
     turnOrder: normalized.turnOrder,
     currentTurnIdByBattle: normalized.currentTurnIdByBattle,
