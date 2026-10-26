@@ -7,6 +7,7 @@ export interface WorkspaceLayout {
   base: WorkspacePreset;
   positions: Record<WorkspacePanelId, WorkspaceSlotId>;
   collapsed: WorkspacePanelId[];
+  replacements?: Partial<Record<WorkspacePanelId, string>>;
 }
 export interface WorkspacePreferences {
   version: 1;
@@ -16,7 +17,7 @@ export interface WorkspacePreferences {
   simplify: boolean;
 }
 export function presetWorkspaceLayout(base: WorkspacePreset = "balanced"): WorkspaceLayout {
-  return { base, positions: { party: "top_left", inventory: "bottom_left", narrative: "top_middle", actions: "bottom_middle", encounter: "top_right", events: "bottom_right" }, collapsed: base === "immersive" ? ["party", "inventory", "encounter", "events"] : [] };
+  return { base, positions: { party: "top_left", inventory: "bottom_left", narrative: "top_middle", actions: "bottom_middle", encounter: "top_right", events: "bottom_right" }, collapsed: base === "immersive" ? ["party", "inventory", "encounter", "events"] : [], replacements: {} };
 }
 export function defaultWorkspacePreferences(): WorkspacePreferences {
   return { version: 1, selected: "balanced", layout: presetWorkspaceLayout(), custom: null, simplify: false };
@@ -29,8 +30,16 @@ function parseLayout(value: unknown): WorkspaceLayout | null {
   const p = v.positions as Record<string, unknown>;
   if (WORKSPACE_PANELS.some(id => !WORKSPACE_SLOTS.includes(p[id] as WorkspaceSlotId)) || new Set(WORKSPACE_PANELS.map(id => p[id])).size !== 6 ||
       v.collapsed.some(id => !WORKSPACE_PANELS.includes(id as WorkspacePanelId) || id === "actions")) return null;
+  const replacements: WorkspaceLayout["replacements"] = {};
+  if (v.replacements !== undefined) {
+    if (!v.replacements || typeof v.replacements !== "object" || Array.isArray(v.replacements)) return null;
+    for (const [id, choice] of Object.entries(v.replacements)) {
+      if (id !== "inventory" || choice !== "character-summary") return null;
+      replacements[id] = choice;
+    }
+  }
   // Reconstruct view preferences only. Never retain arbitrary gameplay/role fields.
-  return { base: v.base, positions: Object.fromEntries(WORKSPACE_PANELS.map(id => [id, p[id]])) as WorkspaceLayout["positions"], collapsed: [...new Set(v.collapsed)] as WorkspacePanelId[] };
+  return { base: v.base, positions: Object.fromEntries(WORKSPACE_PANELS.map(id => [id, p[id]])) as WorkspaceLayout["positions"], collapsed: [...new Set(v.collapsed)] as WorkspacePanelId[], replacements };
 }
 export function parseWorkspacePreferences(raw: string | null): WorkspacePreferences {
   try {
@@ -55,4 +64,12 @@ export function saveCustomWorkspace(current: WorkspacePreferences, layout: Works
 export function selectWorkspacePreset(current: WorkspacePreferences, preset: WorkspacePreset | "custom"): WorkspacePreferences {
   if (preset === "custom" && !current.custom) return current;
   return { ...current, selected: preset, layout: preset === "custom" ? current.custom! : presetWorkspaceLayout(preset) };
+}
+
+/** View replacement is a local preference, never an authorization or gameplay mutation. */
+export function replaceWorkspacePanel(layout: WorkspaceLayout, id: WorkspacePanelId, choice: string | null): WorkspaceLayout {
+  if (id !== "inventory" || (choice !== null && choice !== "character-summary")) return layout;
+  const replacements = { ...layout.replacements };
+  if (choice === null) delete replacements[id]; else replacements[id] = choice;
+  return { ...layout, replacements };
 }
