@@ -1,9 +1,9 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, PanResponder } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 import { useWorkspacePreferences } from "../../../hooks/useWorkspacePreferences";
-import { presetWorkspaceLayout, saveCustomWorkspace, selectWorkspacePreset, swapWorkspacePanels, toggleWorkspacePanel, replaceWorkspacePanel, type WorkspaceLayout, type WorkspacePanelId, type WorkspaceSlotId } from "../../../utils/adventure/workspaceLayoutPreferences";
+import { presetWorkspaceLayout, saveCustomWorkspace, selectWorkspacePreset, swapWorkspacePanels, toggleWorkspacePanel, replaceWorkspacePanel, resizeWorkspaceLayout, DEFAULT_WORKSPACE_SIZING, type WorkspaceSizing, type WorkspaceLayout, type WorkspacePanelId, type WorkspaceSlotId } from "../../../utils/adventure/workspaceLayoutPreferences";
 export type { WorkspacePanelId } from "../../../utils/adventure/workspaceLayoutPreferences";
 export interface WorkspacePanel { title: string; content: ReactNode; footer?: ReactNode }
 export type WorkspacePanels = Record<WorkspacePanelId, WorkspacePanel>;
@@ -12,20 +12,23 @@ export interface AdventureWorkspaceHandle { focusActions: (y?: number) => void }
 // Stable widget identities and ancestry across breakpoints preserve local drafts
 // and pending controls. Slot assignments hold view preferences, never game state.
 const panelOrder: WorkspacePanelId[] = ["narrative", "actions", "encounter", "party", "inventory", "events"];
-export function workspacePanelFrames(width: number, height: number, base = "balanced", focus: "none" | "immersive" | "simplify" = "none") {
+export function workspacePanelFrames(width: number, height: number, base = "balanced", focus: "none" | "immersive" | "simplify" = "none", sizing: WorkspaceSizing = DEFAULT_WORKSPACE_SIZING) {
   if (width < 1100 || height < 480) return null;
   const gap = 12;
-  const rail = Math.floor((width - gap * 2) * (focus === "simplify" ? 0.12 : focus === "immersive" ? 0.16 : 0.22));
-  const center = width - rail * 2 - gap * 2;
-  const half = (height - gap) / 2;
-  const story = Math.floor((height - gap) * (base === "tactical" ? 0.42 : base === "immersive" ? 0.7 : 0.58));
+  const usable = width - gap * 2;
+  const left = Math.floor(usable * (focus === "simplify" ? 0.12 : focus === "immersive" ? 0.16 : sizing.left));
+  const right = Math.floor(usable * (focus === "simplify" ? 0.12 : focus === "immersive" ? 0.16 : sizing.right));
+  const center = usable - left - right;
+  const leftTop = Math.floor((height - gap) * sizing.leftRow);
+  const rightTop = Math.floor((height - gap) * sizing.rightRow);
+  const story = Math.floor((height - gap) * (base === "tactical" && sizing.middleRow === DEFAULT_WORKSPACE_SIZING.middleRow ? 0.42 : base === "immersive" && sizing.middleRow === DEFAULT_WORKSPACE_SIZING.middleRow ? 0.7 : sizing.middleRow));
   return {
-    party: { left: 0, top: 0, width: rail, height: half },
-    inventory: { left: 0, top: half + gap, width: rail, height: half },
-    narrative: { left: rail + gap, top: 0, width: center, height: story },
+    party: { left: 0, top: 0, width: left, height: leftTop },
+    inventory: { left: 0, top: leftTop + gap, width: left, height: height - leftTop - gap },
+    narrative: { left: left + gap, top: 0, width: center, height: story },
     actions: { left: rail + gap, top: story + gap, width: center, height: height - story - gap },
-    encounter: { left: width - rail, top: 0, width: rail, height: half },
-    events: { left: width - rail, top: half + gap, width: rail, height: half },
+    encounter: { left: width - right, top: 0, width: right, height: rightTop },
+    events: { left: width - right, top: rightTop + gap, width: right, height: height - rightTop - gap },
   };
 }
 
@@ -42,7 +45,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   const focused = !draft && (preferences.simplify || layout.base === "immersive");
   const temporaryFocus = !draft && preferences.simplify;
   const positions = temporaryFocus ? presetWorkspaceLayout().positions : layout.positions;
-  const baseFrames = workspacePanelFrames(size.width, size.height, layout.base, focused ? preferences.simplify ? "simplify" : "immersive" : "none");
+  const baseFrames = workspacePanelFrames(size.width, size.height, layout.base, focused ? preferences.simplify ? "simplify" : "immersive" : "none", layout.sizing ?? DEFAULT_WORKSPACE_SIZING);
   const hidden = (id: WorkspacePanelId) => id !== "actions" && (temporaryFocus ? id !== "narrative" && !focusExpanded.includes(id) : layout.collapsed.includes(id));
   const slotSource: Record<WorkspaceSlotId, WorkspacePanelId> = { top_left: "party", bottom_left: "inventory", top_middle: "narrative", bottom_middle: "actions", top_right: "encounter", bottom_right: "events" };
   const frames = baseFrames ? Object.fromEntries(panelOrder.map(id => [id, { ...baseFrames[slotSource[positions[id]]] }])) as typeof baseFrames : null;
@@ -52,6 +55,22 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
       if (hidden(top)) { frames[top].height = 44; frames[bottom].top = 56; frames[bottom].height = hidden(bottom) ? 44 : size.height - 56; }
       else if (hidden(bottom)) { frames[top].height = size.height - 56; frames[bottom].top = size.height - 44; frames[bottom].height = 44; }
     }
+  }
+  function adjust(field: keyof WorkspaceSizing, delta: number) {
+    setDraft(current => current ? resizeWorkspaceLayout(current, field, delta) : current);
+  }
+  function separator(field: keyof WorkspaceSizing, title: string, horizontal: boolean, at: number) {
+    if (!draft || !baseFrames) return null;
+    const onDelta = (delta: number) => adjust(field, delta / (horizontal ? Math.max(size.width - 24, 1) : Math.max(size.height - 12, 1)));
+    const responder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true, onMoveShouldSetPanResponder: () => true,
+      onPanResponderRelease: (_, gesture) => onDelta(horizontal ? gesture.dx : gesture.dy),
+    });
+    return <View key={field} {...responder.panHandlers} accessible accessibilityRole="adjustable"
+      accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((draft.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
+      accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
+      onAccessibilityAction={event => adjust(field, event.nativeEvent.actionName === "increment" ? 0.025 : -0.025)}
+      style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35 }} />;
   }
   function toggle(id: WorkspacePanelId) {
     if (temporaryFocus) setFocusExpanded(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id]);
@@ -88,7 +107,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         </>}
       </View>
       {statusSummary ? <Text accessibilityLiveRegion="polite" style={{ color: c.foreground, fontSize: 12, marginBottom: 8 }}>{statusSummary}</Text> : null}
-      {draft ? <Text style={{ color: c.mutedForeground, fontSize: 12, marginBottom: 8 }}>Choose Swap on a panel, then choose its destination. Actions stay available. Phones keep story and actions first.</Text> : null}
+      {draft ? <Text style={{ color: c.mutedForeground, fontSize: 12, marginBottom: 8 }}>Swap or replace panels. Drag the highlighted dividers or use their accessibility increment/decrement actions to resize. Save or Cancel when finished.</Text> : null}
       {error ? <View><Text accessibilityRole="alert" style={{ color: c.destructive }}>{error}</Text>{button("Retry layout storage", retry)}</View> : null}
       <View testID="adventure-workspace" style={styles.root} onLayout={event => setSize(event.nativeEvent.layout)}>
       <ScrollView ref={outerRef} scrollEnabled={!frames} style={styles.root}
@@ -119,7 +138,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
               <ScrollView ref={id === "actions" ? actionRef : undefined}
                 nestedScrollEnabled style={frames ? styles.root : { maxHeight: id === "actions" ? 640 : 360 }}
                 contentContainerStyle={styles.body}>
-                {panels[id].content}
+                {visiblePanels[id].content}
               </ScrollView>
             )}
             {visiblePanels[id].footer ? <View style={{ padding: 10, borderTopWidth: 1, borderTopColor: c.border }}>{visiblePanels[id].footer}</View> : null}
@@ -127,6 +146,13 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
           </View>
         ))}
       </ScrollView>
+      {draft && baseFrames ? <>
+        {separator("left", "left column", true, baseFrames.narrative.left - 6)}
+        {separator("right", "right column", true, baseFrames.encounter.left - 6)}
+        {separator("leftRow", "left row", false, baseFrames.inventory.top - 6)}
+        {separator("middleRow", "middle row", false, baseFrames.actions.top - 6)}
+        {separator("rightRow", "right row", false, baseFrames.events.top - 6)}
+      </> : null}
       </View>
     </View>
   );
