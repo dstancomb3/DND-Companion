@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_GAMEPLAY_RULES_PROFILE,
   TACTICAL_GAMEPLAY_RULES_PROFILE,
+  DND_2024_GAMEPLAY_RULES_PROFILE,
   parseGameplayRulesProfile,
   previewEquipmentSwitch,
 } from "../../utils/combat/gameplayProfile.ts";
@@ -37,4 +38,15 @@ test("preview disallows out-of-turn and incapacitated changes in both profiles",
       isMyTurn: true, incapacitated: true, remainingActions: 1, objectInteractionUsed: false,
     }).available, false);
   }
+});
+
+test("2024 weapon interaction is allowed only in attack action context", () => {
+  assert.deepEqual(parseGameplayRulesProfile(DND_2024_GAMEPLAY_RULES_PROFILE), DND_2024_GAMEPLAY_RULES_PROFILE);
+  const state = { isMyTurn: true, incapacitated: false, remainingActions: 0, objectInteractionUsed: true };
+  assert.deepEqual(previewEquipmentSwitch(DND_2024_GAMEPLAY_RULES_PROFILE, state), {
+    available: false, cost: "attack_action_weapon_interaction", reason: "attack_action_required",
+  });
+  assert.deepEqual(previewEquipmentSwitch(DND_2024_GAMEPLAY_RULES_PROFILE, {
+    ...state, hasAttackActionWeaponInteraction: true,
+  }), { available: true, cost: "attack_action_weapon_interaction" });
 });
