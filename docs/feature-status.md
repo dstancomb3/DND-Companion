@@ -697,3 +697,13 @@ protection in the shared context. Existing remote-apply receipts now reach card
 feedback and a basic deterministic confirmed-attack story entry. No preview is
 silently promoted to confirmed damage, and no AI-generated hit/kill is invented.
 Automatic enemy turns and richer AI combat narration remain incomplete.
+
+### Workspace W5: personal layouts and focus modes (2026-10-26)
+
+Adventure now supports keyboard-accessible panel swapping with Save/Cancel,
+collapse/expand, local character-scoped preferences, Balanced/Immersive/Tactical
+presets and My layout restoration. Simplify temporarily widens story and collapses
+secondary views while preserving required actions, turn footer and live status.
+Widgets remain mounted across these view changes. Malformed preferences recover
+and storage failures have retry paths. Drag/drop, resizing gutters, panel
+replacement, cloud sync and full human/AI runtime convergence remain incomplete.

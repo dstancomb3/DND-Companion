@@ -349,6 +349,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const c = useColors();
   const {
     inventory,
+    conditions,
     attacks,
     classFeatures,
     resources,
@@ -2649,7 +2650,8 @@ export default function AdventureSessionPlaceholderScreen() {
         <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
 
       </View>
-      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} /></View>
+      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} preferenceKey={`character:${character.id}`}
+        statusSummary={`${character.currentHp}/${character.maxHp} HP${conditions.length ? ` · ${conditions.map(condition => condition.name).join(", ")}` : ""}${pendingRollRequests.length ? ` · ${pendingRollRequests.length} roll request(s)` : ""}${workspaceSession.encounter.status === "combat" ? workspaceSession.encounter.isPlayerTurn ? " · Your turn" : ` · ${workspaceSession.encounter.currentActorName ?? "Waiting for initiative"}` : ""}`} /></View>
     </SafeAreaView>
   );
 }

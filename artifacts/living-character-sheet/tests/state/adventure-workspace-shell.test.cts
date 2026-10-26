@@ -9,6 +9,7 @@ let Shell: any, frames: any, Feed: any, EventPanel: any;
 const originalLoad = Module._load;
 try {
   Module._load = function(name: string, ...args: unknown[]) {
+    if (name === "@react-native-async-storage/async-storage") return { getItem: async () => null, setItem: async () => {} };
     if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TextInput: "Input", ActivityIndicator: "Spinner", TouchableOpacity: "Button", StyleSheet: { create: (x: any) => x } };
     if (name === "@/hooks/useColors") return { useColors: () => ({}) };
     return originalLoad.call(this, name, ...args);

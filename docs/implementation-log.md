@@ -1213,3 +1213,54 @@ No SQL, dependency, capability, API route or wire request changes. The client re
 additional fields the existing API already returns. Reverting loses these UI and
 receipt improvements without deleting party/session data. W2 personalization,
 full combat/AI convergence, O02 partial and REC-01 retain previous status.
+
+## Workspace W5: saved customization, collapse, presets and Simplify (2026-10-26)
+
+Scope decision: resume the modular-workspace milestone interrupted by live combat
+repairs. Presentation preferences only; preserve W3/W4 attack, receipt, narration,
+member/host restrictions and End Turn. No gameplay engine, command, AI, API or
+party-authority changes. O02 partial / REC-01 unchanged.
+
+The existing six widgets now have stable slot assignments and a deliberate
+Customize layout mode. Choose Swap on one panel and then its destination; Save
+commits the draft, Cancel restores the prior view, and Reset draft to Balanced is
+available before saving. Widgets stay mounted through swaps, collapse and preset
+changes, preserving drafts and pending controls. Actions cannot be collapsed;
+the W4 turn footer remains outside the action scroll. Phone ordering keeps story
+and actions first while retaining the desktop assignments for larger screens.
+Drag/drop, resizing gutters and replacing widgets remain separate acceptance.
+
+Balanced, Immersive and Tactical are working presentations: Immersive widens the
+story and initially collapses secondary panels; Tactical allocates more height to
+actions. My layout restores the separate saved custom placement/collapse state
+without preset switches overwriting it. Simplify temporarily widens the story and
+collapses secondary panels, preserving/restoring the underlying configuration.
+It protects narrative/actions and leaves live HP, conditions, turn and pending-roll
+status visible. Saving a custom draft exits temporary Simplify so the saved
+placements are immediately visible. No rerolls or game-state writes result.
+
+Versioned AsyncStorage preferences are scoped by character on this device. Parsing
+accepts only known presets, a six-slot permutation, allowed collapsed IDs and the
+Simplify flag; unknown gameplay/role fields are discarded. Invalid/obsolete data
+falls back to Balanced. Reads are bound to their character, editing stays disabled
+until hydration, and writes are serialized. Failed reads cannot overwrite an
+unread layout; retry reloads it. Save failure keeps the current view with retry.
+No HP, inventory, command, session narrative, credentials or permissions are saved
+in the layout payload. This is local preference storage, not account/cloud sync.
+
+Validation: workspace typecheck and 163 combat/workspace tests passed locally
+under Node 20.20.2. Six new preference/UI regressions cover malformed data, preset
+restore, Save/Cancel, stable composer mounts, serialized writes, scope/read races,
+read/save failures/retry and customized Immersive placement. They join the existing
+PostgreSQL CI regressions. Full Expo/Chromium route fixtures passed desktop swap,
+cancel, save, collapse, Simplify widening, Tactical sizing, My layout, reload and
+phone draft preservation. A separate combat fixture passed attack/confirmed-story/
+End Turn while Simplify was active. HTTP fixture responses are not live gameplay
+or multi-device acceptance. Matching customization smoke regression is committed;
+full CI evidence belongs with the PR.
+
+No SQL, dependency, credential or API migration. A new preference-key namespace
+is additive; rollback ignores it and restores the fixed Balanced shell without
+altering gameplay data. Saved layouts, slot swapping and collapse are implemented
+within this scope; drag/drop, resizing, panel replacement/full registry, human-DM
+Adventure routing, NPC automation and richer AI narration remain unfinished.
