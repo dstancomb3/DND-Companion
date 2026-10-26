@@ -2401,7 +2401,7 @@ export default function AdventureSessionPlaceholderScreen() {
               <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
                 No ready attacks from your character or equipped weapons. Unequipped weapons require an equipment change; switching costs will depend on your session rules.
               </Text>
-            )}
+            ) : null}
 
             {activeCombatCategory === "items" && encounterConsumables.length > 0 ? (
               <>
