@@ -6,6 +6,7 @@ import { useParty } from "@/context/PartyContext";
 import {
   addToEncounter,
   endEncounter,
+  endPartyTurnForBattle,
   startPartyInitiative,
 } from "@/utils/partyApi";
 import {
@@ -23,6 +24,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   const c = useColors();
   const { partyCode, memberId, members, combatState, isInParty, refreshCombatState } = useParty();
   const [busy, setBusy] = useState(false);
+  const [confirmSkipActorId, setConfirmSkipActorId] = useState<string | null>(null);
 
   const battleId = useMemo(() => selectMemberBattleId(combatState, memberId), [combatState, memberId]);
   const turnOrder = useMemo(() => selectBattleTurnOrder(combatState, battleId), [combatState, battleId]);
@@ -30,6 +32,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   const battleNpcs = useMemo(() => selectBattleNpcs(combatState, battleId), [combatState, battleId]);
 
   const hasActiveBattle = Boolean(battleId);
+  const currentNpc = battleNpcs.find((npc) => npc.id === currentTurnId) ?? null;
 
   async function handleStartEncounter() {
     if (!partyCode || busy) {
@@ -75,6 +78,27 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
       onToolEvent(`Combat submode: ended encounter ${battleId}.`);
     } catch (error) {
       onToolEvent(`Combat submode end failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSkipStalledNpc() {
+    if (!partyCode || !battleId || !currentNpc || busy) return;
+    if (confirmSkipActorId !== currentNpc.id) {
+      setConfirmSkipActorId(currentNpc.id);
+      return;
+    }
+    setBusy(true);
+    setConfirmSkipActorId(null);
+    try {
+      // Host-authorized operation: never impersonate a member or advance a
+      // player's turn. Server checks original host credentials.
+      await endPartyTurnForBattle(partyCode, battleId, true);
+      await refreshCombatState(partyCode);
+      onToolEvent(`Advanced past stalled NPC turn (${currentNpc.name}) without taking its actions. This is manual recovery, not AI NPC combat.`);
+    } catch (error) {
+      onToolEvent(`NPC turn recovery failed: ${error instanceof Error ? error.message : "unknown error"}`);
     } finally {
       setBusy(false);
     }
@@ -148,6 +172,18 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
           <Text style={[styles.actionText, { color: c.foreground }]}>Add Members</Text>
         </TouchableOpacity>
 
+        {currentNpc ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={confirmSkipActorId === currentNpc.id ? `Confirm skip ${currentNpc.name} turn` : `Skip stalled NPC turn for ${currentNpc.name}`}
+            onPress={() => void handleSkipStalledNpc()}
+            style={[styles.actionBtn, { borderColor: c.border, backgroundColor: c.background }]}
+            activeOpacity={0.85} disabled={busy}>
+            <Text style={[styles.actionText, { color: c.foreground }]}>
+              {confirmSkipActorId === currentNpc.id ? `Confirm skip: ${currentNpc.name}` : `Recover stuck NPC: ${currentNpc.name}`}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           onPress={() => void handleEndEncounter()}
           style={[styles.actionBtn, { borderColor: c.border, backgroundColor: c.background }]}
