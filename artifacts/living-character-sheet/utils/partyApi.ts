@@ -244,6 +244,7 @@ export interface CombatNpc {
 
 export interface PartyCombatState {
   encounterDistances?: import("./combat/combatProximity").CombatantDistanceObservation[];
+  encounterPositions?: import("./combat/combatProximity").EncounterPosition[];
   code: string;
   environmentTurnId: string;
   schemaVersion?: number;
