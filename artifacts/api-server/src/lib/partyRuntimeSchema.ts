@@ -1,3 +1,4 @@
+import { normalizeEncounterDistances, type EncounterDistance } from "./encounterDistances";
 export const CURRENT_PARTY_RUNTIME_SCHEMA_VERSION = 1;
 
 // Server-created party-scoped admission provenance, never accepted from request bodies.
@@ -13,6 +14,7 @@ export interface RuntimeSnapshotPayload {
   partyCode: string;
   activeMemberIds: string[];
   participantBattleById: Record<string, string>;
+  encounterDistances: EncounterDistance[];
   battleTurnOrderById: Record<string, string[]>;
   turnOrder: string[];
   currentTurnIdByBattle: Record<string, string | null>;
@@ -217,6 +219,7 @@ export function normalizeRuntimeSnapshotPayload(
     partyCode,
     activeMemberIds: asStringArray(source.activeMemberIds),
     participantBattleById: asStringRecord(source.participantBattleById),
+    encounterDistances: normalizeEncounterDistances(source.encounterDistances),
     battleTurnOrderById: asStringArrayRecord(source.battleTurnOrderById),
     turnOrder: asStringArray(source.turnOrder),
     currentTurnIdByBattle: asNullableStringRecord(source.currentTurnIdByBattle),
