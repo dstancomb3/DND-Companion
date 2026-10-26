@@ -64,12 +64,12 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
     const onDelta = (delta: number) => adjust(field, delta / (horizontal ? Math.max(size.width - 24, 1) : Math.max(size.height - 12, 1)));
     const responder = PanResponder.create({
       onStartShouldSetPanResponder: () => true, onMoveShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, gesture) => onDelta(horizontal ? gesture.dx : gesture.dy),
+      onPanResponderRelease: (_, gesture) => onDelta(horizontal ? (field === "right" ? -gesture.dx : gesture.dx) : gesture.dy),
     });
     return <View key={field} {...responder.panHandlers} accessible accessibilityRole="adjustable"
       accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((draft.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
       accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
-      onAccessibilityAction={event => adjust(field, event.nativeEvent.actionName === "increment" ? 0.025 : -0.025)}
+      onAccessibilityAction={event => adjust(field, (event.nativeEvent.actionName === "increment" ? 0.025 : -0.025))}
       style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35 }} />;
   }
   function toggle(id: WorkspacePanelId) {
