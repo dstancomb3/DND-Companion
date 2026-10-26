@@ -62,6 +62,7 @@ jobs:
           artifacts/living-character-sheet/tests/state/party-notes-delivery.test.cts
           artifacts/living-character-sheet/tests/state/companion-recovery-panel.test.cts
           artifacts/living-character-sheet/tests/state/session-workspace.test.cts
+          artifacts/living-character-sheet/tests/state/adventure-workspace-shell.test.cts
       - name: Real PostgreSQL and independent-process lifecycle tests
         env:
           RUN_POSTGRES_INTEGRATION: "1"

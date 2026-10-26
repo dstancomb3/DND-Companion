@@ -10,7 +10,7 @@ function safeSetupString(str: string | undefined, fallback = "", max = 600): str
   return (str ?? fallback).trim().slice(0, max);
 }
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AdventureHeaderBackButton } from "@/components/adventure/AdventureHeaderBackButton";
@@ -19,7 +19,10 @@ import { AiDmSessionInputComposer } from "@/components/adventure/session/AiDmSes
 import { AiDmSessionQuickActionsRow } from "@/components/adventure/session/AiDmSessionQuickActionsRow";
 import { AiDmCombatSubmodePanel } from "@/components/adventure/session/AiDmCombatSubmodePanel";
 import { AiDmSessionOutcomeShell } from "@/components/adventure/session/AiDmSessionOutcomeShell";
-import { PartyMiniList } from "@/components/attacks/PartyMiniList";
+import { AdventureWorkspace, type AdventureWorkspaceHandle, type WorkspacePanels } from "@/components/adventure/workspace/AdventureWorkspace";
+import { SessionPartyPanel, SessionInventoryPanel, SessionEventLogPanel } from "@/components/adventure/workspace/SessionSupportingPanels";
+import { SessionEncounterStatus } from "@/components/adventure/workspace/SessionEncounterStatus";
+import { projectSessionView } from "@/utils/adventure/sessionWorkspace";
 import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmCombatTargetPicker";
 import { AttackCard } from "@/components/attacks/AttackCard";
 import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
@@ -442,7 +445,8 @@ export default function AdventureSessionPlaceholderScreen() {
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
   const [showSessionTools, setShowSessionTools] = useState(false);
   const [showEncounterDetails, setShowEncounterDetails] = useState(false);
-  const sessionScrollRef = useRef<ScrollView>(null);
+  const workspaceRef = useRef<AdventureWorkspaceHandle>(null);
+  const pendingRollYRef = useRef(0);
   const combatSectionYRef = useRef<number | null>(null);
   const rollSubmissionGateRef = useRef(createRollSubmissionGate());
   const reportedUncertainRollsRef = useRef(new Set<string>());
@@ -577,7 +581,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const goToCombatControls = () => {
     setCombatPanelOpen(true);
     setTimeout(() => {
-      if (combatSectionYRef.current !== null) sessionScrollRef.current?.scrollTo({ y: combatSectionYRef.current, animated: true });
+      if (combatSectionYRef.current !== null) workspaceRef.current?.focusActions(combatSectionYRef.current);
     }, 100);
   };
 
@@ -2073,37 +2077,12 @@ export default function AdventureSessionPlaceholderScreen() {
     }
   }
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
-      <ScrollView ref={sessionScrollRef} contentContainerStyle={styles.content}>
-        <View style={styles.sessionHeader}>
-          <AdventureHeaderBackButton destination={AI_DM_ROUTES.adventure.home} />
-          <TouchableOpacity
-            onPress={() =>
-              router.push({
-                pathname: "/(tabs)",
-                params: {
-                  aiDmReturnSessionId: sessionId,
-                  aiDmReturnTitle: title,
-                  aiDmReturnMode: mode,
-                  aiDmReturnDifficulty: difficulty,
-                  aiDmReturnStylePreset: stylePreset,
-                  aiDmReturnStartInCombat: startInCombat ? "1" : "0",
-                  aiDmReturnGuidance: guidance,
-                  aiDmReturnCampaignId: campaignId,
-                  aiDmReturnCampaignLabel: campaignLabel,
-                  aiDmReturnChapterLabel: chapterLabel,
-                },
-              } as any)
-            }
-            style={[styles.sheetBtn, { borderColor: c.border, backgroundColor: c.card }]}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.sheetBtnText, { color: c.foreground }]}>Character Sheet</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
+  const workspaceSession = projectSessionView({
+    mode: isCampaignScaffold ? "ai_campaign" : "ai_one_off", partyCode, memberId, members, combatState,
+  });
+  const sharedState = combatState?.code === partyCode ? combatState : null;
+  const workspacePanels: WorkspacePanels = {
+    narrative: { title: "Adventure", content: (
         <AiDmSessionFeedShell
           entries={entries}
           guidanceSource={feedSeed.guidanceSource}
@@ -2111,6 +2090,45 @@ export default function AdventureSessionPlaceholderScreen() {
           isStreaming={isStreamingResponse}
           streamingText={streamingResponseText}
         />
+    ) },
+    actions: { title: "Your next action", content: (
+      <>
+      <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
+        {!isCampaignScaffold && activeOneOffBattleId ? (
+          <>
+            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
+            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
+              Describe your intent through combat actions; only resolved rolls determine hits and damage.
+            </Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open combat actions"
+              onPress={goToCombatControls}
+              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
+              activeOpacity={0.85}>
+              <Feather name="crosshair" color={c.primaryForeground} size={16} />
+              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Combat / Targets</Text>
+            </TouchableOpacity>
+          </>
+        ) : !isCampaignScaffold && pendingRollRequests.length > 0 ? (
+          <>
+            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Roll requested</Text>
+            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
+              Resolve the pending check in the scene before continuing.
+            </Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to pending roll"
+              onPress={() => workspaceRef.current?.focusActions(pendingRollYRef.current)}
+              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
+              activeOpacity={0.85}>
+              <Feather name="target" color={c.primaryForeground} size={16} />
+              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Find Roll Request</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <AiDmSessionInputComposer
+            onSubmit={handleInputSubmit}
+            isPending={isCampaignRuntimeTurnPending}
+          />
+        )}
+      </View>
 
         {isCampaignScaffold && isCampaignArchiveHydrated && !hasCampaignConversationEntry && !isStreamingResponse && !isCampaignRuntimeTurnPending ? (
           <View style={[styles.kickoffCard, { borderColor: c.border, backgroundColor: c.card }]}>
@@ -2297,7 +2315,7 @@ export default function AdventureSessionPlaceholderScreen() {
         ) : null}
 
         {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
+          <View onLayout={event => { pendingRollYRef.current = event.nativeEvent.layout.y; }} style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
             <View style={styles.rollPromptHeaderRow}>
               <Feather name="target" size={16} color="#f59e0b" />
               <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>DM Roll Request</Text>
@@ -2360,16 +2378,6 @@ export default function AdventureSessionPlaceholderScreen() {
             <Feather name={combatPanelOpen ? "chevron-up" : "chevron-down"} color={c.primary} size={18} />
           </TouchableOpacity>
         ) : null}
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
-          <View onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }} style={[styles.encounterSnapshotCard, { backgroundColor: c.card, borderColor: c.border }]}>
-            <View style={styles.encounterSnapshotHeaderRow}>
-              <Feather name="crosshair" size={16} color={c.primary} />
-              <Text style={[styles.encounterSnapshotTitle, { color: c.foreground }]}>Encounter Snapshot</Text>
-            </View>
-            <PartyMiniList npcNameOverridesById={npcNameOverridesById} />
-          </View>
-        ) : null}
-
         {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
           <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
             style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
@@ -2574,49 +2582,68 @@ export default function AdventureSessionPlaceholderScreen() {
           }}
         />
         )}
-      </ScrollView>
-      <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
-        {!isCampaignScaffold && activeOneOffBattleId ? (
-          <>
-            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
-            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
-              Describe your intent through combat actions; only resolved rolls determine hits and damage.
-            </Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open combat actions"
-              onPress={goToCombatControls}
-              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}>
-              <Feather name="crosshair" color={c.primaryForeground} size={16} />
-              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Combat / Targets</Text>
-            </TouchableOpacity>
-          </>
-        ) : !isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <>
-            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Roll requested</Text>
-            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
-              Resolve the pending check in the scene before continuing.
-            </Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to pending roll"
-              onPress={() => sessionScrollRef.current?.scrollToEnd({ animated: true })}
-              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}>
-              <Feather name="target" color={c.primaryForeground} size={16} />
-              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Find Roll Request</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <AiDmSessionInputComposer
-            onSubmit={handleInputSubmit}
-            isPending={isCampaignRuntimeTurnPending}
-          />
-        )}
+      </>
+    ) },
+    party: { title: "Party", content: <SessionPartyPanel
+      members={members.filter(member => member.partyCode === partyCode)}
+      currentTurnId={workspaceSession.encounter.battleId ? sharedState?.currentTurnIdByBattle[workspaceSession.encounter.battleId] ?? null : null} /> },
+    inventory: { title: "Inventory", content: <SessionInventoryPanel items={inventory} /> },
+    encounter: { title: "Encounter", content: <>
+      <SessionEncounterStatus session={workspaceSession} />
+      {(sharedState?.combatNpcs ?? []).filter(npc => workspaceSession.encounter.battleId &&
+        sharedState?.participantBattleById[npc.id] === workspaceSession.encounter.battleId).map(npc => (
+          <Text key={npc.id} style={{ color: c.foreground, fontSize: 13 }}>
+            {npcNameOverridesById[npc.id] ?? npc.name}{sharedState?.currentTurnIdByBattle[workspaceSession.encounter.battleId!] === npc.id ? " · Active turn" : ""}
+          </Text>
+        ))}
+      {encounterGateVisibility ? <Text style={{ color: c.mutedForeground, fontSize: 12, lineHeight: 18 }}>{encounterGateVisibility.summary}</Text> : null}
+      {chapterLabel ? <Text style={{ color: c.foreground }}>{chapterLabel}</Text> : null}
+      {!encounterGateVisibility && !workspaceSession.encounter.battleId ? <Text style={{ color: c.mutedForeground }}>No active encounter objective.</Text> : null}
+    </> },
+    events: { title: "Event log", content: <SessionEventLogPanel events={sharedState?.eventLog ?? []} /> },
+  };
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
+      <View style={styles.workspaceHeader}>
+        <View style={styles.sessionHeader}>
+          <AdventureHeaderBackButton destination={AI_DM_ROUTES.adventure.home} />
+          <TouchableOpacity
+            onPress={() =>
+              router.push({
+                pathname: "/(tabs)",
+                params: {
+                  aiDmReturnSessionId: sessionId,
+                  aiDmReturnTitle: title,
+                  aiDmReturnMode: mode,
+                  aiDmReturnDifficulty: difficulty,
+                  aiDmReturnStylePreset: stylePreset,
+                  aiDmReturnStartInCombat: startInCombat ? "1" : "0",
+                  aiDmReturnGuidance: guidance,
+                  aiDmReturnCampaignId: campaignId,
+                  aiDmReturnCampaignLabel: campaignLabel,
+                  aiDmReturnChapterLabel: chapterLabel,
+                },
+              } as any)
+            }
+            style={[styles.sheetBtn, { borderColor: c.border, backgroundColor: c.card }]}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.sheetBtnText, { color: c.foreground }]}>Character Sheet</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
+
       </View>
+      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} /></View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  workspaceHeader: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 8 },
+  workspaceBody: { flex: 1, minHeight: 0, paddingHorizontal: 12, paddingBottom: 12 },
   actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
   composerDisclosureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderRadius: 10, marginVertical: 6 },
   composerAttackTabs: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
@@ -2624,7 +2651,6 @@ const styles = StyleSheet.create({
   actionDockTitle: { fontSize: 14, fontWeight: "800" },
   actionDockHint: { fontSize: 12, lineHeight: 18 },
   actionDockCombatButton: { borderRadius: 10, paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  content: { padding: 16, gap: 12 },
   title: { fontSize: 26, fontWeight: "800" },
   subtitle: { fontSize: 14 },
   card: {
@@ -2799,21 +2825,6 @@ const styles = StyleSheet.create({
   rollPromptButtonText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: "700",
-  },
-  encounterSnapshotCard: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-  },
-  encounterSnapshotHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  encounterSnapshotTitle: {
-    fontSize: 15,
     fontWeight: "700",
   },
   encounterToolsCard: {

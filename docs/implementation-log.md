@@ -1086,3 +1086,53 @@ Reverting restores the previous presentation and loses this UI containment. This
 is an initial view-model/widget extraction, not a complete unified session runtime,
 AI orchestration permission grant, six-zone shell, panel registry, movement rules,
 or automatic NPC turns. Those remain subsequent implementation milestones.
+
+## Workspace W2: narrative-first six-zone Balanced shell (2026-10-26)
+
+Scope: authorized next workspace milestone after PR #79. Client presentation only;
+O02 remains partial and REC-01 unchanged. Existing Adventure session state and
+callbacks still own story, rolls, combat actions, turn gates, handoff and saves.
+No new game state, combat engine, commands or model calls were introduced.
+
+Before: story and all tools shared one long scroll with a separate bottom dock.
+After: the existing Adventure route uses six named, stable widget slots. Desktop
+Balanced places Party/Inventory left, Adventure/Your next action center, and
+Encounter/Event log right. The story has the largest panel. Each panel scrolls
+independently. Below 1100px width or 480px available height, the same mounted
+widgets stack with narrative/actions first. Resizing retains composer drafts and
+does not remount gameplay components. No decorative customization buttons.
+
+Moved existing contextual input, roll cards, choices, combat cards, target picker,
+recovery tools and outcome controls into the action panel without duplicating
+their state/callbacks. The former encounter roster snapshot is replaced by compact
+member health/condition rows; targets remain in the shared target picker. Inventory
+and recent event messages are read-only projections. Party snapshots are scoped to
+the current code. The event log preserves the server's newest-first ordering.
+The encounter panel shows existing status/gate summary and chapter label, with
+an explicit empty objective state rather than invented goals.
+
+Story scrolling now follows new content only while near its end. Reading older
+entries suspends auto-scroll and exposes Jump to latest. Action navigation targets
+the correct action-panel and pending-roll offsets instead of scrolling the entire
+session to the bottom. No authority or persistence migration.
+
+Validation: focused rendered-component tests cover desktop bounds/non-overlap,
+responsive stable mounts/drafts, story scrolling, event ordering, and precise
+required-action navigation. Added to PostgreSQL CI. All 150 combat/workspace tests passed locally under Node 20.20.2. A Chromium
+presentation fixture rendered the actual shell/feed/composer/supporting components
+at 1440×1000 and 390×844, verified slot placement, composer accessibility and draft
+retention, and was visually inspected. The fixture uses theme/provider stubs and
+is not full app/gameplay acceptance. Full-route Expo/Chromium presentation QA subsequently passed at both sizes,
+with a demo character, intercepted backend calls, no page runtime errors, six
+correctly placed slots and a preserved input draft. The local missing-Babel-preset
+resolution was addressed with NODE_PATH to installed workspace dependencies,
+without manifest/config changes. This was disconnected/mock-backend presentation
+QA, not authoritative combat or multiplayer acceptance. A matching real-route
+smoke regression is committed. Full CI results are recorded in the PR.
+
+Remaining: fixed Balanced layout only. Saved personalization, swap/replace,
+collapse, Simplify, presets, resizing gutters and a full permission-filtered panel
+registry are subsequent slices. The reusable shell does not yet route human-DM
+parties into an Adventure narrative or complete AI campaign/one-off mechanics.
+Movement economy, NPC execution and session orchestration retain prior limits.
+Rollback restores the previous presentation with no data/schema migration.
