@@ -2155,9 +2155,10 @@ router.post("/party/:code/npc-weapon-turn", async (req, res) => {
         entry.type === "npc_weapon_turn_committed" &&
         entry.metadata?.commandId === commandId);
       if (replay) {
+        const priorSpatial = replay.metadata?.spatialAdjudication as { distanceFeet?: number } | undefined;
         if (replay.metadata?.battleId !== battleId || replay.metadata?.npcId !== npcId ||
             replay.metadata?.weaponId !== weaponId || replay.metadata?.targetMemberId !== targetMemberId ||
-            replay.metadata?.spatialAdjudication?.distanceFeet !== req.body?.spatialAdjudication?.distanceFeet) {
+            priorSpatial?.distanceFeet !== req.body?.spatialAdjudication?.distanceFeet) {
           throw new CompanionLifecycleError(409, "command_id_conflict", "Command ID already used with different parameters.");
         }
         return { replayed: true, receipt: replay.metadata };
