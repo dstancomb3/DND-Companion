@@ -1089,6 +1089,8 @@ or automatic NPC turns. Those remain subsequent implementation milestones.
 
 ## Workspace W2: narrative-first six-zone Balanced shell (2026-10-26)
 
+[PR #80](https://github.com/dstancomb3/DND-Companion/pull/80).
+
 Scope: authorized next workspace milestone after PR #79. Client presentation only;
 O02 remains partial and REC-01 unchanged. Existing Adventure session state and
 callbacks still own story, rolls, combat actions, turn gates, handoff and saves.
