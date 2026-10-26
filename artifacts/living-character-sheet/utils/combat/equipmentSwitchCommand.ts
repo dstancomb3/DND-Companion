@@ -50,6 +50,7 @@ export function preflightEquipmentSwitch(
     incapacitated: boolean;
     remainingActions: number;
     objectInteractionUsed: boolean;
+    hasAttackActionWeaponInteraction?: boolean;
     equipmentVersion: number;
   },
 ): EquipmentSwitchPreflight {
@@ -73,6 +74,7 @@ export function preflightEquipmentSwitch(
     incapacitated: state.incapacitated,
     remainingActions: state.remainingActions,
     objectInteractionUsed: state.objectInteractionUsed,
+    hasAttackActionWeaponInteraction: state.hasAttackActionWeaponInteraction,
   });
   if (!economy.available) return { ok: false, reason: economy.reason };
   return { ok: true, cost: economy.cost, command: { ...proposed, rulesProfile: profile } };
