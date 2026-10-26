@@ -2496,7 +2496,7 @@ export default function AdventureSessionPlaceholderScreen() {
               onPress={goToCombatControls}
               style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
               activeOpacity={0.85}>
-              <Feather name="swords" color={c.primaryForeground} size={16} />
+              <Feather name="crosshair" color={c.primaryForeground} size={16} />
               <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Combat / Targets</Text>
             </TouchableOpacity>
           </>
