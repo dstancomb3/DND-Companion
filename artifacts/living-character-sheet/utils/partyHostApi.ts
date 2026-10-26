@@ -94,6 +94,15 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
         body: JSON.stringify(payload),
       });
     },
+    async confirmEncounterDistances(code: string, payload: {
+      expectedRevision: number;
+      distances: import("./combat/combatProximity").CombatantDistanceObservation[];
+    }): Promise<{ ok: true; revision: number }> {
+      return request(`/party/${code}/encounter-distances`, {
+        method: "PUT", headers: await encounterHeaders(code, "confirm combat positions"),
+        body: JSON.stringify(payload),
+      });
+    },
     async sendPartyEndTurn(code: string, payload: EndPartyTurnPayload = {}): Promise<void> {
       await request(`/party/${code}/end-turn`, { method: "POST", headers: await encounterHeaders(code), body: JSON.stringify(payload) });
     },
