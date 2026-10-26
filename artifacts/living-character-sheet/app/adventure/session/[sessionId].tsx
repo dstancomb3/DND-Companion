@@ -2373,7 +2373,7 @@ export default function AdventureSessionPlaceholderScreen() {
         {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
           <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
             style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
-            <AiDmCombatTargetPicker />
+            <AiDmCombatTargetPicker attackRanges={composerAttackOptions.map(({ attack }) => ({ id: attack.id, name: attack.name, range: attack.range }))} />
           </View>
         ) : null}
 
