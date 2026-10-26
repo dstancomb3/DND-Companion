@@ -1,5 +1,5 @@
 import type { PartyCombatState } from "../partyApi";
-import { projectNpcWeaponAttackCapabilities } from "./combatantCapabilityProjection";
+import { buildCombatantCapabilityCatalog, hasExecutableAttackDefinition } from "./combatantCapabilityCatalog";
 
 export type NpcTurnReadiness =
   | { status: "not_npc_turn" }
@@ -37,20 +37,30 @@ export function planNpcAttackChoices(
     || (npc.dummyState && npc.dummyState.currentHp <= 0)) {
     return { status: "needs_adjudication", npcId: npc.id, battleId, reason: "incapacitated" };
   }
-  const weapons = projectNpcWeaponAttackCapabilities(npc.gear ?? []);
+  const catalog = buildCombatantCapabilityCatalog({
+    combatantId: npc.id,
+    inventory: (npc.gear ?? []).map((item) => ({
+      id: item.id, name: item.name, category: item.category,
+      quantity: 1, equipped: item.equipped,
+      attackBonus: item.attackBonus, damageDice: item.damageDice,
+      damageModifier: item.damageModifier, damageType: item.damageType,
+      range: item.range,
+    })),
+  });
+  const weapons = catalog.capabilities.filter(hasExecutableAttackDefinition);
   if (!weapons.length) return { status: "needs_adjudication", npcId: npc.id, battleId, reason: "no_valid_attack" };
   const targets = [...new Set(eligibleMemberIds)].filter(id => id !== npc.id && state.participantBattleById[id] === battleId);
   if (!targets.length) return { status: "needs_adjudication", npcId: npc.id, battleId, reason: "no_eligible_targets" };
   return {
     status: "ready", npcId: npc.id, battleId,
     choices: weapons.flatMap((weapon) => targets.map((targetId) => ({
-      weaponId: weapon.sourceItemId!,
+      weaponId: weapon.sourceId,
       weaponName: weapon.name,
       targetId,
-      attackBonus: weapon.attackBonus,
-      damageDice: weapon.damageDice,
+      attackBonus: weapon.mechanics!.attackBonus!,
+      damageDice: weapon.mechanics!.damageDice!,
       damageModifier: weapon.damageModifier ?? 0,
-      damageType: weapon.damageType,
+      damageType: weapon.mechanics!.damageType!,
     }))),
   };
 }
