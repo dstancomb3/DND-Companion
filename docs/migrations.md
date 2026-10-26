@@ -1476,3 +1476,12 @@ change. Rollback loses this freshness behavior and CI coverage. CI run 401123344
 tests across independent API processes, plus 613 regressions, eight runner guards,
 workspace typechecks and 24 combat checks. These are scoped acceptance results,
 not full application or production concurrency certification. See party-postgres-tests.md. Cloud setup stays paused.
+
+### 2026-10-26 Workspace W1 presentation extraction
+
+Shared session-mode/authority and encounter-status projection added on the client.
+Existing party/combat stores and server commands remain canonical. Host lookup is
+party-scoped and fails closed; adventure DM tools share that visibility gate.
+No credential, SQL, API, persisted layout or runtime JSON migration. Rollback
+restores earlier UI visibility and removes the shared status widget. No full
+workspace or human/AI runtime cutover is claimed.

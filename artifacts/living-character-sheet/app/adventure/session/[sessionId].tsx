@@ -2559,7 +2559,7 @@ export default function AdventureSessionPlaceholderScreen() {
           </TouchableOpacity>
         ) : null}
         {!isCampaignScaffold && showSessionTools ? <AiDmSessionQuickActionsRow onAction={handleQuickAction} /> : null}
-        {!isCampaignScaffold && showSessionTools ? <AiDmCombatSubmodePanel onToolEvent={handleCombatPanelToolEvent} /> : null}
+        {!isCampaignScaffold && showSessionTools ? <AiDmCombatSubmodePanel mode={isCampaignScaffold ? "ai_campaign" : "ai_one_off"} onToolEvent={handleCombatPanelToolEvent} /> : null}
         {isCampaignScaffold ? null : (
         <AiDmSessionOutcomeShell
           outcomeState={outcomeState}

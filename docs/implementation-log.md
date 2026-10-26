@@ -1047,3 +1047,42 @@ This is navigation integration only, not full engine convergence, a verified mob
 During a visible active encounter, the adventure screen now offers an inline target picker that uses the exact CombatContext partyTargets/selectedTargetIds/toggleTargetId/clearTargetIds contract consumed by existing AttackCard and ActionCard components. Selected party members and creatures are clearly distinguished and selectable without leaving the session. Target selection remains subject to the existing combat resolver and server authority checks. No separate session target state or damage engine is introduced.
 
 Validation: workspace typecheck/combat and existing PostgreSQL CI. This slice does not assert verified mobile/manual end-to-end attack-and-damage completion or complete combat engine convergence. Cross-device target hydration and full initiative/spell/reaction integration remain outstanding.
+
+## Workspace W1 / O02: shared encounter projection and DM tool separation (2026-10-26)
+
+[PR #79](https://github.com/dstancomb3/DND-Companion/pull/79).
+
+Scope decision: the user authorized progression beyond merged PRs #77/#78 toward
+one human/AI adventure workspace. Inspection confirmed those PRs hide the position
+editor, but leave Start/End Encounter, Add Members and stalled-NPC recovery visible
+to joined players. This bounded client presentation slice fixes that gap while
+starting the common session contracts. O02 remains partial; REC-01 unchanged.
+
+Added SessionMode and presentation-only SessionAuthority, scoped asynchronous host
+capability checks, and the encounter slice of SessionViewModel. The shared read-only
+SessionEncounterStatus is consumed by the existing party screen and adventure
+combat panel. Party-screen mode labels are suppressed because that route does not
+establish whether its party uses an AI DM. The projection ignores combat snapshots
+from another party and uses existing battle/initiative state, with no second engine.
+
+All five DM mutation surfaces in the adventure combat panel now require a locally
+present original-host capability. Checking/error/member/disconnected states expose
+only read-only status and refresh. Handlers also check the presentation gate;
+server bearer authorization and revision checks remain mandatory and unchanged.
+Changing party/battle/authority clears coordinate drafts and skip confirmation.
+Async lookup completion from an obsolete party cannot restore host controls.
+
+Validation: focused rendered-component and projection regressions cover members,
+host coordinate submission, all three mode permission projections, pending/error
+lookup and party-switch races. Added these to existing PostgreSQL CI. Baseline and
+CI results are recorded with the PR. Local workspace typecheck passed; all 145
+combat/projection/component tests passed under CI-matching Node 20.20.2. The default
+Node 24 runtime failed pre-existing ESM/CommonJS test imports; no application module
+format was changed to accommodate it. No production deployment or manual multi-device
+acceptance claimed.
+
+Migration/rollback: no SQL, credentials, API, gameplay, storage or lockfile changes.
+Reverting restores the previous presentation and loses this UI containment. This
+is an initial view-model/widget extraction, not a complete unified session runtime,
+AI orchestration permission grant, six-zone shell, panel registry, movement rules,
+or automatic NPC turns. Those remain subsequent implementation milestones.

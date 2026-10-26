@@ -6,7 +6,6 @@ import { useParty } from "@/context/PartyContext";
 import {
   addToEncounter,
   confirmEncounterPositions,
-  hasLocalPartyHostCapability,
   endEncounter,
   endPartyTurnForBattle,
   startPartyInitiative,
@@ -14,31 +13,34 @@ import {
 import {
   selectBattleCurrentTurnId,
   selectBattleNpcs,
-  selectBattleTurnOrder,
-  selectMemberBattleId,
 } from "@/context/combatRuntimeSelectors";
 
+import { useSessionAuthority } from "@/hooks/useSessionAuthority";
+import { projectSessionView, type SessionMode } from "@/utils/adventure/sessionWorkspace";
+import { SessionEncounterStatus } from "@/components/adventure/workspace/SessionEncounterStatus";
+
 export interface AiDmCombatSubmodePanelProps {
+  mode?: SessionMode;
   onToolEvent: (text: string) => void;
 }
 
-export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelProps) {
+export function AiDmCombatSubmodePanel({ onToolEvent, mode = "ai_one_off" }: AiDmCombatSubmodePanelProps) {
   const c = useColors();
   const { partyCode, memberId, members, combatState, isInParty, refreshCombatState } = useParty();
   const [busy, setBusy] = useState(false);
   const [confirmSkipActorId, setConfirmSkipActorId] = useState<string | null>(null);
   const [positionDrafts, setPositionDrafts] = useState<Record<string, { x: string; y: string }>>({});
-  const [isHostDevice, setIsHostDevice] = useState(false);
-  React.useEffect(() => {
-    let active = true;
-    setIsHostDevice(false);
-    if (partyCode) void hasLocalPartyHostCapability(partyCode).then(ok => { if (active) setIsHostDevice(ok); }).catch(() => {});
-    return () => { active = false; };
-  }, [partyCode]);
+  const authority = useSessionAuthority(mode, partyCode);
+  const isHostDevice = authority.canManageEncounter;
+  const session = projectSessionView({ mode, partyCode, memberId, members, combatState });
   const [positionsOpen, setPositionsOpen] = useState(false);
+  React.useEffect(() => {
+    setPositionDrafts({});
+    setPositionsOpen(false);
+    setConfirmSkipActorId(null);
+  }, [partyCode, session.encounter.battleId, isHostDevice]);
 
-  const battleId = useMemo(() => selectMemberBattleId(combatState, memberId), [combatState, memberId]);
-  const turnOrder = useMemo(() => selectBattleTurnOrder(combatState, battleId), [combatState, battleId]);
+  const battleId = session.encounter.battleId;
   const currentTurnId = useMemo(() => selectBattleCurrentTurnId(combatState, battleId), [combatState, battleId]);
   const battleNpcs = useMemo(() => selectBattleNpcs(combatState, battleId), [combatState, battleId]);
 
@@ -91,7 +93,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   }
 
   async function handleStartEncounter() {
-    if (!partyCode || busy) {
+    if (!isHostDevice || !partyCode || busy) {
       onToolEvent("Combat submode: party not connected, start encounter remains preview-only.");
       return;
     }
@@ -122,7 +124,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   }
 
   async function handleEndEncounter() {
-    if (!partyCode || !battleId || busy) {
+    if (!isHostDevice || !partyCode || !battleId || busy) {
       onToolEvent("Combat submode: no active encounter available to end.");
       return;
     }
@@ -140,7 +142,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   }
 
   async function handleSkipStalledNpc() {
-    if (!partyCode || !battleId || !currentNpc || busy) return;
+    if (!isHostDevice || !partyCode || !battleId || !currentNpc || busy) return;
     if (confirmSkipActorId !== currentNpc.id) {
       setConfirmSkipActorId(currentNpc.id);
       return;
@@ -161,7 +163,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
   }
 
   async function handleAddMissingMembers() {
-    if (!partyCode || !battleId || busy) return;
+    if (!isHostDevice || !partyCode || !battleId || busy) return;
     const participantMap = combatState?.participantBattleById ?? {};
     const missingMemberIds = members
       .map((member) => member.id)
@@ -186,19 +188,12 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
 
   return (
     <View style={[styles.wrap, { borderColor: c.border, backgroundColor: c.card }]}> 
-      <Text style={[styles.title, { color: c.foreground }]}>Combat Submode</Text>
-      <Text style={[styles.body, { color: c.mutedForeground }]}>Bounded integration using existing party combat authority paths only.</Text>
-
-      <View style={[styles.metaCard, { borderColor: c.border, backgroundColor: c.background }]}> 
-        <Text style={[styles.metaLabel, { color: c.mutedForeground }]}>Party Connected</Text>
-        <Text style={[styles.metaValue, { color: c.foreground }]}>{isInParty && partyCode ? `yes (${partyCode})` : "no"}</Text>
-        <Text style={[styles.metaLabel, { color: c.mutedForeground, marginTop: 8 }]}>Active Battle</Text>
-        <Text style={[styles.metaValue, { color: c.foreground }]}>{hasActiveBattle ? battleId : "none"}</Text>
-        <Text style={[styles.metaLabel, { color: c.mutedForeground, marginTop: 8 }]}>Turn / NPC Count</Text>
-        <Text style={[styles.metaValue, { color: c.foreground }]}>{`${turnOrder.length} turns, ${battleNpcs.length} npcs`}</Text>
-        <Text style={[styles.metaLabel, { color: c.mutedForeground, marginTop: 8 }]}>Current Turn Actor</Text>
-        <Text style={[styles.metaValue, { color: c.foreground }]}>{currentTurnId ?? "n/a"}</Text>
-      </View>
+      <SessionEncounterStatus session={session} />
+      <TouchableOpacity accessibilityRole="button" onPress={() => void handleRefresh()}
+        disabled={busy || !isInParty} style={[styles.actionBtn, { borderColor: c.border, alignSelf: "flex-start" }]}>
+        <Text style={[styles.actionText, { color: c.foreground }]}>Refresh encounter</Text>
+      </TouchableOpacity>
+      {isHostDevice ? <Text style={[styles.title, { color: c.foreground }]}>DM encounter tools</Text> : null}
 
       {hasActiveBattle && isHostDevice ? (
         <View style={[styles.metaCard, { borderColor: c.border, backgroundColor: c.background }]}>
@@ -246,7 +241,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
         </View>
       ) : null}
 
-      <View style={styles.actionsRow}>
+      {isHostDevice ? <View style={styles.actionsRow}>
         <TouchableOpacity
           onPress={() => void handleStartEncounter()}
           style={[styles.actionBtn, { borderColor: c.border, backgroundColor: c.background }]}
@@ -254,15 +249,6 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
           disabled={busy}
         >
           <Text style={[styles.actionText, { color: c.foreground }]}>Start Encounter</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => void handleRefresh()}
-          style={[styles.actionBtn, { borderColor: c.border, backgroundColor: c.background }]}
-          activeOpacity={0.85}
-          disabled={busy || !isInParty}
-        >
-          <Text style={[styles.actionText, { color: c.foreground }]}>Refresh</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -294,7 +280,7 @@ export function AiDmCombatSubmodePanel({ onToolEvent }: AiDmCombatSubmodePanelPr
         >
           <Text style={[styles.actionText, { color: c.foreground }]}>End Encounter</Text>
         </TouchableOpacity>
-      </View>
+      </View> : null}
     </View>
   );
 }
