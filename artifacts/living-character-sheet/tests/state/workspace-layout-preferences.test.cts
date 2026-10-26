@@ -10,7 +10,7 @@ let write = async (key: string, value: string) => { stored.set(key, value); };
 const originalLoad = Module._load; let Shell: any, usePreferences: any;
 try {
   Module._load = function(name: string, ...args: unknown[]) {
-    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TouchableOpacity: "Button", TextInput: "Input", StyleSheet: { create: (x: any) => x } };
+    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TouchableOpacity: "Button", PanResponder: { create: () => ({ panHandlers: {} }) }, TextInput: "Input", StyleSheet: { create: (x: any) => x } };
     if (name === "@/hooks/useColors") return { useColors: () => ({}) };
     if (name === "@react-native-async-storage/async-storage") return { getItem: (key: string) => read(key), setItem: (key: string, value: string) => write(key, value) };
     return originalLoad.call(this, name, ...args);
@@ -143,4 +143,35 @@ test("panel replacement is a validated saved view preference, preserved through 
   const invalid = JSON.parse(JSON.stringify(p)); invalid.layout.replacements.actions = "character-summary";
   assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
   assert.equal(replaceWorkspacePanel(changed, "inventory", null).replacements.inventory, undefined);
+});
+
+test("workspace sizing clamps invalid gestures and persists with custom layouts", () => {
+  const { resizeWorkspaceLayout, DEFAULT_WORKSPACE_SIZING } = require("../../utils/adventure/workspaceLayoutPreferences");
+  const initial = presetWorkspaceLayout();
+  assert.deepEqual(initial.sizing, DEFAULT_WORKSPACE_SIZING);
+  const wide = resizeWorkspaceLayout(initial, "left", 100);
+  assert.equal(wide.sizing.left, 0.32);
+  const narrow = resizeWorkspaceLayout(wide, "middleRow", -100);
+  assert.equal(narrow.sizing.middleRow, 0.2);
+  assert.deepEqual(resizeWorkspaceLayout(narrow, "right", NaN), narrow);
+  const saved = saveCustomWorkspace(defaultWorkspacePreferences(), narrow);
+  const parsed = parseWorkspacePreferences(JSON.stringify(saved));
+  assert.deepEqual(parsed.layout.sizing, narrow.sizing);
+  const invalid = JSON.parse(JSON.stringify(saved)); invalid.layout.sizing.left = "bad";
+  assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
+});
+
+test("layout resize remains a draft until Save and is discarded by Cancel", async () => {
+  reset(); let tree: any;
+  const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
+  await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "resize" })); });
+  try {
+    act(() => tree.root.findByProps({ testID: "adventure-workspace" }).props.onLayout({ nativeEvent: { layout: { width: 1366, height: 740 } } }));
+    await click(tree, "Customize layout");
+    const adjust = async () => act(async () => button(tree, "Resize left column").props.onAccessibilityAction({ nativeEvent: { actionName: "increment" } }));
+    await adjust(); await click(tree, "Cancel layout changes");
+    assert.equal(stored.size, 0);
+    await click(tree, "Customize layout"); await adjust(); await click(tree, "Save layout");
+    assert.ok(parseWorkspacePreferences(stored.get("adventure-workspace.v1:resize")).layout.sizing.left > 0.22);
+  } finally { act(() => tree.unmount()); }
 });
