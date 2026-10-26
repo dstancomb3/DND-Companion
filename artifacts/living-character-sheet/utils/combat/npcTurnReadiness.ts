@@ -1,4 +1,5 @@
 import type { PartyCombatState } from "../partyApi";
+import { projectNpcWeaponAttackCapabilities } from "./combatantCapabilityProjection";
 
 export type NpcTurnReadiness =
   | { status: "not_npc_turn" }
@@ -36,26 +37,20 @@ export function planNpcAttackChoices(
     || (npc.dummyState && npc.dummyState.currentHp <= 0)) {
     return { status: "needs_adjudication", npcId: npc.id, battleId, reason: "incapacitated" };
   }
-  const weapons = (npc.gear ?? []).filter((gear) =>
-    gear.category === "weapon" && gear.equipped
-    && typeof gear.attackBonus === "number" && Number.isFinite(gear.attackBonus)
-    && typeof gear.damageDice === "string" && /^(?:[1-9]\d*d[2468]|[1-9]\d*d10|[1-9]\d*d12)(?:\s*[+\-]\s*\d+)?$/i.test(gear.damageDice.trim())
-    && typeof gear.damageType === "string" && gear.damageType.length > 0
-    && (gear.range ?? "").trim().length > 0,
-  );
+  const weapons = projectNpcWeaponAttackCapabilities(npc.gear ?? []);
   if (!weapons.length) return { status: "needs_adjudication", npcId: npc.id, battleId, reason: "no_valid_attack" };
   const targets = [...new Set(eligibleMemberIds)].filter(id => id !== npc.id && state.participantBattleById[id] === battleId);
   if (!targets.length) return { status: "needs_adjudication", npcId: npc.id, battleId, reason: "no_eligible_targets" };
   return {
     status: "ready", npcId: npc.id, battleId,
     choices: weapons.flatMap((weapon) => targets.map((targetId) => ({
-      weaponId: weapon.id,
+      weaponId: weapon.sourceItemId!,
       weaponName: weapon.name,
       targetId,
-      attackBonus: weapon.attackBonus!,
-      damageDice: weapon.damageDice!,
+      attackBonus: weapon.attackBonus,
+      damageDice: weapon.damageDice,
       damageModifier: weapon.damageModifier ?? 0,
-      damageType: weapon.damageType!,
+      damageType: weapon.damageType,
     }))),
   };
 }
