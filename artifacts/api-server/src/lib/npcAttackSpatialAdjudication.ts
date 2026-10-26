@@ -16,8 +16,8 @@ export function validateNpcAttackSpatialAdjudication(
       typeof a.distanceFeet !== "number" || !Number.isFinite(a.distanceFeet) ||
       a.distanceFeet < 0 || a.distanceFeet > 10000) return { ok: false, reason: "invalid_spatial_adjudication" };
   const normalized = range.trim().toLowerCase();
-  const melee = /^(?:melee|reach)(?:\\s*\\(?\\s*(\\d+)\\s*(?:ft|feet)\\s*\\)?)?$/i.exec(normalized);
-  const ranged = /^(\\d+)\\s*(?:\\/\\s*(\\d+))?\\s*(?:ft|feet|ft\\.)?$/i.exec(normalized);
+  const melee = /^(?:melee|reach)(?:\s*\(?\s*(\d+)\s*(?:ft|feet)\s*\)?)?$/i.exec(normalized);
+  const ranged = /^(\d+)\s*(?:\/\s*(\d+))?\s*(?:ft|feet|ft\.)?$/i.exec(normalized);
   const maxFeet = melee ? (melee[1] ? Number(melee[1]) : 5) : ranged ? Number(ranged[2] ?? ranged[1]) : NaN;
   if (!Number.isFinite(maxFeet) || maxFeet <= 0) return { ok: false, reason: "unsupported_range_notation" };
   if (a.distanceFeet > maxFeet) return { ok: false, reason: "target_out_of_range" };
