@@ -582,6 +582,17 @@ export default function AdventureSessionPlaceholderScreen() {
   const sessionAttacks = useMemo(() => buildSessionCombatAttacks(attacks, inventory, character), [attacks, inventory, character]);
   const composerAttackOptions = useMemo(() => buildComposerAttackOptions(sessionAttacks, inventory), [sessionAttacks, inventory]);
   const availableAttackGroups = useMemo(() => getAvailableAttackGroups(composerAttackOptions), [composerAttackOptions]);
+  const availableCombatCategories = useMemo(() => {
+    const available: Array<"attack" | "items" | "actions" | "bonus" | "resources"> = [];
+    if (availableAttackGroups.length > 0) available.push("attack");
+    if (encounterConsumables.length > 0) available.push("items");
+    if (encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0) available.push("actions");
+    if (encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0) available.push("bonus");
+    if (resources.length > 0) available.push("resources");
+    return available;
+  }, [availableAttackGroups, encounterConsumables, encounterFeatureActions, encounterCombatActions, resources]);
+  const activeCombatCategory = availableCombatCategories.includes(combatCategory)
+    ? combatCategory : availableCombatCategories[0] ?? "attack";
   const effectiveAttackGroup = selectedAttackGroup && availableAttackGroups.includes(selectedAttackGroup)
     ? selectedAttackGroup
     : availableAttackGroups[0] ?? null;
@@ -2347,10 +2358,10 @@ export default function AdventureSessionPlaceholderScreen() {
                 ["actions", "Actions", "zap", encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0],
                 ["bonus", "Bonus", "plus-circle", encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0],
                 ["resources", "Resources", "activity", resources.length > 0],
-              ] as const).filter((category) => category[3]).map(([key, label, iconName]) => (
+              ] as const).filter(([key]) => availableCombatCategories.includes(key)).map(([key, label, iconName]) => (
                 <TouchableOpacity key={key} accessibilityRole="button"
                   accessibilityLabel={`Show ${label.toLowerCase()} options`}
-                  accessibilityState={{ selected: combatCategory === key }}
+                  accessibilityState={{ selected: activeCombatCategory === key }}
                   onPress={() => setCombatCategory(key)}
                   style={[styles.composerAttackTab, {
                     borderColor: combatCategory === key ? c.primary : c.border,
@@ -2361,7 +2372,7 @@ export default function AdventureSessionPlaceholderScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            {combatCategory === "attack" && availableAttackGroups.length > 0 ? (
+            {activeCombatCategory === "attack" && availableAttackGroups.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>ATTACKS</Text>
                 <View style={styles.composerAttackTabs}>
@@ -2386,13 +2397,13 @@ export default function AdventureSessionPlaceholderScreen() {
                   <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true} />
                 ))}
               </>
-            ) : combatCategory === "attack" ? (
+            ) : activeCombatCategory === "attack" ? (
               <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
                 No ready attacks from your character or equipped weapons. Unequipped weapons require an equipment change; switching costs will depend on your session rules.
               </Text>
             )}
 
-            {combatCategory === "items" && encounterConsumables.length > 0 ? (
+            {activeCombatCategory === "items" && encounterConsumables.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>CONSUMABLES</Text>
                 {encounterConsumables.map((item) => (
@@ -2413,7 +2424,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {combatCategory === "actions" && (encounterFeatureActions.actions.length > 0 || encounterCombatActions.actions.length > 0) ? (
+            {activeCombatCategory === "actions" && (encounterFeatureActions.actions.length > 0 || encounterCombatActions.actions.length > 0) ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: ATTACK_COLOR }]}>ACTIONS</Text>
                 {encounterFeatureActions.actions.map((feature) => (
@@ -2445,7 +2456,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {combatCategory === "bonus" && (encounterFeatureActions.bonus.length > 0 || encounterCombatActions.bonus.length > 0) ? (
+            {activeCombatCategory === "bonus" && (encounterFeatureActions.bonus.length > 0 || encounterCombatActions.bonus.length > 0) ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: BONUS_ACTION_COLOR }]}>BONUS ACTIONS</Text>
                 {encounterFeatureActions.bonus.map((feature) => (
@@ -2477,7 +2488,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {combatCategory === "resources" && resources.length > 0 ? (
+            {activeCombatCategory === "resources" && resources.length > 0 ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>RESOURCES</Text>
                 {resources.map((resource) => {
