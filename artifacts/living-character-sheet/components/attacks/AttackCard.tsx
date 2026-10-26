@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -44,6 +44,9 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
   const { isInParty, memberId, combatState, members } = useParty();
   const extras = attack.additionalDamage ?? [];
   const [attackActionUsed, setAttackActionUsed] = useState(false);
+  const submissionInFlight = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attackFeedback, setAttackFeedback] = useState<{ message: string; error: boolean } | null>(null);
   const [usedRiderIds, setUsedRiderIds] = useState<Set<string>>(new Set());
 
   // Concentration save modal state
@@ -59,6 +62,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
   // Reset when combat turn ends
   useEffect(() => {
     setAttackActionUsed(false);
+    setAttackFeedback(null);
     setUsedRiderIds(new Set());
     setShowConcentrationModal(false);
     setConcentrationSpellId(null);
@@ -257,11 +261,34 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
   }, [settings.effects.critFailBurst, settings.effects.enabled]);
 
   async function handleUseAttack() {
-    const parsedAttackRoll = rawAttackRoll !== "" ? parseInt(rawAttackRoll, 10) : undefined;
+    if (submissionInFlight.current || attackActionUsed || !canShowUseButtons) return;
+    submissionInFlight.current = true;
+    setIsSubmitting(true);
+    setAttackFeedback(null);
+    try {
+      await submitAttack();
+    } catch (error) {
+      setAttackFeedback({ error: true, message: `Attack could not be confirmed: ${error instanceof Error ? error.message : "Unknown error"}. Check the encounter state before retrying.` });
+    } finally {
+      submissionInFlight.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+  async function submitAttack() {
+    // An explicit attack click rolls missing inputs once, using the same dice
+    // helper as the individual roll buttons. Retain them for deliberate retries.
+    const parsedAttackRoll = rawAttackRoll.trim() !== "" ? parseInt(rawAttackRoll, 10) : rollDice("1d20");
+    if (rawAttackRoll.trim() === "") setRawAttackRoll(String(parsedAttackRoll));
+    const submittedDamageRolls = [...damageRolls];
+    if ((submittedDamageRolls[0] ?? "").trim() === "" && /^(?:[1-9]\d*d[1-9]\d*|\d+)$/i.test(attack.damageDice.trim())) {
+      submittedDamageRolls[0] = String(rollDice(attack.damageDice));
+      setDamageRolls(submittedDamageRolls);
+    }
     if (typeof parsedAttackRoll === "number" && !isNaN(parsedAttackRoll)) {
       maybePlayCritFailEffect(parsedAttackRoll);
     }
-    const parsedDamageRolls = damageRolls.map((value) => parseInt(value, 10));
+    const parsedDamageRolls = submittedDamageRolls.map((value) => parseInt(value, 10));
     const declaredDamageRolls = parsedDamageRolls.filter((value) => !isNaN(value));
     const primaryRoll = parsedDamageRolls[0];
 
@@ -292,11 +319,11 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
     });
 
     if (typeof parsedAttackRoll !== "number" || Number.isNaN(parsedAttackRoll)) {
-      Alert.alert("Attack Input Required", "Enter or roll a d20 attack roll before using this attack.");
+      setAttackFeedback({ error: true, message: "Roll or enter the d20 To Hit result before using this attack." });
       return;
     }
-    if (packets.length === 0) {
-      Alert.alert("Damage Input Required", "Enter or roll at least the primary damage before using this attack.");
+    if (!Number.isFinite(primaryRoll) || packets.length === 0) {
+      setAttackFeedback({ error: true, message: "Roll or enter the primary Damage dice total before using this attack. Use the Damage row above." });
       return;
     }
 
@@ -327,14 +354,12 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
 
     const result = await combat.resolveCombatAction(command);
     if (result.status !== "accepted") {
-      Alert.alert("Action Rejected", getCombatRejectMessage(result.reasonCode));
+      setAttackFeedback({ error: true, message: getCombatRejectMessage(result.reasonCode) });
       return;
     }
 
     const outcomeSummary = formatOutcomeSummary(result);
-    if (outcomeSummary) {
-      Alert.alert("Attack Outcome", outcomeSummary);
-    }
+    setAttackFeedback({ error: false, message: outcomeSummary || "Attack accepted." });
 
     setAttackActionUsed(true);
 
@@ -390,7 +415,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
 
   return (
     <>
-      <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: attackActionUsed ? c.mutedForeground : ATTACK_COLOR }]}> 
+      <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: attackActionUsed ? c.mutedForeground : ATTACK_COLOR }]}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
@@ -491,7 +516,8 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
               >
                 <Text style={[styles.dieBtnText, { opacity: rawAttackRoll !== "" ? 0.35 : 1 }]}>🎲</Text>
               </TouchableOpacity>
-              <TextInput
+              <TextInput accessibilityLabel={`${attack.name} d20 attack roll`}
+                editable={!isSubmitting && !attackActionUsed}
                 value={rawAttackRoll}
                 onChangeText={setRawAttackRoll}
                 keyboardType="number-pad"
@@ -510,45 +536,28 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
             </View>
           </View>
 
-          {/* Use Action row */}
-          <View style={[styles.useActionRow, { borderTopColor: c.border }]}> 
-            {attackActionUsed && canUndoAttack ? (
-              <TouchableOpacity
-                onPress={() => { void handleUndoAttack(); }}
-                activeOpacity={0.8}
-                style={[styles.useActionBtn, { backgroundColor: c.muted, borderColor: c.border }]}
-              >
-                <Feather name="rotate-ccw" size={12} color={c.mutedForeground} />
-                <Text style={[styles.useActionText, { color: c.mutedForeground }]}>Undo Attack</Text>
+          <View style={styles.calcRow}>
+            <Text style={[styles.calcLabel, { color: c.mutedForeground }]}>Damage</Text>
+            <View style={styles.calcRight}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Roll ${attack.name} damage`}
+                disabled={isSubmitting || (damageRolls[0] ?? "") !== ""}
+                onPress={() => setRoll(0, String(rollDice(attack.damageDice)))}
+                style={[styles.dieBtn, { backgroundColor: c.secondary, borderRadius: c.radius }]}
+                activeOpacity={0.65}>
+                <Text style={styles.dieBtnText}>🎲</Text>
               </TouchableOpacity>
-            ) : !attackActionUsed ? (
-              <TouchableOpacity
-                onPress={() => { void handleUseAttack(); }}
-                activeOpacity={0.8}
-                style={[
-                  styles.useActionBtn,
-                  { backgroundColor: "#3B82F622", borderColor: "#3B82F655" },
-                ]}
-              >
-                <Feather name="play" size={12} color="#3B82F6" />
-                <Text style={[styles.useActionText, { color: "#3B82F6" }]}>Use Attack</Text>
-                {combat.active && (
-                  <View style={[styles.combatPip, { backgroundColor: "#3B82F6" }]} />
-                )}
-              </TouchableOpacity>
-            ) : null}
-            {attackActionUsed && (
-              <View style={[styles.usedBadge, { backgroundColor: c.muted }]}> 
-                <Feather name="check" size={11} color={c.mutedForeground} />
-                <Text style={[styles.usedBadgeText, { color: c.mutedForeground }]}>{combat.active ? "Attack locked in combat" : "Action used"}</Text>
+              <TextInput accessibilityLabel={`${attack.name} primary damage dice total`}
+                value={damageRolls[0] ?? ""} onChangeText={value => setRoll(0, value)}
+                keyboardType="number-pad" placeholder={attack.damageDice}
+                placeholderTextColor={c.mutedForeground} editable={!isSubmitting && !attackActionUsed}
+                style={[styles.rollInput, { backgroundColor: c.secondary, color: c.foreground, borderRadius: c.radius }]}
+                maxLength={4} />
+              <Text style={[styles.bonusText, { color: c.mutedForeground }]}>{fmtMod(attack.damageModifier)}</Text>
+              <Text style={[styles.equalsText, { color: c.mutedForeground }]}>=</Text>
+              <View style={[styles.resultBox, { backgroundColor: c.muted, borderRadius: c.radius }]}>
+                <Text style={[styles.resultText, { color: c.primary }]}>{primaryTotal ?? "—"}</Text>
               </View>
-            )}
-            {!canShowUseButtons && combat.active ? (
-              <View style={[styles.usedBadge, { backgroundColor: c.muted }]}> 
-                <Feather name="clock" size={11} color={c.mutedForeground} />
-                <Text style={[styles.usedBadgeText, { color: c.mutedForeground }]}>Waiting for your turn.</Text>
-              </View>
-            ) : null}
+            </View>
           </View>
                 {/* Concentration Save Modal */}
                 <ConcentrationSaveModal
@@ -611,20 +620,69 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
 
           {/* Combined total */}
           {extras.length > 0 && (
-            <View style={[styles.totalRow, { borderTopColor: c.border }]}> 
+            <View style={[styles.totalRow, { borderTopColor: c.border }]}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Text style={[styles.totalLabel, { color: c.mutedForeground }]}>Total DMG</Text>
                 {isCritical && combinedTotal !== null && (
                   <Text style={styles.critMultiplier}>×2</Text>
                 )}
               </View>
-              <View style={[styles.totalBox, { backgroundColor: combinedTotal !== null ? "#F8717120" : c.muted, borderRadius: c.radius }]}> 
-                <Text style={[styles.totalText, { color: combinedTotal !== null ? "#F87171" : c.mutedForeground }]}> 
+              <View style={[styles.totalBox, { backgroundColor: combinedTotal !== null ? "#F8717120" : c.muted, borderRadius: c.radius }]}>
+                <Text style={[styles.totalText, { color: combinedTotal !== null ? "#F87171" : c.mutedForeground }]}>
                   {combinedTotal !== null ? (isCritical ? combinedTotal * 2 : combinedTotal) : "—"}
                 </Text>
               </View>
             </View>
           )}
+
+        <Text style={[styles.notes, { color: c.mutedForeground }]}>Use Attack rolls any missing To Hit and primary Damage dice. Existing rolls are kept.</Text>
+        {attackFeedback ? (
+          <Text accessibilityRole={attackFeedback.error ? "alert" : "text"} accessibilityLiveRegion="polite"
+            style={[styles.notes, { color: attackFeedback.error ? c.destructive : c.primary }]}>
+            {attackFeedback.message}
+          </Text>
+        ) : null}
+          {/* Use Action row */}
+          <View style={[styles.useActionRow, { borderTopColor: c.border }]}>
+            {attackActionUsed && canUndoAttack ? (
+              <TouchableOpacity
+                onPress={() => { void handleUndoAttack(); }}
+                activeOpacity={0.8}
+                style={[styles.useActionBtn, { backgroundColor: c.muted, borderColor: c.border }]}
+              >
+                <Feather name="rotate-ccw" size={12} color={c.mutedForeground} />
+                <Text style={[styles.useActionText, { color: c.mutedForeground }]}>Undo Attack</Text>
+              </TouchableOpacity>
+            ) : !attackActionUsed ? (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Use ${attack.name} attack`}
+                disabled={isSubmitting || !canShowUseButtons}
+                onPress={() => { void handleUseAttack(); }}
+                activeOpacity={0.8}
+                style={[
+                  styles.useActionBtn,
+                  { backgroundColor: "#3B82F622", borderColor: "#3B82F655" },
+                ]}
+              >
+                <Feather name="play" size={12} color="#3B82F6" />
+                <Text style={[styles.useActionText, { color: "#3B82F6" }]}>{isSubmitting ? "Submitting…" : "Use Attack"}</Text>
+                {combat.active && (
+                  <View style={[styles.combatPip, { backgroundColor: "#3B82F6" }]} />
+                )}
+              </TouchableOpacity>
+            ) : null}
+            {attackActionUsed && (
+              <View style={[styles.usedBadge, { backgroundColor: c.muted }]}>
+                <Feather name="check" size={11} color={c.mutedForeground} />
+                <Text style={[styles.usedBadgeText, { color: c.mutedForeground }]}>{combat.active ? "Attack locked in combat" : "Action used"}</Text>
+              </View>
+            )}
+            {!canShowUseButtons && combat.active ? (
+              <View style={[styles.usedBadge, { backgroundColor: c.muted }]}>
+                <Feather name="clock" size={11} color={c.mutedForeground} />
+                <Text style={[styles.usedBadgeText, { color: c.mutedForeground }]}>Waiting for your turn.</Text>
+              </View>
+            ) : null}
+          </View>
 
         {combat.active && combat.partyTargets.length > 0 && (
           <View style={[styles.targetSection, { borderTopColor: c.border }]}>
@@ -634,7 +692,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
         )}
 
         {shouldShowTargetHint && (
-          <View style={[styles.usedBadge, { backgroundColor: c.secondary }]}> 
+          <View style={[styles.usedBadge, { backgroundColor: c.secondary }]}>
             <Feather name="crosshair" size={11} color={c.mutedForeground} />
             <Text style={[styles.usedBadgeText, { color: c.mutedForeground }]}>Select targets to avoid ambiguous outcomes.</Text>
           </View>
@@ -700,7 +758,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
                     <View style={styles.riderActions}>
                       {isUsed ? (
                         <>
-                          <View style={[styles.usedRiderBadge, { backgroundColor: c.muted }]}> 
+                          <View style={[styles.usedRiderBadge, { backgroundColor: c.muted }]}>
                             <Feather name="check" size={11} color={c.mutedForeground} />
                             <Text style={[styles.usedRiderText, { color: c.mutedForeground }]}>Used</Text>
                           </View>
