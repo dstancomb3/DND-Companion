@@ -1,3 +1,5 @@
+import { SessionTurnControls } from "@/components/adventure/workspace/SessionTurnControls";
+import { buildConfirmedPlayerAttackNarration } from "@/utils/combat/playerAttackNarration";
 import { claimRollContinuation, rollContinuationReceiptKey } from "@/utils/adventure/aiDmRollContinuationReceipt";
 import { shouldBlockStoryInputForPendingRolls } from "@/utils/adventure/oneOffPendingRollGate";
 import { shouldAutoCreateOneOffParty } from "@/utils/adventure/oneOffPartyRecovery";
@@ -2097,6 +2099,7 @@ export default function AdventureSessionPlaceholderScreen() {
         {!isCampaignScaffold && activeOneOffBattleId ? (
           <>
             <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
+            <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} />
             <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
               Describe your intent through combat actions; only resolved rolls determine hits and damage.
             </Text>
@@ -2442,7 +2445,15 @@ export default function AdventureSessionPlaceholderScreen() {
                   ))}
                 </View>
                 {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
-                  <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true} />
+                  <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true}
+                    onResolved={result => {
+                      const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name,
+                        result, targets: (sharedState?.combatNpcs ?? []).map(npc => ({ id: npc.id, name: npcNameOverridesById[npc.id] ?? npc.name })) });
+                      if (!text) return;
+                      const id = `confirmed-attack:${result.commandId}`;
+                      setEntries(previous => previous.some(entry => entry.id === id) ? previous : [...previous,
+                        { id, role: "dm", text }]);
+                    }} />
                 ))}
               </>
             ) : activeCombatCategory === "attack" ? (
@@ -2592,9 +2603,11 @@ export default function AdventureSessionPlaceholderScreen() {
       <SessionEncounterStatus session={workspaceSession} />
       {(sharedState?.combatNpcs ?? []).filter(npc => workspaceSession.encounter.battleId &&
         sharedState?.participantBattleById[npc.id] === workspaceSession.encounter.battleId).map(npc => (
-          <Text key={npc.id} style={{ color: c.foreground, fontSize: 13 }}>
-            {npcNameOverridesById[npc.id] ?? npc.name}{sharedState?.currentTurnIdByBattle[workspaceSession.encounter.battleId!] === npc.id ? " · Active turn" : ""}
-          </Text>
+          <View key={npc.id} style={{ gap: 4, paddingVertical: 8 }}>
+            <Text style={{ color: c.foreground, fontSize: 14, fontWeight: "700" }}>{npcNameOverridesById[npc.id] ?? npc.name}{sharedState?.currentTurnIdByBattle[workspaceSession.encounter.battleId!] === npc.id ? " · Active turn" : ""}</Text>
+            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>{npc.dummyState ? `HP ${npc.dummyState.currentHp}/${npc.dummyState.maxHp} · AC ${npc.dummyState.armorClass}` : "HP and armor class unknown"}</Text>
+            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>{(npc.conditions ?? []).map(condition => condition.name).join(", ") || "No conditions"}</Text>
+          </View>
         ))}
       {encounterGateVisibility ? <Text style={{ color: c.mutedForeground, fontSize: 12, lineHeight: 18 }}>{encounterGateVisibility.summary}</Text> : null}
       {chapterLabel ? <Text style={{ color: c.foreground }}>{chapterLabel}</Text> : null}

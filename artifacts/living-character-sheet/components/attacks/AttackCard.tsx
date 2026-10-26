@@ -31,13 +31,14 @@ interface AttackCardProps {
   attack: Attack;
   pinned?: boolean;
   onTogglePin?: () => void;
+  onResolved?: (result: CombatActionResult) => void;
 }
 
 function fmtMod(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardProps) {
+export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: AttackCardProps) {
   const c = useColors();
   const { updateAttack, updateItem, resources, decrementResource, incrementResource, character, conditions } = useCharacter();
   const combat = useCombat();
@@ -362,6 +363,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin }: AttackCardPr
     setAttackFeedback({ error: false, message: outcomeSummary || "Attack accepted." });
 
     setAttackActionUsed(true);
+    onResolved?.(result);
 
     const resolvedTotalDamage = (result.targetResults ?? []).reduce((sum, target) => {
       return sum + Math.max(0, target.damageBreakdown?.hpDamage ?? 0);

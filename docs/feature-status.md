@@ -688,3 +688,12 @@ previously generated rolls, then submits through the existing resolver. Submissi
 is single-flight and outcome/rejection feedback is visible inline on web/native.
 Six focused card regressions are part of the combat baseline. This does not expand
 server combat authority, NPC automation or AI narration coverage.
+
+### Combat UI W4: Adventure combat continuation (2026-10-26)
+
+Encounter shows existing shared enemy HP/AC/conditions. Adventure exposes member-
+authorized End Turn, with acknowledgement/error handling and pending submission
+protection in the shared context. Existing remote-apply receipts now reach card
+feedback and a basic deterministic confirmed-attack story entry. No preview is
+silently promoted to confirmed damage, and no AI-generated hit/kill is invented.
+Automatic enemy turns and richer AI combat narration remain incomplete.
