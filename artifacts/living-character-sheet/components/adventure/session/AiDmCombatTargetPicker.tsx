@@ -3,15 +3,18 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useCombat } from "@/context/CombatContext";
 import { useParty } from "@/context/PartyContext";
 import { useColors } from "@/hooks/useColors";
+import { buildCombatProximityRows } from "@/utils/combat/combatProximity";
 
 /** Uses the same selectedTargetIds consumed by AttackCard and ActionCard. */
 export function AiDmCombatTargetPicker() {
   const combat = useCombat();
   const c = useColors();
-  const { memberId } = useParty();
+  const { memberId, combatState } = useParty();
   // The default attack picker is for other combatants, not the actor.
   // Self-only abilities should resolve their own target without this list.
-  const eligibleTargets = combat.partyTargets.filter((target) => target.id !== memberId);
+  const battleId = memberId ? combatState?.participantBattleById?.[memberId] ?? null : null;
+  // No server-supported position snapshot exists yet. Unknown is not zero feet.
+  const eligibleTargets = buildCombatProximityRows({ viewerId: memberId, battleId, targets: combat.partyTargets });
   if (!combat.active || eligibleTargets.length === 0) return null;
 
   return (
@@ -24,7 +27,7 @@ export function AiDmCombatTargetPicker() {
         </TouchableOpacity>
       </View>
       <Text style={{ color: c.mutedForeground, fontSize: 12 }}>
-        Selected targets are used by the attack and action cards below.
+        Known distances appear closest first. Unknown positions require DM confirmation.
       </Text>
       <View style={styles.targets}>
         {eligibleTargets.map((target) => {
@@ -38,7 +41,7 @@ export function AiDmCombatTargetPicker() {
               <Text style={{ color: selected ? c.primary : c.foreground, fontWeight: selected ? "700" : "500" }}>
                 {selected ? "✓ " : ""}{target.name}
               </Text>
-              <Text style={{ color: c.mutedForeground, fontSize: 11 }}>{target.type === "npc" ? "Creature" : "Party"}</Text>
+              <Text style={{ color: c.mutedForeground, fontSize: 11 }}>{target.type === "npc" ? "Creature" : "Party"} · {target.distanceLabel}</Text>
             </TouchableOpacity>
           );
         })}
