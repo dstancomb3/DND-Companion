@@ -30,6 +30,7 @@ import { useAppSettings } from "@/context/AppSettingsContext";
 import { useEquippedEffects, getResourceExtraMax } from "@/hooks/useEquippedEffects";
 import { triggerEffect } from "@/utils/triggerEffect";
 import { validateSelectedRestProvisions } from "@/utils/adventure/restProvisionSelection";
+import { readRestApplicationPhase, restApplicationNextStep } from "@/utils/adventure/restApplicationReceipt";
 
 const STORAGE_KEY = "@party_session";
 const POLL_INTERVAL = 3000;
@@ -271,18 +272,25 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
           // Read the receipt before checking inventory: previously consumed
           // provisions may now have quantity zero after app restart.
           const receiptKey = `@party_rest_applied:${code}:${mid}:${request.id}`;
-          const previouslyApplied = await AsyncStorage.getItem(receiptKey);
-          if (!previouslyApplied) {
+          const phase = readRestApplicationPhase(await AsyncStorage.getItem(receiptKey));
+          const step = restApplicationNextStep(phase);
+          if (step === "review") {
+            // A prior session crashed mid-application. Applying again could
+            // duplicate rest recovery or provision debit. Do not acknowledge.
+            console.warn("[PartyContext] Rest application interrupted; manual reconciliation required", { requestId: request.id });
+            continue;
+          }
+          if (step === "apply") {
             const provisionCheck = validateSelectedRestProvisions(request.provisions, inventory);
             if (!provisionCheck.ok) {
               console.warn("[PartyContext] Approved rest awaits valid provisions:", provisionCheck.reason);
               continue;
             }
-            // Local replay protection, not an atomic cross-device transaction.
-            await AsyncStorage.setItem(receiptKey, "1");
+            await AsyncStorage.setItem(receiptKey, "applying");
             for (const provision of provisionCheck.debit)
               updateItem(provision.id, { quantity: provision.nextQuantity });
             applyRestRequest(request.restType);
+            await AsyncStorage.setItem(receiptKey, "applied");
           }
           await acknowledgePartyRestRequest(code, request.id, { memberId: mid });
         } catch (err) {
