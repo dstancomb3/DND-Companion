@@ -2789,6 +2789,10 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
       if (npc.dummyState && operation.nextHp !== null) {
         npc.dummyState.currentHp = operation.nextHp;
       }
+      if (npcWasStanding && operation.nextHp === 0) {
+        appendEvent(state, { type: "npc_defeated", message: `${npc.name} was defeated.`,
+          memberId: sourceMemberId, metadata: { npcId: npc.id, commandId } });
+      }
       npc.conditions = operation.nextConditions;
       appliedCount += 1;
       targetResultsSummary.push({
@@ -3239,8 +3243,10 @@ router.post("/party/:code/defeated-npc/:npcId/loot", async (req, res) => {
       const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
       state.stateRevision = durable.stateRevision;
       const npc = state.combatNpcs.find(entry => entry.id === npcId);
-      if (!npc || !npc.dummyState || npc.dummyState.currentHp > 0 ||
-          npc.projection?.combatantKind === "companion") {
+      const confirmedDefeat = state.eventLog.some(event =>
+        event.type === "npc_defeated" && event.metadata?.npcId === npcId);
+      if (!npc || !npc.dummyState || npc.dummyState.currentHp !== 0 ||
+          npc.projection?.combatantKind === "companion" || !confirmedDefeat) {
         throw new CompanionLifecycleError(409, "npc_not_defeated", "This combatant has not been confirmed defeated.");
       }
       const selected = (npc.gear ?? []).filter(gear => itemIds.includes(gear.id));
