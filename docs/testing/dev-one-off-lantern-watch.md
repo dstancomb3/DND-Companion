@@ -68,3 +68,10 @@ This is a QA backlog, not a completion claim. The Lantern Watch one-off is a gui
 - Rest receipt phases now distinguish unstarted, applying, and applied; a legacy `1` counts as applied. Repeated polling after an applied receipt retries acknowledgment without applying recovery again.
 - A persisted applying marker means local inventory/recovery may have been interrupted. The client deliberately does **not** retry or acknowledge it automatically. This requires manual reconciliation; no recovery interface or server-atomic transaction is supplied by this change.
 - Because character writes and receipt storage are separate, even an applied local marker is **not proof** that all character changes persisted. A server-authoritative transactional inventory and rest commit remains the completion criterion.
+
+### Rest repeatability and party ownership (2026-10-27)
+
+- Rest resolution is now transition-guarded: retrying the same approved/denied response returns the existing request, while changing a resolved decision is rejected.
+- A requester cannot create a second same-type rest while an earlier request is pending or approved but not acknowledged by all targets. This is a bounded overlap gate, not an authoritative item transaction.
+- The requester alone is charged for selected provisions on local rest processing; other party members still receive authorized rest recovery without consuming copies of the requester's items.
+- Verify multi-member mixed online/offline rest, declined rest followed by new request, repeat host resolution, and failed acknowledgments before passing the rest acceptance gate.
