@@ -2327,8 +2327,6 @@ export default function AdventureSessionPlaceholderScreen() {
               {npcTurnAutomationError ? `Automatic turn advance failed: ${npcTurnAutomationError}` : "The AI DM is resolving the NPC turn. Unverified attacks are held rather than applied."}
             </Text>
             {npcTurnAutomationError ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry NPC turn" onPress={() => setNpcTurnRetryNonce(value => value + 1)} style={{ alignSelf: "flex-start", padding: 8, borderWidth: 1, borderColor: c.primary, borderRadius: 8 }}><Text style={{ color: c.primary }}>Retry NPC turn</Text></TouchableOpacity> : null}
-            <Text style={{ display: "none" }}>
-            </Text>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh NPC turn status"
               onPress={() => { if (partyCode) void refreshCombatState(partyCode); }}
               style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.background }]}>
