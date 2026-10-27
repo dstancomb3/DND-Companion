@@ -3367,9 +3367,11 @@ router.put("/party/:code/rest-requests/:requestId/ack", async (req, res) => {
       return;
     }
 
-    if (!request.acknowledgements.includes(memberId)) {
-      request.acknowledgements.push(memberId);
+    if (request.acknowledgements.includes(memberId)) {
+      res.json({ ok: true, request, replayed: true });
+      return;
     }
+    request.acknowledgements.push(memberId);
     await persistRuntimeState(code, state);
 
     res.json({ ok: true, request });
