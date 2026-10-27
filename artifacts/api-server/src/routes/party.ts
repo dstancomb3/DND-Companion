@@ -1601,6 +1601,8 @@ router.put("/party/sync", async (req, res) => {
       currentHp,
       maxHp,
       tempHp,
+      expectedCurrentHp,
+      expectedTempHp,
       armorClass,
       conditions,
       coreStats,
@@ -1677,6 +1679,18 @@ router.put("/party/sync", async (req, res) => {
       }
     }
 
+    const inActiveCombat = Boolean(state.participantBattleById[memberId]);
+    const baseMatches = expectedCurrentHp === existing[0].currentHp &&
+      expectedTempHp === existing[0].tempHp;
+    const hpChanged = currentHp !== existing[0].currentHp || tempHp !== existing[0].tempHp;
+    if (inActiveCombat && hpChanged && !baseMatches) {
+      res.status(409).json({
+        code: "stale_member_snapshot",
+        error: "Combat HP changed since this character last observed the server. Refresh before applying a health effect.",
+      });
+      return;
+    }
+
     const memberData = {
       id: memberId,
       partyCode,
@@ -1684,9 +1698,9 @@ router.put("/party/sync", async (req, res) => {
       characterClass: characterClass ?? "Unknown",
       // During an active encounter, HP and temporary HP are owned by the combat executor.
       // A stale character-sheet sync must not silently heal away committed NPC damage.
-      currentHp: state.participantBattleById[memberId] ? existing[0].currentHp : currentHp ?? 0,
+      currentHp: currentHp ?? 0,
       maxHp: maxHp ?? 1,
-      tempHp: state.participantBattleById[memberId] ? existing[0].tempHp : tempHp ?? 0,
+      tempHp: tempHp ?? 0,
       armorClass: armorClass ?? 10,
       conditions: conditions ?? [],
       updatedAt: new Date(),
