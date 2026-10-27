@@ -2164,37 +2164,7 @@ export default function AdventureSessionPlaceholderScreen() {
       footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
       content: (
       <>
-      <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
-        {!isCampaignScaffold && activeOneOffBattleId ? (
-          <>
-            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
-            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
-              Describe your intent through combat actions; only resolved rolls determine hits and damage.
-            </Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open combat actions"
-              onPress={goToCombatControls}
-              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}>
-              <Feather name="crosshair" color={c.primaryForeground} size={16} />
-              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Combat / Targets</Text>
-            </TouchableOpacity>
-          </>
-        ) : !isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <>
-            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Roll requested</Text>
-            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
-              Resolve the pending check in the scene before continuing.
-            </Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to pending roll"
-              onPress={() => workspaceRef.current?.focusActions(pendingRollYRef.current)}
-              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}>
-              <Feather name="target" color={c.primaryForeground} size={16} />
-              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Find Roll Request</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
+      {!isCampaignScaffold && (activeOneOffBattleId || pendingRollRequests.length > 0) ? null : <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
             <AiDmSessionInputComposer
               onSubmit={handleInputSubmit}
               isPending={isCampaignRuntimeTurnPending}
@@ -2221,8 +2191,7 @@ export default function AdventureSessionPlaceholderScreen() {
               </TouchableOpacity> : null}
             </View> : null}
           </>
-        )}
-      </View>
+      </View>}
 
         {isCampaignScaffold && isCampaignArchiveHydrated && !hasCampaignConversationEntry && !isStreamingResponse && !isCampaignRuntimeTurnPending ? (
           <View style={[styles.kickoffCard, { borderColor: c.border, backgroundColor: c.card }]}>
