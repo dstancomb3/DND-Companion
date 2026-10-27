@@ -79,7 +79,8 @@ export function buildConfirmedPlayerAttackNarration(input: {
   if (!committed.size) return null;
   const names = new Map(input.targets.map(target => [target.id, target.name]));
   const rows = (result.targetResults ?? []).filter(target => committed.has(target.targetId));
-  const affected = [...committed].filter((id): id is string => typeof id === "string");
+  const affected = [...committed].filter((id): id is string => typeof id === "string" && names.has(id));
+  if (!affected.length) return null;
   const targets = affected.map(id => names.get(id) ?? "the target");
   const destination = targets.length === 1 ? targets[0] : targets.join(", ");
   const style = styleForWeapon(input.attackName);
