@@ -169,3 +169,20 @@ test("direct layout resize persists without Save and undo restores previous sizi
     assert.ok(parseWorkspacePreferences(stored.get("adventure-workspace.v1:resize")).layout.sizing.left > 0.22);
   } finally { act(() => tree.unmount()); }
 });
+
+test("Simplify acts as a single-selection view; preset buttons exit directly without Undo", async () => {
+  reset(); let tree: any;
+  const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
+  await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "simplify-selector" })); });
+  try {
+    assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Undo layout change" }).length, 0);
+    await click(tree, "Simplify");
+    assert.equal(parseWorkspacePreferences(stored.get("adventure-workspace.v1:simplify-selector")).simplify, true);
+    await click(tree, "Tactical");
+    let saved = parseWorkspacePreferences(stored.get("adventure-workspace.v1:simplify-selector"));
+    assert.equal(saved.simplify, false); assert.equal(saved.selected, "tactical");
+    await click(tree, "Simplify"); await click(tree, "Balanced");
+    saved = parseWorkspacePreferences(stored.get("adventure-workspace.v1:simplify-selector"));
+    assert.equal(saved.simplify, false); assert.equal(saved.selected, "balanced");
+  } finally { act(() => tree.unmount()); }
+});
