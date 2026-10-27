@@ -493,6 +493,8 @@ export default function AdventureSessionPlaceholderScreen() {
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
   const [restRequestPending, setRestRequestPending] = useState<PartyRestType | null>(null);
   const [restRequestMessage, setRestRequestMessage] = useState("");
+  const [restProvisionsEnabled, setRestProvisionsEnabled] = useState(false);
+  const [restProvisionItemIds, setRestProvisionItemIds] = useState<string[]>([]);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
   const [showSystemComments, setShowSystemComments] = useState(false);
   const [partyBootstrapError, setPartyBootstrapError] = useState<string | null>(null);
@@ -2062,7 +2064,12 @@ export default function AdventureSessionPlaceholderScreen() {
     setRestRequestPending(restType);
     setRestRequestMessage("");
     try {
-      await createPartyRestRequest(partyCode, { memberId, restType });
+      const eligibleIds = new Set(inventory.filter(item => item.quantity > 0).map(item => item.id));
+      const selected = restProvisionItemIds.filter(id => eligibleIds.has(id));
+      if (restProvisionsEnabled && selected.length !== restProvisionItemIds.length) {
+        throw new Error("Some provisions are no longer in your inventory. Review your selections.");
+      }
+      await createPartyRestRequest(partyCode, { memberId, restType, provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] } });
       await refreshCombatState(partyCode);
       setRestRequestMessage(`${restType === "short_rest" ? "Short" : "Long"} rest requested. No resources restore until the DM approves.`);
     } catch (error) {
@@ -2669,6 +2676,26 @@ export default function AdventureSessionPlaceholderScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
+                <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: restProvisionsEnabled }}
+                  accessibilityLabel="Use selected provisions for rest"
+                  onPress={() => setRestProvisionsEnabled(value => !value)}
+                  style={{ paddingVertical: 7 }}>
+                  <Text style={{ color: c.foreground }}>{restProvisionsEnabled ? "☑" : "☐"} Use selected provisions (optional)</Text>
+                </TouchableOpacity>
+                {restProvisionsEnabled ? <>
+                  <Text style={{ color: c.mutedForeground, fontSize: 11, marginBottom: 5 }}>
+                    Select provisions to bring. Nothing is consumed when you request rest.
+                  </Text>
+                  {inventory.filter(item => item.quantity > 0 && /ration|food|water|drink|provision|meal|waterskin/i.test(`${item.name} ${item.notes ?? ""}`)).map(item => (
+                    <TouchableOpacity key={item.id} accessibilityRole="checkbox"
+                      accessibilityLabel={`Provision ${item.name}`}
+                      accessibilityState={{ checked: restProvisionItemIds.includes(item.id) }}
+                      onPress={() => setRestProvisionItemIds(previous => previous.includes(item.id) ? previous.filter(id => id !== item.id) : [...previous, item.id])}
+                      style={{ paddingVertical: 5 }}>
+                      <Text style={{ color: c.foreground }}>{restProvisionItemIds.includes(item.id) ? "☑" : "☐"} {item.name} (×{item.quantity})</Text>
+                    </TouchableOpacity>
+                  ))}
+                </> : null}
                 {restRequestMessage ? <Text accessibilityRole="alert" style={{ color: c.mutedForeground, fontSize: 12 }}>{restRequestMessage}</Text> : null}
                 <Text style={{ color: c.mutedForeground, fontSize: 11, marginBottom: 8 }}>Restoration requires DM approval. Short rests restore short-rest resources; long rests restore short- and long-rest resources.</Text>
                 {resources.map((resource) => {
