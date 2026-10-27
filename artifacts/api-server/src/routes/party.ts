@@ -1682,9 +1682,11 @@ router.put("/party/sync", async (req, res) => {
       partyCode,
       characterName: characterName ?? "Unknown",
       characterClass: characterClass ?? "Unknown",
-      currentHp: currentHp ?? 0,
+      // During an active encounter, HP and temporary HP are owned by the combat executor.
+      // A stale character-sheet sync must not silently heal away committed NPC damage.
+      currentHp: state.participantBattleById[memberId] ? existing[0].currentHp : currentHp ?? 0,
       maxHp: maxHp ?? 1,
-      tempHp: tempHp ?? 0,
+      tempHp: state.participantBattleById[memberId] ? existing[0].tempHp : tempHp ?? 0,
       armorClass: armorClass ?? 10,
       conditions: conditions ?? [],
       updatedAt: new Date(),
