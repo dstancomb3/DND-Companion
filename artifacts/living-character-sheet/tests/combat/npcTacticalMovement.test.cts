@@ -18,3 +18,8 @@ test("no invented map geometry or cover", () => {
   assert.equal(planNpcTacticalMovement({...input,speedFeet:300,stance:"retreat"}),null);
   assert.equal(planNpcTacticalMovement({...input,positions:positions.map(p=>({...p,source:"estimated"})),stance:"reposition"}),null);
 });
+
+test("occupied squares are not valid NPC movement destinations", () => {
+  const blocked = [...positions, {battleId:"b", combatantId:"ally",xFeet:15,yFeet:0,source:"dm_confirmed"}];
+  assert.equal(planNpcTacticalMovement({...input,positions:blocked,stance:"reposition"}),null);
+});
