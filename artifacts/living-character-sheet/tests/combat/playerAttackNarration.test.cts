@@ -58,3 +58,11 @@ test("replays, rejects and uncommitted targets produce no narration", () => {
   assert.equal(narrate(action("hit", 7, { remoteApplication: { ok: true, replayed: true, appliedCount: 1 } })), null);
   assert.equal(narrate(action("hit", 7, { remoteApplication: { ok: true, replayed: false, appliedCount: 0, targetResults: [] } })), null);
 });
+
+test("critical wording requires a confirmed natural twenty, not an assumed critical", () => {
+  const result = action("hit", 12);
+  result.targetResults[0].hitOutcome.attackRoll = 20;
+  assert.match(narrate(result)!, /critical strike/i);
+  result.targetResults[0].hitOutcome.attackRoll = 19;
+  assert.doesNotMatch(narrate(result)!, /critical strike/i);
+});
