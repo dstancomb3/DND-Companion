@@ -81,6 +81,8 @@ import {
 import { buildCampaignChoiceOptions } from "@/utils/adventure/aiDmCampaignChoicePresentation";
 import {
   addCombatNpc,
+  createPartyRestRequest,
+  type PartyRestType,
   createPartyRollRequest,
   fetchPartyMembers,
   rollNpcInitiative,
@@ -444,6 +446,8 @@ export default function AdventureSessionPlaceholderScreen() {
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
+  const [restRequestPending, setRestRequestPending] = useState<PartyRestType | null>(null);
+  const [restRequestMessage, setRestRequestMessage] = useState("");
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
   const [showSystemComments, setShowSystemComments] = useState(false);
   const [partyBootstrapError, setPartyBootstrapError] = useState<string | null>(null);
@@ -1872,6 +1876,25 @@ export default function AdventureSessionPlaceholderScreen() {
     }
   }
 
+  async function handleRequestRest(restType: PartyRestType) {
+    if (restRequestPending || !partyCode || !memberId) return;
+    if (activeOneOffBattleId) {
+      setRestRequestMessage("You cannot rest during an active battle.");
+      return;
+    }
+    setRestRequestPending(restType);
+    setRestRequestMessage("");
+    try {
+      await createPartyRestRequest(partyCode, { memberId, restType });
+      await refreshCombatState(partyCode);
+      setRestRequestMessage(`${restType === "short_rest" ? "Short" : "Long"} rest requested. No resources restore until the DM approves.`);
+    } catch (error) {
+      setRestRequestMessage(error instanceof Error ? error.message : "Rest request failed.");
+    } finally {
+      setRestRequestPending(null);
+    }
+  }
+
   function handleQuickAction(action: AiDmQuickActionKey) {
     // For narration-focused actions, call AI with intent text
     if (action === "advance_scene" || action === "offer_choices" || action === "resolve_turn") {
@@ -2406,9 +2429,20 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {activeCombatCategory === "resources" && resources.length > 0 ? (
+            {activeCombatCategory === "resources" ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>RESOURCES</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                  {(["short_rest", "long_rest"] as const).map(restType => (
+                    <TouchableOpacity key={restType} accessibilityRole="button" disabled={!!restRequestPending || !partyCode || !memberId || !!activeOneOffBattleId}
+                      onPress={() => void handleRequestRest(restType)}
+                      style={{ borderWidth: 1, borderColor: c.primary, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, opacity: restRequestPending || activeOneOffBattleId ? 0.5 : 1 }}>
+                      <Text style={{ color: c.primary, fontWeight: "700" }}>{restType === "short_rest" ? "Request Short Rest" : "Request Long Rest"}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {restRequestMessage ? <Text accessibilityRole="alert" style={{ color: c.mutedForeground, fontSize: 12 }}>{restRequestMessage}</Text> : null}
+                <Text style={{ color: c.mutedForeground, fontSize: 11, marginBottom: 8 }}>Restoration requires DM approval. Short rests restore short-rest resources; long rests restore short- and long-rest resources.</Text>
                 {resources.map((resource) => {
                   const extraMax = getResourceExtraMax(resource, resourceMaxBonuses);
                   return (
@@ -2418,7 +2452,7 @@ export default function AdventureSessionPlaceholderScreen() {
                       extraMax={extraMax}
                       onIncrement={() => incrementResource(resource.id, resource.max + extraMax)}
                       onDecrement={() => decrementResource(resource.id)}
-                      onReset={() => resetResource(resource.id, resource.max + extraMax)}
+                      allowRestore={false}
                     />
                   );
                 })}
