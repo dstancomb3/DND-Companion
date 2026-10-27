@@ -28,7 +28,7 @@ const motions: Record<ReturnType<typeof styleForWeapon>, readonly string[]> = {
   generic: ["commits to a swift attack", "moves into position and strikes", "takes the opening and attacks"],
 };
 
-function describeOutcome(row: CombatTargetResolutionResult, targetName: string, seed: string, committedHp?: number): string {
+function describeOutcome(row: CombatTargetResolutionResult, targetName: string, seed: string, defeated?: boolean): string {
   const hit = row.hitOutcome;
   if (hit.status === "miss") {
     return pick(seed + ":miss", [
@@ -59,7 +59,7 @@ function describeOutcome(row: CombatTargetResolutionResult, targetName: string, 
       `${targetName} takes the impact`,
     ]);
     const result = `${impact}, dealing ${magnitude}${type ? ` ${type}` : ""} damage.`;
-    const aftermath = committedHp === 0 ? ` ${targetName} falls, unable to continue the fight.` : "";
+    const aftermath = defeated === true ? ` ${targetName} falls, unable to continue the fight.` : "";
     return criticalLead + (resisted ? `${result} Some of the force is resisted.` : result) + aftermath;
   }
   if (damage.tempHpAbsorbed > 0) return `${criticalLead}The hit catches ${targetName}, but ${damage.tempHpAbsorbed} damage is absorbed by temporary protection.`;
@@ -101,9 +101,9 @@ export function buildConfirmedPlayerAttackNarration(input: {
   ]);
   const movement = pick(result.commandId + ":weapon", motions[style]);
   const action = `Using ${input.attackName}, ${input.actorName} ${movement}.`;
-  const hpByTarget = new Map(receipt.targetResults?.filter(row => row.status === "applied" && typeof row.postAttackHp === "number").map(row => [row.targetId, row.postAttackHp]) ?? []);
+  const defeatedByTarget = new Map(receipt.targetResults?.filter(row => row.status === "applied" && typeof row.defeated === "boolean").map(row => [row.targetId, row.defeated]) ?? []);
   const details = rows.length
-    ? rows.map(row => describeOutcome(row, names.get(row.targetId) ?? "the target", result.commandId + ":" + row.targetId, hpByTarget.get(row.targetId))).join(" ")
+    ? rows.map(row => describeOutcome(row, names.get(row.targetId) ?? "the target", result.commandId + ":" + row.targetId, defeatedByTarget.get(row.targetId))).join(" ")
     : "The action is recorded, but its exact impact has not been confirmed.";
   const scene = (input.sceneContext ?? "").toLowerCase();
   const atmosphere = /\b(rain|downpour|storm)\b/.test(scene) ? "Rain slicks the ground beneath the combatants." :
