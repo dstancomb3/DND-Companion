@@ -39,6 +39,7 @@ export function planNpcBehavior(input: {
   // committed spatial action before reporting any change in position.
   if (readiness.status === "needs_adjudication") {
     if (readiness.reason === "no_valid_attack" || readiness.reason === "no_eligible_targets") {
+      if (profile === "aggressive") return { kind: "reposition", reason: "close_distance" };
       if (profile === "sneaky") return { kind: "reposition", reason: "seek_sightline" };
       if (profile === "defensive") return { kind: "seek_cover", reason: "avoid_exposure" };
       if (profile === "cautious") return { kind: "retreat", reason: "avoid_unwinnable_exchange" };
