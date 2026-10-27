@@ -158,6 +158,7 @@ export interface PartyRestRequest {
   resolvedAt?: string;
   resolvedBy?: string;
   acknowledgements: string[];
+  provisions?: { enabled: boolean; itemIds: string[] };
 }
 
 export type CombatNpcDisposition = "hostile" | "passive" | "friendly";
