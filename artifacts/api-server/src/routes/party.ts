@@ -4427,9 +4427,13 @@ router.delete("/party/:code/encounters/:battleId", async (req, res) => {
     const defeatedNpcIds = new Set(state.eventLog.filter(event =>
       event.type === "npc_defeated" &&
       typeof event.metadata?.npcId === "string").map(event => String(event.metadata!.npcId)));
+    const retainedCorpseIds = npcIdsInBattle.filter(id => {
+      const npc = state.combatNpcs.find(entry => entry.id === id);
+      return npc?.projection?.combatantKind !== "companion" &&
+        defeatedNpcIds.has(id) && npc?.dummyState?.currentHp === 0;
+    });
     state.combatNpcs = state.combatNpcs.filter(npc =>
-      !npcIdsInBattle.includes(npc.id) ||
-      (defeatedNpcIds.has(npc.id) && (npc.dummyState?.currentHp ?? 1) <= 0));
+      !npcIdsInBattle.includes(npc.id) || retainedCorpseIds.includes(npc.id));
 
     // Un-assign all participants from this battle
     for (const id of allIdsInBattle) {
@@ -4450,8 +4454,8 @@ router.delete("/party/:code/encounters/:battleId", async (req, res) => {
 
     appendEvent(state, {
       type: "encounter_ended",
-      message: `DM ended encounter (${memberIdsInBattle.length} player(s), ${npcIdsInBattle.length} NPC(s) removed).`,
-      metadata: { battleId, memberCount: memberIdsInBattle.length, npcCount: npcIdsInBattle.length },
+      message: `DM ended encounter (${memberIdsInBattle.length} player(s) exited, ${npcIdsInBattle.length - retainedCorpseIds.length} NPC(s) removed, ${retainedCorpseIds.length} defeated NPC(s) retained for loot).`,
+      metadata: { battleId, memberCount: memberIdsInBattle.length, npcCount: npcIdsInBattle.length, retainedCorpseIds },
     });
     await persistRuntimeState(code, state);
 
