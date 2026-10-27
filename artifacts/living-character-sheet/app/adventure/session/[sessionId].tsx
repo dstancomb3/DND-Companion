@@ -100,6 +100,7 @@ import {
   type CombatNpcCoreStats,
   type CombatNpcDummyState,
   type CombatNpcStatKey,
+  type CombatNpcGearItem,
   type PartyCombatState,
   type PartyRollRequest,
 } from "@/utils/partyApi";
@@ -250,10 +251,38 @@ const DEFAULT_VISIBLE_MONSTER_STATS: CombatNpcStatKey[] = [
   "charisma",
 ];
 
+function buildMonsterNpcAttacks(monster: CompendiumMonster): CombatNpcGearItem[] {
+  const actions = monster.actions ?? [];
+  return actions.flatMap((action, index) => {
+    const description = action.desc ?? "";
+    const bonus = /(?:Melee|Ranged) (?:Weapon|Spell) Attack:\\s*([+-]\\d+) to hit/i.exec(description);
+    const roll = /(?:Hit:\\s*\\d+\\s*\\()?\\b(\\d+d(?:4|6|8|10|12)(?:\\s*[+-]\\s*\\d+)?)\\)?\\s*(\\w+) damage/i.exec(description);
+    const distance = /reach\\s*(\\d+)\\s*ft/i.exec(description);
+    const ranged = /range\\s*(\\d+)(?:\\s*\\/\\s*\\d+)?\\s*ft/i.exec(description);
+    if (!bonus || !roll || (!distance && !ranged)) return [];
+    return [{
+      id: `monster-action-${index}`, name: action.name, category: "weapon" as const,
+      equipped: true, attackBonus: Number(bonus[1]),
+      damageDice: roll[1]!.replace(/\\s+/g, ""),
+      damageModifier: 0, damageType: roll[2]!.toLowerCase(),
+      range: distance ? `reach ${distance[1]} ft` : `${ranged![1]} ft`,
+    }];
+  }).slice(0, 8);
+}
+
+function basicNpcUnarmedAttack(strength: number): CombatNpcGearItem {
+  return { id: "intrinsic-unarmed-strike", name: "Unarmed Strike", category: "weapon",
+    equipped: true, attackBonus: Math.floor((strength - 10) / 2) + 2,
+    damageDice: "1d4", damageModifier: Math.floor((strength - 10) / 2),
+    damageType: "bludgeoning", range: "melee",
+    notes: "Fallback attack profile; replace with the creature's canonical attacks when available." };
+}
+
 async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnResponse["turn"]["encounterIntent"]): Promise<{
   coreStats: CombatNpcCoreStats;
   dummyState: CombatNpcDummyState;
   visibleStatKeys: CombatNpcStatKey[];
+  gear: CombatNpcGearItem[];
 }> {
   if (
     encounterIntent?.hostileCreatureSourceType === "monster"
@@ -276,6 +305,7 @@ async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnRespons
           coreStats: buildMonsterCoreStats(monster),
           dummyState: buildMonsterDummyState(monster),
           visibleStatKeys: DEFAULT_VISIBLE_MONSTER_STATS,
+          gear: buildMonsterNpcAttacks(monster).length ? buildMonsterNpcAttacks(monster) : [basicNpcUnarmedAttack(parseNumberish(monster.strength, 10))],
         };
       }
     } catch {
@@ -304,6 +334,7 @@ async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnRespons
       movementUsed: 0,
     },
     visibleStatKeys: ["speed", "initiativeBonus", "strength", "dexterity", "constitution"],
+    gear: [basicNpcUnarmedAttack(12)],
   };
 }
 
@@ -1833,6 +1864,7 @@ export default function AdventureSessionPlaceholderScreen() {
                       coreStats: seed.coreStats,
                       dummyState: seed.dummyState,
                       visibleStatKeys: seed.visibleStatKeys,
+                      gear: seed.gear,
                     });
                   },
                   createPartyRollRequest,
