@@ -99,7 +99,30 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         if (event.button !== 0) return;
         pointerDrag.current[field] = { id: event.pointerId, coordinate: horizontal ? event.clientX : event.clientY };
         setActiveDivider(field);
-        event.currentTarget.setPointerCapture?.(event.pointerId);
+        // React Native Web may not forward pointermove to the same View while
+        // its layout changes. Listen at window level for the full drag instead.
+        const onMove = (move: PointerEvent) => {
+          const drag = pointerDrag.current[field];
+          if (!drag || drag.id !== event.pointerId) return;
+          const coordinate = horizontal ? move.clientX : move.clientY;
+          const delta = coordinate - drag.coordinate;
+          drag.coordinate = coordinate;
+          if (delta) onDelta(delta * direction);
+        };
+        const finish = (up: PointerEvent) => {
+          onMove(up);
+          if (pointerDrag.current[field]?.id === event.pointerId) {
+            delete pointerDrag.current[field];
+            setActiveDivider(null);
+            commitResize();
+          }
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", finish);
+          window.removeEventListener("pointercancel", finish);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", finish);
+        window.addEventListener("pointercancel", finish);
         event.preventDefault?.();
       },
       onPointerMove: (event: any) => {
