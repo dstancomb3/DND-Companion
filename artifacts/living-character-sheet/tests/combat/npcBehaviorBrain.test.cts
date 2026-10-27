@@ -25,9 +25,9 @@ test("behavior profiles derive from NPC characterization", () => {
 test("low-health cautious combatants retreat", () => {
   assert.equal(planNpcBehavior({ profile: "cautious", readiness, hpFraction: 0.2, commandSeed: "1" }).kind, "retreat");
 });
-test("NPCs with no legal actions require adjudication", () => {
+test("NPCs with no legal attack propose an approach rather than a fake hit", () => {
   const blocked = { status: "needs_adjudication", npcId: "guard", battleId: "battle", reason: "no_valid_attack" };
-  assert.equal(planNpcBehavior({ profile: "aggressive", readiness: blocked, commandSeed: "1" }).kind, "hold");
+  assert.equal(planNpcBehavior({ profile: "aggressive", readiness: blocked, commandSeed: "1" }).kind, "reposition");
 });
 
 test("unavailable attacks prompt profile-specific nonattack intentions", () => {
