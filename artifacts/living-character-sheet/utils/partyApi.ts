@@ -480,6 +480,7 @@ export const confirmEncounterDistances = hostApi.confirmEncounterDistances;
 export const confirmEncounterPositions = hostApi.confirmEncounterPositions;
 export const hasLocalPartyHostCapability = hostApi.hasLocalHostCapability;
 export const executeNpcWeaponTurn = hostApi.executeNpcWeaponTurn;
+export const adjudicateNpcTurn = hostApi.adjudicateNpcTurn;
 
 export type CreateCombatNpcPayload = {
   name: string;
