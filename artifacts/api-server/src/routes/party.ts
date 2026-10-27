@@ -200,6 +200,7 @@ interface RestRequest {
   resolvedAt?: string;
   resolvedBy?: string;
   acknowledgements: string[];
+  provisions?: { enabled: boolean; itemIds: string[] };
 }
 
 interface PartyMemberCombatStats {
@@ -3198,7 +3199,24 @@ router.post("/party/:code/rest-requests", async (req, res) => {
       return;
     }
 
+    // Provisions are strictly opt-in; requesting a rest never consumes items.
+    const provisionsInput = req.body?.provisions;
+    if (provisionsInput !== undefined && (
+      !provisionsInput || typeof provisionsInput !== "object" ||
+      typeof provisionsInput.enabled !== "boolean" ||
+      !Array.isArray(provisionsInput.itemIds) ||
+      provisionsInput.itemIds.length > 30 ||
+      provisionsInput.itemIds.some((id: unknown) => typeof id !== "string" || !id.trim() || id.length > 128) ||
+      new Set(provisionsInput.itemIds).size !== provisionsInput.itemIds.length ||
+      (!provisionsInput.enabled && provisionsInput.itemIds.length > 0)
+    )) {
+      res.status(400).json({ code: "invalid_rest_provisions",
+        error: "Provisions must be explicitly enabled and contain unique, bounded inventory IDs." });
+      return;
+    }
     const request: RestRequest = {
+      ...(provisionsInput ? { provisions: { enabled: provisionsInput.enabled,
+        itemIds: provisionsInput.itemIds } } : {}),
       id: generateId(),
       restType,
       requestedByMemberId: memberId,
