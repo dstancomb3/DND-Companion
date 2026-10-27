@@ -93,14 +93,44 @@ export function buildConfirmedPlayerAttackNarration(input: {
   const targets = affected.map(id => names.get(id) ?? "the target");
   const destination = targets.length === 1 ? targets[0] : targets.join(", ");
   const style = styleForWeapon(input.attackName);
-  const opening = pick(result.commandId + ":opening", [
-    `${input.actorName} shifts their stance, watching ${destination} for an opening.`,
-    `${input.actorName} turns toward ${destination} and commits to the exchange.`,
-    `With ${destination} in sight, ${input.actorName} moves to strike.`,
-    `${input.actorName} measures the distance to ${destination}, then acts.`,
-  ]);
-  const movement = pick(result.commandId + ":weapon", motions[style]);
-  const action = `Using ${input.attackName}, ${input.actorName} ${movement}.`;
+  const gestures: Record<ReturnType<typeof styleForWeapon>, readonly string[]> = {
+    blunt: [
+      `sweeps the ${input.attackName} toward ${destination} in a sharp arc`,
+      `steps into range and drives the ${input.attackName} at ${destination}`,
+      `turns into a heavy swing with the ${input.attackName}, aiming for ${destination}`,
+    ],
+    blade: [
+      `slashes toward ${destination} with the ${input.attackName}`,
+      `lunges at ${destination}, leading with the ${input.attackName}`,
+      `cuts across ${destination}'s guard with the ${input.attackName}`,
+    ],
+    pierce: [
+      `thrusts the ${input.attackName} toward ${destination}`,
+      `feints, then drives the ${input.attackName} at ${destination}`,
+      `steps forward and jabs at ${destination} with the ${input.attackName}`,
+    ],
+    ranged: [
+      `takes aim at ${destination} and fires the ${input.attackName}`,
+      `tracks ${destination} and releases a shot from the ${input.attackName}`,
+      `steadies the ${input.attackName} before firing at ${destination}`,
+    ],
+    unarmed: [
+      `closes the distance and strikes at ${destination}`,
+      `steps inside ${destination}'s reach and throws a quick blow`,
+      `shifts their weight into a sharp strike against ${destination}`,
+    ],
+    magic: [
+      `directs ${input.attackName} toward ${destination}`,
+      `channels ${input.attackName} and releases it at ${destination}`,
+      `focuses their magic into ${input.attackName}, aimed at ${destination}`,
+    ],
+    generic: [
+      `moves against ${destination} with ${input.attackName}`,
+      `commits to a swift ${input.attackName} against ${destination}`,
+      `presses forward with ${input.attackName}, targeting ${destination}`,
+    ],
+  };
+  const action = `${input.actorName} ${pick(result.commandId + ":action", gestures[style])}.`;
   const defeatedByTarget = new Map(receipt.targetResults?.filter(row => row.status === "applied" && typeof row.defeated === "boolean").map(row => [row.targetId, row.defeated]) ?? []);
   const details = rows.length
     ? rows.map(row => describeOutcome(row, names.get(row.targetId) ?? "the target", result.commandId + ":" + row.targetId, defeatedByTarget.get(row.targetId))).join(" ")
@@ -111,5 +141,5 @@ export function buildConfirmedPlayerAttackNarration(input: {
     /\b(fog|mist)\b/.test(scene) ? "The figures move through the haze." :
     /\b(fire|flames|burning)\b/.test(scene) ? "Firelight flickers across the battlefield." :
     /\b(darkness|torchlight|shadows)\b/.test(scene) ? "The movement cuts across shifting shadows." : "";
-  return `${atmosphere ? atmosphere + " " : ""}${opening} ${action} ${details}`;
+  return `${atmosphere ? atmosphere + " " : ""}${action} ${details}`;
 }
