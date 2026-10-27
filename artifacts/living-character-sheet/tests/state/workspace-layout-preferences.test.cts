@@ -10,7 +10,7 @@ let write = async (key: string, value: string) => { stored.set(key, value); };
 const originalLoad = Module._load; let Shell: any, usePreferences: any;
 try {
   Module._load = function(name: string, ...args: unknown[]) {
-    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TouchableOpacity: "Button", PanResponder: { create: () => ({ panHandlers: {} }) }, TextInput: "Input", StyleSheet: { create: (x: any) => x } };
+    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TouchableOpacity: "Button", PanResponder: { create: () => ({ panHandlers: {} }) }, Platform: { OS: "test" }, TextInput: "Input", StyleSheet: { create: (x: any) => x } };
     if (name === "@/hooks/useColors") return { useColors: () => ({}) };
     if (name === "@react-native-async-storage/async-storage") return { getItem: (key: string) => read(key), setItem: (key: string, value: string) => write(key, value) };
     return originalLoad.call(this, name, ...args);
