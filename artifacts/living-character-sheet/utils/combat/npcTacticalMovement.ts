@@ -26,10 +26,18 @@ export function planNpcTacticalMovement(input: {
   if (!Number.isFinite(xFeet) || !Number.isFinite(yFeet)) return null;
   // A straight-line move is only safe to propose when its endpoint is free.
   // In the absence of a map/pathfinder, do not teleport into occupied space.
-  const destinationOccupied = eligible.some(p =>
-    p.combatantId !== input.npcId &&
-    Math.hypot(p.xFeet - xFeet, p.yFeet - yFeet) < 5
-  );
-  if (destinationOccupied) return null;
+  const dx = xFeet - start.xFeet;
+  const dy = yFeet - start.yFeet;
+  const pathBlocked = eligible.some(p => {
+    if (p.combatantId === input.npcId) return false;
+    const t = Math.max(0, Math.min(1,
+      ((p.xFeet - start.xFeet) * dx + (p.yFeet - start.yFeet) * dy) /
+      (dx * dx + dy * dy)));
+    return Math.hypot(
+      p.xFeet - (start.xFeet + t * dx),
+      p.yFeet - (start.yFeet + t * dy),
+    ) < 5;
+  });
+  if (pathBlocked) return null;
   return { xFeet, yFeet };
 }
