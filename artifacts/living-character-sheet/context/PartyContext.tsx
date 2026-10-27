@@ -471,6 +471,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       currentCodeRef.current = code;
       currentMemberIdRef.current = mid;
       setMembers(result.members);
+      reconcileCommittedMemberHp(result.members, mid);
       await refreshCombatState(code);
       await persistSession(code, mid);
       startPolling(code);
@@ -480,7 +481,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id]);
+  }, [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id, reconcileCommittedMemberHp]);
 
   const joinExistingParty = useCallback(
     async (code: string, initial?: { characterId: string; snapshot: SyncPayload }) => {
@@ -498,6 +499,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         currentCodeRef.current = code;
         currentMemberIdRef.current = mid;
         setMembers(result.members);
+        reconcileCommittedMemberHp(result.members, mid);
         await refreshCombatState(code);
         await persistSession(code, mid);
         startPolling(code);
@@ -507,7 +509,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     },
-    [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id]
+    [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id, reconcileCommittedMemberHp]
   );
 
   const leaveCurrentParty = useCallback(async () => {
