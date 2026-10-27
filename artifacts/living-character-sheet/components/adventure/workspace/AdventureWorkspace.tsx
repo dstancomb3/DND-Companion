@@ -56,34 +56,55 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
       else if (hidden(bottom)) { frames[top].height = size.height - 56; frames[bottom].top = size.height - 44; frames[bottom].height = 44; }
     }
   }
+  const pointerDrag = useRef<Partial<Record<keyof WorkspaceSizing, { id: number; coordinate: number }>>>({});
+  const touchDrag = useRef<Partial<Record<keyof WorkspaceSizing, number>>>({});
   function adjust(field: keyof WorkspaceSizing, delta: number) {
     setDraft(current => current ? resizeWorkspaceLayout(current, field, delta) : current);
   }
   function separator(field: keyof WorkspaceSizing, title: string, horizontal: boolean, at: number) {
     if (!draft || !baseFrames) return null;
     const onDelta = (delta: number) => adjust(field, delta / (horizontal ? Math.max(size.width - 24, 1) : Math.max(size.height - 12, 1)));
+    const direction = horizontal && field === "right" ? -1 : 1;
     const responder = PanResponder.create({
-      onStartShouldSetPanResponder: () => true, onMoveShouldSetPanResponder: () => true,
-      onPanResponderRelease: (_, gesture) => onDelta(horizontal ? (field === "right" ? -gesture.dx : gesture.dx) : gesture.dy),
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => { touchDrag.current[field] = 0; },
+      onPanResponderMove: (_, gesture) => {
+        const position = horizontal ? gesture.dx : gesture.dy;
+        const previous = touchDrag.current[field] ?? 0;
+        touchDrag.current[field] = position;
+        onDelta((position - previous) * direction);
+      },
+      onPanResponderRelease: () => { delete touchDrag.current[field]; },
+      onPanResponderTerminate: () => { delete touchDrag.current[field]; },
     });
-    // RN PanResponder handles native touch; the web uses pointer capture so dragging
-    // continues even when the cursor moves outside the narrow divider.
-    let start: { id: number; coordinate: number } | null = null;
+    // Incremental deltas survive React rerenders as frames update during dragging.
     const webPointerHandlers: any = Platform.OS === "web" ? {
       onPointerDown: (event: any) => {
         if (event.button !== 0) return;
-        start = { id: event.pointerId, coordinate: horizontal ? event.clientX : event.clientY };
+        pointerDrag.current[field] = { id: event.pointerId, coordinate: horizontal ? event.clientX : event.clientY };
         event.currentTarget.setPointerCapture?.(event.pointerId);
         event.preventDefault?.();
       },
+      onPointerMove: (event: any) => {
+        const drag = pointerDrag.current[field];
+        if (!drag || drag.id !== event.pointerId) return;
+        const coordinate = horizontal ? event.clientX : event.clientY;
+        const delta = coordinate - drag.coordinate;
+        drag.coordinate = coordinate;
+        if (delta) onDelta(delta * direction);
+      },
       onPointerUp: (event: any) => {
-        if (!start || start.id !== event.pointerId) return;
-        const delta = (horizontal ? event.clientX : event.clientY) - start.coordinate;
-        start = null;
-        onDelta(horizontal && field === "right" ? -delta : delta);
+        if (pointerDrag.current[field]?.id !== event.pointerId) return;
+        const coordinate = horizontal ? event.clientX : event.clientY;
+        const delta = coordinate - pointerDrag.current[field]!.coordinate;
+        delete pointerDrag.current[field];
+        if (delta) onDelta(delta * direction);
         event.currentTarget.releasePointerCapture?.(event.pointerId);
       },
-      onPointerCancel: () => { start = null; },
+      onPointerCancel: (event: any) => {
+        if (pointerDrag.current[field]?.id === event.pointerId) delete pointerDrag.current[field];
+      },
     } : {};
     return <View key={field} {...(Platform.OS === "web" ? webPointerHandlers : responder.panHandlers)} accessible accessibilityRole="adjustable"
       accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((draft.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
