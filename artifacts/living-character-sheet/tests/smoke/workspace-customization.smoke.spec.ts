@@ -18,6 +18,7 @@ test("[smoke:adventure] directly resize, swap, replace and restore workspace", a
   await expect(page.getByRole("button", { name: "Customize layout" })).toHaveCount(0);
   const input = page.getByPlaceholder("Tell the DM what you do next");
   await input.fill("I examine the door");
+  await expect(page.getByText("Loading Companion", { exact: true })).toHaveCount(0);
   const before = await box("narrative");
   const edge = page.getByLabel("Resize left column", { exact: true });
   const rect = await edge.boundingBox();
