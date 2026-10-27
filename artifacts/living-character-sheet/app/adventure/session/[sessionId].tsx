@@ -2097,9 +2097,7 @@ export default function AdventureSessionPlaceholderScreen() {
         />
     ) },
     actions: { title: "Your next action",
-      footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
-      content: (
-      <>
+      toolbar: !isCampaignScaffold ? <View style={{ gap: 6 }}>
         {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
           <View onLayout={event => { pendingRollYRef.current = event.nativeEvent.layout.y; }} style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
             <View style={styles.rollPromptHeaderRow}>
@@ -2138,6 +2136,36 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
+
+        {shouldShowEncounterSnapshot ? <>
+          <Text style={{ color: c.mutedForeground, fontWeight: "700", fontSize: 11 }}>COMBAT ACTIONS</Text>
+            <View style={styles.composerAttackTabs}>
+              {([
+                ["attack", "Attack", "crosshair", availableAttackGroups.length > 0],
+                ["items", "Items", "package", encounterConsumables.length > 0],
+                ["actions", "Actions", "zap", encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0],
+                ["bonus", "Bonus", "plus-circle", encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0],
+                ["resources", "Resources", "activity", resources.length > 0],
+              ] as const).filter(([key]) => availableCombatCategories.includes(key)).map(([key, label, iconName]) => (
+                <TouchableOpacity key={key} accessibilityRole="button"
+                  accessibilityLabel={`Show ${label.toLowerCase()} options`}
+                  accessibilityState={{ selected: activeCombatCategory === key }}
+                  onPress={() => setCombatCategory(key)}
+                  style={[styles.composerAttackTab, {
+                    borderColor: combatCategory === key ? c.primary : c.border,
+                    backgroundColor: combatCategory === key ? c.primary + "1A" : c.background,
+                  }]}>
+                  <Feather name={iconName} size={15} color={combatCategory === key ? c.primary : c.foreground} />
+                  <Text style={{ color: combatCategory === key ? c.primary : c.foreground, fontWeight: "700" }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+        </> : null}
+      </View> : undefined,
+      footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
+      content: (
+      <>
       <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
         {!isCampaignScaffold && activeOneOffBattleId ? (
           <>
@@ -2415,27 +2443,6 @@ export default function AdventureSessionPlaceholderScreen() {
               <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Choose an action</Text>
             </View>
 
-            <View style={styles.composerAttackTabs}>
-              {([
-                ["attack", "Attack", "crosshair", availableAttackGroups.length > 0],
-                ["items", "Items", "package", encounterConsumables.length > 0],
-                ["actions", "Actions", "zap", encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0],
-                ["bonus", "Bonus", "plus-circle", encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0],
-                ["resources", "Resources", "activity", resources.length > 0],
-              ] as const).filter(([key]) => availableCombatCategories.includes(key)).map(([key, label, iconName]) => (
-                <TouchableOpacity key={key} accessibilityRole="button"
-                  accessibilityLabel={`Show ${label.toLowerCase()} options`}
-                  accessibilityState={{ selected: activeCombatCategory === key }}
-                  onPress={() => setCombatCategory(key)}
-                  style={[styles.composerAttackTab, {
-                    borderColor: combatCategory === key ? c.primary : c.border,
-                    backgroundColor: combatCategory === key ? c.primary + "1A" : c.background,
-                  }]}>
-                  <Feather name={iconName} size={15} color={combatCategory === key ? c.primary : c.foreground} />
-                  <Text style={{ color: combatCategory === key ? c.primary : c.foreground, fontWeight: "700" }}>{label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
             {!canUseOneOffCombatActions ? (
               <Text accessibilityRole="text" style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
                 {currentOneOffTurnId ? "Another combatant is taking their turn. Your actions are available when your turn begins." : "Waiting for the current turn to be established."}
