@@ -2434,6 +2434,10 @@ router.post("/party/:code/end-turn", async (req, res) => {
     }
 
     const previousTurnId = state.currentTurnIdByBattle[requestedBattleId] ?? null;
+    if (req.body?.expectedCurrentTurnId !== undefined && (access.role !== "host" || req.body.expectedCurrentTurnId !== previousTurnId)) {
+      res.status(409).json({ code: "turn_changed", error: "The expected combatant is no longer taking this turn." });
+      return;
+    }
     const idx = previousTurnId ? battleTurnOrder.indexOf(previousTurnId) : -1;
     const nextIdx = idx >= 0 ? (idx + 1) % battleTurnOrder.length : 0;
     state.currentTurnIdByBattle[requestedBattleId] = battleTurnOrder[nextIdx];
