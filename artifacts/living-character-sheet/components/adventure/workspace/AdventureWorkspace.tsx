@@ -155,12 +155,12 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   }), [frames]);
   return (
     <View style={styles.root}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingBottom: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: 6, rowGap: 4, paddingBottom: 5 }}>
         {button("Simplify", () => { setDraft(null); setFocusExpanded([]); update(current => ({ ...current, simplify: true })); }, !ready, preferences.simplify)}
         {(["balanced", "immersive", "tactical", ...(preferences.custom ? ["custom" as const] : [])] as const).map(preset => button(preset === "custom" ? "My layout" : preset[0].toUpperCase() + preset.slice(1), () => { setDraft(null); setFocusExpanded([]); update(current => ({ ...selectWorkspacePreset(current, preset), simplify: false })); }, !ready, preferences.selected === preset))}
         {button("Reset layout", () => update(current => ({ ...saveCustomWorkspace(current, presetWorkspaceLayout()), simplify: false })), !ready)}
+        {statusSummary ? <Text accessibilityLiveRegion="polite" numberOfLines={1} style={{ color: c.foreground, fontSize: 12, marginLeft: 8, flexShrink: 1 }}>{statusSummary}</Text> : null}
       </View>
-      {statusSummary ? <Text accessibilityLiveRegion="polite" style={{ color: c.foreground, fontSize: 12, marginBottom: 8 }}>{statusSummary}</Text> : null}
 
       {error ? <View><Text accessibilityRole="alert" style={{ color: c.destructive }}>{error}</Text>{button("Retry layout storage", retry)}</View> : null}
       <View testID="adventure-workspace" style={styles.root} onLayout={event => setSize(event.nativeEvent.layout)}>
