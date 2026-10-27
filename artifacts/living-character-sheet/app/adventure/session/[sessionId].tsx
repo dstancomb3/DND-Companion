@@ -88,6 +88,8 @@ import {
   collectDefeatedNpcLoot,
   claimPartyLootAssignment,
   endPartyTurnForBattle,
+  adjudicateNpcTurn,
+  executeNpcWeaponTurn,
   type PartyRestType,
   createPartyRollRequest,
   fetchPartyMembers,
@@ -607,19 +609,60 @@ export default function AdventureSessionPlaceholderScreen() {
       readiness: plan, hpFraction, commandSeed: turnKey,
     });
 
-    // A tactical proposal does not authorize an attack. Unknown range or LOS
-    // must never be promoted to host_DM-confirmed geometry on the client's guess.
-    const fallback = behavior.kind === "attack"
-      ? `${npcTurnStatus.npcName} holds position, looking for a clear line of attack.`
-      : behavior.kind === "retreat"
-        ? `${npcTurnStatus.npcName} hesitates and looks for a safer position.`
-        : `${npcTurnStatus.npcName} holds its action this round.`;
+    // The AI DM supplies a bounded *spatial ruling*, not damage or dice.
+    // The host-only executor revalidates the current turn, weapon, and target.
+    const fallback = behavior.kind === "retreat"
+      ? `${npcTurnStatus.npcName} looks for an escape route and holds their action.`
+      : behavior.kind === "seek_cover"
+        ? `${npcTurnStatus.npcName} guards their position, looking for cover.`
+        : behavior.kind === "reposition"
+          ? `${npcTurnStatus.npcName} shifts their footing, seeking a better opening.`
+          : `${npcTurnStatus.npcName} holds position this turn.`;
     void (async () => {
       try {
         setNpcTurnAutomationError("");
+        if (behavior.kind === "attack" && plan.status === "ready" && npc && revision >= 1) {
+          const recentScene = [...entries].reverse().find(entry =>
+            entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
+          const choices = plan.choices.map(choice => ({
+            weaponId: choice.weaponId,
+            weaponName: choice.weaponName,
+            targetMemberId: choice.targetId,
+            targetName: members.find(member => member.id === choice.targetId)?.characterName ?? "Adventurer",
+            range: npc.gear?.find(gear => gear.id === choice.weaponId)?.range ?? "",
+          })).filter(choice => !!choice.range).slice(0, 24);
+          if (choices.length) {
+            const adjudication = await adjudicateNpcTurn(partyCode, {
+              battleId: activeOneOffBattleId, npcId: npc.id, npcName: npc.name,
+              profile: "aggressive", sceneText: recentScene.slice(0, 3500), choices,
+            });
+            const legalChoice = choices.find(choice =>
+              choice.weaponId === adjudication.weaponId && choice.targetMemberId === adjudication.targetMemberId);
+            if (adjudication.kind === "attack" && legalChoice &&
+                typeof adjudication.distanceFeet === "number") {
+              const committed = await executeNpcWeaponTurn(partyCode, {
+                commandId: `ai-npc:${npc.id.slice(0, 35)}:${revision}`,
+                battleId: activeOneOffBattleId, npcId: npc.id,
+                weaponId: legalChoice.weaponId, targetMemberId: legalChoice.targetMemberId,
+                expectedRevision: revision,
+                spatialAdjudication: { source: "host_dm", distanceFeet: adjudication.distanceFeet, clearLineOfSight: true },
+              });
+              await refreshCombatState(partyCode);
+              if (!committed.replayed) {
+                const receipt = committed.receipt;
+                const description = receipt.hit
+                  ? `${npc.name} attacks ${legalChoice.targetName} with ${legalChoice.weaponName}. ${receipt.critical ? "A critical hit! " : ""}The blow lands${receipt.damageToHp ? `, dealing ${receipt.damageToHp} ${receipt.damageType} damage` : ", but causes no HP loss"}.`
+                  : `${npc.name} attacks ${legalChoice.targetName} with ${legalChoice.weaponName}, but the strike misses.`;
+                setEntries(previous => previous.some(entry => entry.id === `npc-action:${receipt.commandId}`) ? previous :
+                  [...previous, { id: `npc-action:${receipt.commandId}`, role: "dm" as const, text: description }]);
+              }
+              return;
+            }
+          }
+        }
         await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true, npcTurnStatus.npcId);
         await refreshCombatState(partyCode);
-        setEntries(previous => [...previous, {
+        setEntries(previous => previous.some(entry => entry.id === `npc-hold:${turnKey}`) ? previous : [...previous, {
           id: `npc-hold:${turnKey}`, role: "dm" as const, text: fallback,
         }]);
       } catch (error) {
@@ -627,7 +670,7 @@ export default function AdventureSessionPlaceholderScreen() {
       }
     })();
   }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
-    npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState, npcTurnRetryNonce]);
+    npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState, npcTurnRetryNonce, entries]);
 
   const canUseOneOffCombatActions = !activeOneOffBattleId || (
     Boolean(memberId) && currentOneOffTurnId === memberId
