@@ -660,6 +660,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       '{"dmText":"...","choices":["...","...","..."],"stateTags":["..."],"itemChanges":[],"encounterIntent":null,"adjudicationRequests":[]}',
       "",
       "- dmText: 3-5 sentences, present tense.",
+      "- Only act upon creatures established in the current story or an explicitly narrated discovery. A player declaring an attack against an unseen or unintroduced creature does NOT create that creature. Explain what is actually visible; do not create an encounterIntent just to satisfy an attack declaration.",
       "- choices: 2-3 options, each 4-10 words.",
       "- stateTags: 1-4 tags from: tension, exploration, social, combat_risk, chase, puzzle, trap, negotiation, discovery.",
       '- itemChanges: array of item mutations this turn. Each entry: {"action":"consume"|"add"|"remove","name":"item name","quantity":1}.',
@@ -677,24 +678,33 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
     ].filter(Boolean).join("\n\n");
   }
 
-  const completion = await getOpenAI().chat.completions.create({
-    model: ADVENTURE_CAMPAIGN_TURN_MODEL,
-    max_completion_tokens: 1200,
-    temperature: isKickoff || isPrologueTransition ? 0.9 : 0.7,
-    top_p: 0.95,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("AI returned invalid JSON for campaign turn response.");
+  // JSON mode prevents markdown fences and free-form prose from breaking turns.
+  // A bounded retry covers incomplete responses, including token truncation.
+  let parsed: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const completion = await getOpenAI().chat.completions.create({
+      model: ADVENTURE_CAMPAIGN_TURN_MODEL,
+      response_format: { type: "json_object" },
+      max_completion_tokens: 2200,
+      temperature: attempt === 0 ? (isKickoff || isPrologueTransition ? 0.8 : 0.55) : 0.2,
+      messages: [
+        { role: "system", content: systemPrompt + "\\nAlways return a single syntactically valid JSON object, never markdown." },
+        { role: "user", content: userPrompt },
+        ...(attempt ? [{ role: "user" as const, content: "The previous answer could not be parsed. Return the full, complete JSON object only." }] : []),
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "";
+    try {
+      const candidate: unknown = JSON.parse(raw);
+      if (candidate && typeof candidate === "object" && !Array.isArray(candidate) &&
+          typeof (candidate as Record<string, unknown>).dmText === "string" &&
+          (candidate as Record<string, unknown>).dmText) {
+        parsed = candidate;
+        break;
+      }
+    } catch { /* Retry once, without returning invalid content to the player. */ }
   }
+  if (!parsed) throw new Error("The DM response was incomplete or malformed after retry. Please try the action again.");
 
   const parsedRecord = typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : null;
   const dmText = (parsedRecord && typeof parsedRecord.dmText === "string" ? parsedRecord.dmText : "").trim();
