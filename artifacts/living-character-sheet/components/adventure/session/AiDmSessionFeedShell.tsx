@@ -10,6 +10,7 @@ interface AiDmSessionFeedShellProps {
   campaignMode?: boolean;
   showSystemComments?: boolean;
   onToggleSystemComments?: () => void;
+  onLootNpc?: (npcId: string) => void;
   isStreaming?: boolean;
   streamingText?: string;
 }
