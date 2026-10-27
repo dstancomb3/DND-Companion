@@ -2171,7 +2171,7 @@ export default function AdventureSessionPlaceholderScreen() {
       footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
       content: (
       <>
-      {!isCampaignScaffold && (activeOneOffBattleId || pendingRollRequests.length > 0) ? null : <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
+      <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
             <AiDmSessionInputComposer
               onSubmit={handleInputSubmit}
               isPending={isCampaignRuntimeTurnPending}
@@ -2197,7 +2197,7 @@ export default function AdventureSessionPlaceholderScreen() {
                 <Text style={{ color: c.foreground }}>Retry connection</Text>
               </TouchableOpacity> : null}
             </View> : null}
-      </View>}
+      </View>
 
         {isCampaignScaffold && isCampaignArchiveHydrated && !hasCampaignConversationEntry && !isStreamingResponse && !isCampaignRuntimeTurnPending ? (
           <View style={[styles.kickoffCard, { borderColor: c.border, backgroundColor: c.card }]}>
