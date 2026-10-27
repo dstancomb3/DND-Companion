@@ -89,6 +89,17 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
     async rollNpcInitiative(code: string, npcId: string, initiativeRoll: number, initiativeBonus?: number): Promise<{ initiativeTotal: number }> {
       return request(`/party/${code}/combat-npcs/${npcId}/initiative`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify({ initiativeRoll, initiativeBonus }) });
     },
+    async adjudicateNpcTurn(code: string, payload: {
+      battleId: string; npcId: string; npcName: string;
+      profile: "aggressive" | "cautious" | "defensive" | "sneaky" | "passive";
+      sceneText: string;
+      choices: Array<{ weaponId: string; weaponName: string; targetMemberId: string; targetName: string; range: string }>;
+    }): Promise<{ ok: true; kind: "attack" | "hold"; weaponId?: string; targetMemberId?: string; distanceFeet?: number; reason: string }> {
+      return request("/adventure/npc-turn-adjudication", {
+        method: "POST", headers: await encounterHeaders(code, "adjudicate NPC turns"),
+        body: JSON.stringify({ partyCode: code, ...payload }),
+      });
+    },
     async executeNpcWeaponTurn(code: string, payload: {
       commandId: string; battleId: string; npcId: string; weaponId: string;
       targetMemberId: string; expectedRevision: number;
