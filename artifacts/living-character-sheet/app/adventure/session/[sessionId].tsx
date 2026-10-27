@@ -2301,8 +2301,9 @@ export default function AdventureSessionPlaceholderScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-                {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
-                  <AttackCard key={attack.id} attack={attack} compact pinned={attack.pinned === true}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "flex-start" }}>
+                  {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
+                  <View key={attack.id} style={{ width: "48%", minWidth: 245, flexGrow: 1 }}><AttackCard attack={attack} compact pinned={attack.pinned === true}
                     onResolved={result => {
                       const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name,
                         result, targets: (sharedState?.combatNpcs ?? []).map(npc => ({ id: npc.id, name: npcNameOverridesById[npc.id] ?? npc.name })) });
@@ -2310,8 +2311,9 @@ export default function AdventureSessionPlaceholderScreen() {
                       const id = `confirmed-attack:${result.commandId}`;
                       setEntries(previous => previous.some(entry => entry.id === id) ? previous : [...previous,
                         { id, role: "dm", text }]);
-                    }} />
+                    }} /></View>
                 ))}
+                </View>
               </>
             ) : activeCombatCategory === "attack" ? (
               <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
