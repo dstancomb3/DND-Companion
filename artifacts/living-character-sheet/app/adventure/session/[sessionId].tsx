@@ -2151,16 +2151,24 @@ export default function AdventureSessionPlaceholderScreen() {
   }
 
   const lootNpc = (combatState?.combatNpcs ?? []).find(npc => npc.id === lootNpcId) ?? null;
-  async function transferDefeatedLoot(itemIds: string[]) {
-    if (!partyCode || !memberId || !lootNpcId) throw new Error("Reconnect to the encounter before looting.");
-    const reservation = await collectDefeatedNpcLoot(partyCode, lootNpcId, { memberId, itemIds });
-    for (const assignment of reservation.assignments) {
+  const pendingLootAssignments = (combatState?.lootAssignments ?? []).filter(assignment =>
+    assignment.assignedBy === `defeated_npc:${lootNpcId}` && assignment.targetMemberId === memberId &&
+    !inventory.some(item => item.lootClaimId === assignment.id));
+  async function deliverLootAssignments(assignments: readonly import("@/utils/partyApi").LootAssignment[]) {
+    if (!partyCode || !memberId) throw new Error("Reconnect before collecting loot.");
+    for (const assignment of assignments) {
+      if (inventory.some(item => item.lootClaimId === assignment.id)) continue;
       const claim = await claimPartyLootAssignment(partyCode, assignment.id, { memberId });
       const item = claim.assignment.item;
       addItem({ ...item.inventoryItem, name: item.name, quantity: item.quantity,
-        category: item.category, equipped: false } as Parameters<typeof addItem>[0]);
+        category: item.category, equipped: false, lootClaimId: assignment.id } as Parameters<typeof addItem>[0]);
     }
     await refreshCombatState(partyCode);
+  }
+  async function transferDefeatedLoot(itemIds: string[]) {
+    if (!partyCode || !memberId || !lootNpcId) throw new Error("Reconnect to the encounter before looting.");
+    const reservation = await collectDefeatedNpcLoot(partyCode, lootNpcId, { memberId, itemIds });
+    await deliverLootAssignments(reservation.assignments);
   }
 
   const workspaceSession = projectSessionView({
@@ -2585,7 +2593,7 @@ export default function AdventureSessionPlaceholderScreen() {
       </View>
       <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} alternatives={{ inventory: { "character-summary": { title: "Character Summary", content: <View style={{ gap: 8 }}><Text style={{ color: c.foreground, fontSize: 16, fontWeight: "700" }}>{character.name}</Text><Text style={{ color: c.foreground }}>{`${character.currentHp}/${character.maxHp} HP`}</Text><Text style={{ color: c.foreground }}>{`Initiative ${character.initiative ?? 0}`}</Text><Text style={{ color: c.mutedForeground }}>{conditions.length ? conditions.map(condition => condition.name).join(", ") : "No active conditions"}</Text></View> } } }} preferenceKey={`character:${character.id}`}
         statusSummary={`${character.currentHp}/${character.maxHp} HP${conditions.length ? ` · ${conditions.map(condition => condition.name).join(", ")}` : ""}${pendingRollRequests.length ? ` · ${pendingRollRequests.length} roll request(s)` : ""}${workspaceSession.encounter.status === "combat" ? workspaceSession.encounter.isPlayerTurn ? " · Your turn" : ` · ${workspaceSession.encounter.currentActorName ?? "Waiting for initiative"}` : ""}`} /></View>
-      <DefeatedNpcLootModal npc={lootNpc} onClose={() => setLootNpcId(null)} onTransfer={transferDefeatedLoot} />
+      <DefeatedNpcLootModal npc={lootNpc} pendingAssignments={pendingLootAssignments} onRecover={() => deliverLootAssignments(pendingLootAssignments)} onClose={() => setLootNpcId(null)} onTransfer={transferDefeatedLoot} />
     </SafeAreaView>
   );
 }
