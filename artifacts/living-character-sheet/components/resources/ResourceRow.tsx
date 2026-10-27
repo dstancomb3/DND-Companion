@@ -9,7 +9,8 @@ interface ResourceRowProps {
   resource: Resource;
   onIncrement: () => void;
   onDecrement: () => void;
-  onReset: () => void;
+  onReset?: () => void;
+  allowRestore?: boolean;
   /** Extra max from equipped item effects (e.g. +3 Ki from an amulet) */
   extraMax?: number;
 }
@@ -26,6 +27,7 @@ export function ResourceRow({
   onIncrement,
   onDecrement,
   onReset,
+  allowRestore = true,
   extraMax = 0,
 }: ResourceRowProps) {
   const c = useColors();
@@ -77,7 +79,7 @@ export function ResourceRow({
                 }
               }}
               onLongPress={() => {
-                if (isSpent) {
+                if (allowRestore && isSpent) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onIncrement();
                 }
@@ -105,9 +107,9 @@ export function ResourceRow({
         <Text style={[styles.resetLabel, { color: c.mutedForeground }]}>
           Resets on: {RESET_LABELS[resource.resetOn]}
         </Text>
-        <TouchableOpacity onPress={onReset} activeOpacity={0.7}>
+        {onReset ? <TouchableOpacity onPress={onReset} activeOpacity={0.7}>
           <Text style={[styles.resetBtn, { color: accentColor }]}>Reset</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> : null}
       </View>
     </View>
   );
