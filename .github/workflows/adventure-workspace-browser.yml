@@ -28,6 +28,8 @@ jobs:
           pnpm install --frozen-lockfile
       - name: Install Chromium
         run: pnpm --dir artifacts/living-character-sheet exec playwright install --with-deps chromium
+      - name: Prepare local browser-test environment
+        run: touch .env
       - name: Browser workspace acceptance
         run: cd artifacts/living-character-sheet && pnpm exec playwright test -c playwright.smoke.config.ts workspace-customization.smoke.spec.ts
       - name: Upload Playwright evidence on failure
