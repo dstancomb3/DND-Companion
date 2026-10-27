@@ -180,7 +180,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       return;
     }
 
-    resources.forEach((resource) => {
+    resources.filter(resource => resource.resetOn === "short_rest" || resource.resetOn === "long_rest").forEach((resource) => {
       resetResource(resource.id, resource.max + getResourceExtraMax(resource, resourceMaxBonuses));
     });
     rechargeSpellEffects("long_rest");
