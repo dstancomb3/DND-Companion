@@ -63,7 +63,8 @@ export async function requestLiveResponse(
           signal: controller.signal,
         });
 
-        clearTimeout(timeoutHandle);
+        // Keep the abort deadline active through body streaming and parsing.
+        // Headers can arrive promptly while the AI response body stalls indefinitely.
 
         // Check for network/parsing errors first
         if (!response.ok) {
