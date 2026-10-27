@@ -79,6 +79,7 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
                 </Text>
               ) : null}
               <Text style={[styles.body, { color: c.foreground }]}>{item.text}</Text>
+              {props.onLootNpc && item.defeatedNpcIds?.map(npcId => <TouchableOpacity key={npcId} accessibilityRole="button" accessibilityLabel="Loot defeated enemy" onPress={() => props.onLootNpc?.(npcId)} style={{ alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: c.primary }}><Text style={{ color: c.primary, fontWeight: "700" }}>Loot</Text></TouchableOpacity>)}
             </View>
           ))}
           
