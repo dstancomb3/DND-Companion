@@ -193,13 +193,22 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         commitResize();
       },
     } : {};
-    return <View key={field} {...(Platform.OS === "web" ? { ...webPointerHandlers, onPointerEnter: () => setActiveDivider(field), onPointerLeave: () => { if (!pointerDrag.current[field]) setActiveDivider(previous => previous === field ? null : previous); } } : responder.panHandlers)} accessible accessibilityRole="adjustable"
-      accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
+    const handleStyle = {{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: "transparent", alignItems: "center", justifyContent: "center", ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }};
+    const grip = activeDivider === field ? <View pointerEvents="none" style={{ backgroundColor: c.mutedForeground, opacity: 0.8, borderRadius: 3, ...(horizontal ? { width: 3, height: 34 } : { width: 34, height: 3 }) }} /> : null;
+    // Use a DOM element for the desktop drag surface: RN Web may not forward
+    // pointer handlers on its View wrapper reliably during rerenders.
+    if (Platform.OS === "web") return React.createElement("div", {
+      key: field, role: "slider", "aria-label": `Resize ${title}`,
+      "aria-valuenow": Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100),
+      ...webPointerHandlers,
+      style: { ...handleStyle, display: "flex" } as React.CSSProperties,
+    }, grip);
+    return <View key={field} {...responder.panHandlers} accessible accessibilityRole="adjustable"
+      accessibilityLabel={`Resize ${title}`}
+      accessibilityValue={{ text: `${Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
       accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
       onAccessibilityAction={event => { const delta = event.nativeEvent.actionName === "increment" ? 0.025 : -0.025; update(current => saveCustomWorkspace(current, resizeWorkspaceLayout(current.layout, field, delta))); }}
-      style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: "transparent", alignItems: "center", justifyContent: "center", ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }}>
-      {activeDivider === field ? <View pointerEvents="none" style={{ backgroundColor: c.mutedForeground, opacity: 0.8, borderRadius: 3, ...(horizontal ? { width: 3, height: 34 } : { width: 34, height: 3 }) }} /> : null}
-    </View>;
+      style={handleStyle}>{grip}</View>;
   }
   function toggle(id: WorkspacePanelId) {
     if (temporaryFocus) setFocusExpanded(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id]);
