@@ -585,11 +585,12 @@ export default function AdventureSessionPlaceholderScreen() {
   );
   const npcTurnProcessedRef = useRef<Set<string>>(new Set());
   const [npcTurnAutomationError, setNpcTurnAutomationError] = useState("");
+  const [npcTurnRetryNonce, setNpcTurnRetryNonce] = useState(0);
   React.useEffect(() => {
     if (isCampaignScaffold || !isOneOffSessionHydrated || !partyCode || !activeOneOffBattleId ||
         npcTurnStatus.kind !== "npc_turn" || !combatState || !hasPlayerConversationEntry) return;
     const revision = combatState.stateRevision ?? 0;
-    const turnKey = `${partyCode}:${activeOneOffBattleId}:${npcTurnStatus.npcId}:${revision}`;
+    const turnKey = `${partyCode}:${activeOneOffBattleId}:${npcTurnStatus.npcId}:${revision}:${npcTurnRetryNonce}`;
     if (npcTurnProcessedRef.current.has(turnKey)) return;
     npcTurnProcessedRef.current.add(turnKey);
 
@@ -622,7 +623,7 @@ export default function AdventureSessionPlaceholderScreen() {
       }
     })();
   }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
-    npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState]);
+    npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState, npcTurnRetryNonce]);
 
   const canUseOneOffCombatActions = !activeOneOffBattleId || (
     Boolean(memberId) && currentOneOffTurnId === memberId
@@ -2324,6 +2325,9 @@ export default function AdventureSessionPlaceholderScreen() {
             </Text>
             <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
               {npcTurnAutomationError ? `Automatic turn advance failed: ${npcTurnAutomationError}` : "The AI DM is resolving the NPC turn. Unverified attacks are held rather than applied."}
+            </Text>
+            {npcTurnAutomationError ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry NPC turn" onPress={() => setNpcTurnRetryNonce(value => value + 1)} style={{ alignSelf: "flex-start", padding: 8, borderWidth: 1, borderColor: c.primary, borderRadius: 8 }}><Text style={{ color: c.primary }}>Retry NPC turn</Text></TouchableOpacity> : null}
+            <Text style={{ display: "none" }}>
             </Text>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh NPC turn status"
               onPress={() => { if (partyCode) void refreshCombatState(partyCode); }}
