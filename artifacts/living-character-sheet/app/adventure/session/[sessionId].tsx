@@ -29,6 +29,8 @@ import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmComba
 import { AttackCard } from "@/components/attacks/AttackCard";
 import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
 import { getNpcTurnWaitingStatus } from "@/utils/combat/npcTurnWaitingStatus";
+import { planNpcAttackChoices } from "@/utils/combat/npcTurnReadiness";
+import { planNpcBehavior } from "@/utils/combat/npcBehaviorBrain";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
@@ -82,6 +84,7 @@ import { buildCampaignChoiceOptions } from "@/utils/adventure/aiDmCampaignChoice
 import {
   addCombatNpc,
   createPartyRestRequest,
+  endPartyTurnForBattle,
   type PartyRestType,
   createPartyRollRequest,
   fetchPartyMembers,
@@ -580,6 +583,47 @@ export default function AdventureSessionPlaceholderScreen() {
     () => getNpcTurnWaitingStatus(combatState, activeOneOffBattleId, members.map(m => m.id)),
     [combatState, activeOneOffBattleId, members],
   );
+  const npcTurnProcessedRef = useRef<Set<string>>(new Set());
+  const [npcTurnAutomationError, setNpcTurnAutomationError] = useState("");
+  React.useEffect(() => {
+    if (isCampaignScaffold || !isOneOffSessionHydrated || !partyCode || !activeOneOffBattleId ||
+        npcTurnStatus.kind !== "npc_turn" || !combatState || !hasPlayerConversationEntry) return;
+    const revision = combatState.stateRevision ?? 0;
+    const turnKey = `${partyCode}:${activeOneOffBattleId}:${npcTurnStatus.npcId}:${revision}`;
+    if (npcTurnProcessedRef.current.has(turnKey)) return;
+    npcTurnProcessedRef.current.add(turnKey);
+
+    const plan = planNpcAttackChoices(combatState, activeOneOffBattleId, members.map(member => member.id));
+    const npc = combatState.combatNpcs.find(candidate => candidate.id === npcTurnStatus.npcId);
+    const hpFraction = npc?.dummyState?.maxHp
+      ? npc.dummyState.currentHp / npc.dummyState.maxHp : 1;
+    const behavior = planNpcBehavior({
+      profile: npc?.disposition === "hostile" ? "aggressive" : "passive",
+      readiness: plan, hpFraction, commandSeed: turnKey,
+    });
+
+    // A tactical proposal does not authorize an attack. Unknown range or LOS
+    // must never be promoted to host_DM-confirmed geometry on the client's guess.
+    const fallback = behavior.kind === "attack"
+      ? `${npcTurnStatus.npcName} holds position, looking for a clear line of attack.`
+      : behavior.kind === "retreat"
+        ? `${npcTurnStatus.npcName} hesitates and looks for a safer position.`
+        : `${npcTurnStatus.npcName} holds its action this round.`;
+    void (async () => {
+      try {
+        setNpcTurnAutomationError("");
+        await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true);
+        await refreshCombatState(partyCode);
+        setEntries(previous => [...previous, {
+          id: `npc-hold:${turnKey}`, role: "dm" as const, text: fallback,
+        }]);
+      } catch (error) {
+        setNpcTurnAutomationError(error instanceof Error ? error.message : "NPC turn could not advance.");
+      }
+    })();
+  }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
+    npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState]);
+
   const canUseOneOffCombatActions = !activeOneOffBattleId || (
     Boolean(memberId) && currentOneOffTurnId === memberId
   );
