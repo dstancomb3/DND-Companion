@@ -281,6 +281,9 @@ export interface SyncPayload {
   currentHp: number;
   maxHp: number;
   tempHp: number;
+  /** Server HP observed before this character-side HP change. */
+  expectedCurrentHp?: number;
+  expectedTempHp?: number;
   armorClass: number;
   damageResistances?: string[];
   damageImmunities?: string[];
