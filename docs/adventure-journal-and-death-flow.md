@@ -44,3 +44,35 @@ Ensure player can inspect the death events before choosing; avoid permanent bloc
 - `docs/ai-dm-combat-convergence-plan.md`
 - `docs/testing/dev-one-off-lantern-watch.md`
 - `artifacts/living-character-sheet/context/CharacterContext.tsx` (death saves and ordinary-healing block for dead characters)
+
+## C. Death exit: waking from a vivid dream (approved presentation concept, pending implementation)
+
+When a **confirmed dead** character chooses **Quit Adventure**, show a cinematic, accessible transition rather than a plain route change:
+
+1. Preserve and close/leave only the character's session participation under the proper authority; store the session ending and cause-of-death receipt. Do not silently resurrect or change the persistent character's HP.
+2. Fade the active adventure narrative and controls smoothly to full black.
+3. Navigate to the character sheet **under** the black cover. The new sheet starts with a substantial Gaussian blur.
+4. As the black veil fades out, reveal the blurred sheet and a restrained text overlay: “You awaken suddenly from a very vivid dream.” Follow with a short, causally grounded sensory echo of the killing event.
+5. Ease the sheet blur down to zero as the text fades. Controls remain unavailable during the brief transition, then normal sheet interaction resumes. Provide reduced-motion alternative with no blur and a short static narrative, and allow Skip.
+
+Example death echoes (generated only from *committed cause-of-death facts*, never guessed):
+- Dragon breath: “For a moment, the scorched scent of the dragon still seems to cling to the air.”
+- Fatal fall: “Your legs tense as though the ground is still rushing up to meet you.”
+- Poison: “A bitter taste lingers at the back of your throat.”
+- Unknown cause: no invented monster or material; use a generic fading-memory line.
+
+**Crucial rules distinction:** the dream presentation is a cinematic epilogue, not proof the death was a dream in-world, not a free mechanical revival and not permission to resume a dead character at full health. If the intended product decision is that quitting a one-off *actually resets the character*, that requires an explicit separate noncanonical/dream-mode adventure setting and clear save semantics. Preserve real-campaign deaths until a legal revival is committed.
+
+Persist source session ID, character ID, confirmed ending, structured fatal event (cause, damage type, source, height for falls), and a presentation version; resume safely if interrupted. Do not expose private DM details through cause-of-death narration.
+
+## D. Fall damage: deterministic environmental hazard (implementation backlog)
+
+Rules baseline: 2014 and 2024 D&D 5e falling hazards deal **1d6 bludgeoning per full 10 feet**, maximum 20d6; landing causes Prone unless damage is avoided entirely. Apply the configured edition's supplementary rules (e.g. 2024 water reaction where eligible).
+
+Require a server-authoritative fall event with actor, start/end elevation or confirmed drop distance, landing surface, current encounter/session state, and event/command ID. Height must come from DM-confirmed environmental geometry or an explicit adjudication, not ungrounded AI narration.
+
+Resolution pipeline: validate fall and any prevention (flight, feather fall, hover, safe landing abilities), resolve permitted reactions, calculate damage dice and reductions/resistance/immunity, update temp HP/HP and death saves including massive damage where applicable, apply Prone when eligible, emit single committed event and narration receipt, then evaluate death or encounter consequences. The client must never deduct fall damage twice on retry.
+
+Test 0–9, 10, 30, 200, and >200 feet; water; prevented fall; resisted bludgeoning; temp HP; downed-at-zero damage; lethal massive damage; duplicate command; death-to-quit transition and fatal-fall epilogue. Vertical position is separate from two-dimensional encounter coordinates and cannot be inferred solely from them.
+
+**Status:** design captured; not a claim of implemented fall mechanics or exit animation.
