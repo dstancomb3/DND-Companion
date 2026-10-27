@@ -268,17 +268,17 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         if (processingRestRequestIdsRef.current.has(request.id)) continue;
         processingRestRequestIdsRef.current.add(request.id);
         try {
-          const provisionCheck = validateSelectedRestProvisions(request.provisions, inventory);
-          if (!provisionCheck.ok) {
-            console.warn("[PartyContext] Approved rest awaits valid provisions:", provisionCheck.reason);
-            continue;
-          }
-          // A stable receipt survives polling/reloads. This prevents ordinary
-          // reapplication after a successful local effect; server-side atomic
-          // inventory debit + recovery still requires a later authority pass.
+          // Read the receipt before checking inventory: previously consumed
+          // provisions may now have quantity zero after app restart.
           const receiptKey = `@party_rest_applied:${code}:${mid}:${request.id}`;
           const previouslyApplied = await AsyncStorage.getItem(receiptKey);
           if (!previouslyApplied) {
+            const provisionCheck = validateSelectedRestProvisions(request.provisions, inventory);
+            if (!provisionCheck.ok) {
+              console.warn("[PartyContext] Approved rest awaits valid provisions:", provisionCheck.reason);
+              continue;
+            }
+            // Local replay protection, not an atomic cross-device transaction.
             await AsyncStorage.setItem(receiptKey, "1");
             for (const provision of provisionCheck.debit)
               updateItem(provision.id, { quantity: provision.nextQuantity });
