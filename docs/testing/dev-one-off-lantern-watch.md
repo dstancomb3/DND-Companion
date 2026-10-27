@@ -56,3 +56,9 @@ The feature-status and implementation-log documents track older phased work and 
 - **Workspace:** resize browser acceptance remained red on the preceding checked run. Use actual Playwright evidence, not only unit tests.
 
 This is a QA backlog, not a completion claim. The Lantern Watch one-off is a guided story seed, not a deterministic encounter fixture.
+
+### Rest-provision handoff update (2026-10-27)
+
+- Approved rests on a client now validate explicitly selected provision IDs against current food/water inventory, subtract one unit per selected item, and store a per-party/member/rest local replay marker before applying local rest recovery. Ordinary polling and reload retries skip already-marked rests.
+- This is **not exactly-once durable inventory delivery**. A crash between writing that marker and saving item/recovery changes can leave the result partially applied; other devices and server inventory are not committed transactionally. Server-owned inventory/recovery and a committed application receipt remain required before marking full rest provisioning complete.
+- If provision validation fails, the request remains unacknowledged for review rather than silently restoring resources or losing inventory.
