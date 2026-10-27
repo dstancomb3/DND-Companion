@@ -2190,7 +2190,6 @@ export default function AdventureSessionPlaceholderScreen() {
                 <Text style={{ color: c.foreground }}>Retry connection</Text>
               </TouchableOpacity> : null}
             </View> : null}
-          </>
       </View>}
 
         {isCampaignScaffold && isCampaignArchiveHydrated && !hasCampaignConversationEntry && !isStreamingResponse && !isCampaignRuntimeTurnPending ? (
