@@ -349,6 +349,7 @@ export function AttackCard({ attack, pinned = false, compact = false, onTogglePi
         eventMessage: `Attack: ${attack.name}`,
         eventMetadata: {
           attackName: attack.name,
+          targetIds: resolvedTargetIds,
           damageType: attack.damageType,
           attackBonus: attack.attackBonus,
         },
