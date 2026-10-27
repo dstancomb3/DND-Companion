@@ -581,6 +581,7 @@ export async function createPartyLootAssignments(
 }
 
 export const claimPartyLootAssignment = memberApi.claimPartyLootAssignment;
+export const collectDefeatedNpcLoot = memberApi.collectDefeatedNpcLoot;
 
 export const createPartyNoteAssignments = hostApi.createPartyNoteAssignments;
 
