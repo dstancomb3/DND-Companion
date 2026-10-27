@@ -18,16 +18,6 @@ function styleForWeapon(name: string): "blunt" | "blade" | "pierce" | "ranged" |
   return "generic";
 }
 
-const motions: Record<ReturnType<typeof styleForWeapon>, readonly string[]> = {
-  blunt: ["whips the weapon across in a tight arc", "turns their hips and drives the weapon forward", "brings the weapon down in a controlled sweep"],
-  blade: ["draws the edge across the opening", "cuts forward in one clean motion", "twists into a quick, measured slash"],
-  pierce: ["feints high, then thrusts into the opening", "drives the point forward", "steps in with a sudden, narrow thrust"],
-  ranged: ["steadies their aim and looses the shot", "tracks the movement and releases", "raises the weapon and fires"],
-  unarmed: ["darts inside their opponent's reach with a sharp strike", "shifts their weight into a quick punch", "steps close and throws a compact blow"],
-  magic: ["focuses the energy into a directed burst", "extends a hand and releases the spell", "sends the gathered magic toward the target"],
-  generic: ["commits to a swift attack", "moves into position and strikes", "takes the opening and attacks"],
-};
-
 function describeOutcome(row: CombatTargetResolutionResult, targetName: string, seed: string, defeated?: boolean): string {
   const hit = row.hitOutcome;
   if (hit.status === "miss") {
