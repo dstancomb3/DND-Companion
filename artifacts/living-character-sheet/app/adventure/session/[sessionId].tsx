@@ -589,6 +589,28 @@ export default function AdventureSessionPlaceholderScreen() {
     () => getNpcTurnWaitingStatus(combatState, activeOneOffBattleId, members.map(m => m.id)),
     [combatState, activeOneOffBattleId, members],
   );
+  const environmentTurnProcessedRef = useRef<Set<string>>(new Set());
+  const [environmentTurnError, setEnvironmentTurnError] = useState("");
+  React.useEffect(() => {
+    if (isCampaignScaffold || !isOneOffSessionHydrated || !partyCode || !activeOneOffBattleId ||
+        !combatState || currentOneOffTurnId !== combatState.environmentTurnId) return;
+    const key = `${partyCode}:${activeOneOffBattleId}:${combatState.stateRevision ?? 0}:environment`;
+    if (environmentTurnProcessedRef.current.has(key)) return;
+    environmentTurnProcessedRef.current.add(key);
+    void (async () => {
+      try {
+        setEnvironmentTurnError("");
+        await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true, combatState.environmentTurnId);
+        await refreshCombatState(partyCode);
+        setEntries(previous => previous.some(entry => entry.id === `environment-turn:${key}`) ? previous :
+          [...previous, { id: `environment-turn:${key}`, role: "dm" as const,
+            text: "The battlefield settles for a moment as the next combatant prepares to act." }]);
+      } catch (error) {
+        setEnvironmentTurnError(error instanceof Error ? error.message : "Environment turn failed to advance.");
+      }
+    })();
+  }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
+    combatState, currentOneOffTurnId, refreshCombatState]);
   const npcTurnProcessedRef = useRef<Set<string>>(new Set());
   const [npcTurnAutomationError, setNpcTurnAutomationError] = useState("");
   const [lootNpcId, setLootNpcId] = useState<string | null>(null);
@@ -676,6 +698,7 @@ export default function AdventureSessionPlaceholderScreen() {
   }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
     npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState, npcTurnRetryNonce, entries]);
 
+  const isEnvironmentTurn = !!activeOneOffBattleId && currentOneOffTurnId === combatState?.environmentTurnId;
   const canUseOneOffCombatActions = !activeOneOffBattleId || (
     Boolean(memberId) && currentOneOffTurnId === memberId
   );
@@ -2391,6 +2414,18 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
+        {isEnvironmentTurn ? <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={{ color: c.foreground, fontWeight: "700" }}>Environment turn</Text>
+          <Text style={{ color: environmentTurnError ? c.destructive : c.mutedForeground }}>
+            {environmentTurnError ? `Automatic environment advance failed: ${environmentTurnError}` : "Advancing the encounter's environment phase…"}
+          </Text>
+          {environmentTurnError ? <TouchableOpacity accessibilityRole="button" onPress={() => {
+            environmentTurnProcessedRef.current.clear();
+            void endPartyTurnForBattle(partyCode!, activeOneOffBattleId!, true, combatState!.environmentTurnId)
+              .then(() => refreshCombatState(partyCode!)).then(() => setEnvironmentTurnError(""))
+              .catch(error => setEnvironmentTurnError(error instanceof Error ? error.message : "Retry failed."));
+          }}><Text style={{ color: c.primary }}>Retry environment turn</Text></TouchableOpacity> : null}
+        </View> : null}
         {!isCampaignScaffold && npcTurnStatus.kind === "npc_turn" ? (
           <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>
