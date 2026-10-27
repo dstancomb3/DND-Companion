@@ -123,6 +123,32 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
       onPointerCancel: (event: any) => {
         if (pointerDrag.current[field]?.id === event.pointerId) { delete pointerDrag.current[field]; setActiveDivider(null); }
       },
+      // RN Web versions may omit pointer callbacks on Views; ordinary mouse
+      // events provide the same incremental resize without changing mobile pan.
+      onMouseDown: (event: any) => {
+        if (event.button !== 0 || pointerDrag.current[field]) return;
+        pointerDrag.current[field] = { id: -1, coordinate: horizontal ? event.clientX : event.clientY };
+        setActiveDivider(field);
+        event.preventDefault?.();
+      },
+      onMouseMove: (event: any) => {
+        const drag = pointerDrag.current[field];
+        if (!drag || drag.id !== -1) return;
+        const coordinate = horizontal ? event.clientX : event.clientY;
+        const delta = coordinate - drag.coordinate;
+        drag.coordinate = coordinate;
+        if (delta) onDelta(delta * direction);
+      },
+      onMouseUp: (event: any) => {
+        const drag = pointerDrag.current[field];
+        if (!drag || drag.id !== -1) return;
+        const coordinate = horizontal ? event.clientX : event.clientY;
+        const delta = coordinate - drag.coordinate;
+        delete pointerDrag.current[field];
+        if (delta) onDelta(delta * direction);
+        setActiveDivider(null);
+        commitResize();
+      },
     } : {};
     return <View key={field} {...(Platform.OS === "web" ? { ...webPointerHandlers, onPointerEnter: () => setActiveDivider(field), onPointerLeave: () => { if (!pointerDrag.current[field]) setActiveDivider(previous => previous === field ? null : previous); } } : responder.panHandlers)} accessible accessibilityRole="adjustable"
       accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
