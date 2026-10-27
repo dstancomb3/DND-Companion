@@ -2638,7 +2638,7 @@ export default function AdventureSessionPlaceholderScreen() {
       {chapterLabel ? <Text style={{ color: c.foreground }}>{chapterLabel}</Text> : null}
       {!encounterGateVisibility && !workspaceSession.encounter.battleId ? <Text style={{ color: c.mutedForeground }}>No active encounter objective.</Text> : null}
     </> },
-    events: { title: "Event log", content: <SessionEventLogPanel events={sharedState?.eventLog ?? []} /> },
+    events: { title: "Event log", content: <SessionEventLogPanel events={sharedState?.eventLog ?? []} members={members} npcNames={sharedState?.combatNpcs ?? []} /> },
   };
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
