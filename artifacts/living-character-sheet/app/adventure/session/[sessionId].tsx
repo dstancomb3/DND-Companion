@@ -2372,7 +2372,7 @@ export default function AdventureSessionPlaceholderScreen() {
                   {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
                   <View key={attack.id} style={{ width: "48%", minWidth: 245, flexGrow: 1 }}><AttackCard attack={attack} compact pinned={attack.pinned === true}
                     onResolved={result => {
-                      const lastDmScene = [...entries].reverse().find(entry => entry.role === "dm")?.text ?? "";
+                      const lastDmScene = [...entries].reverse().find(entry => entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
                       const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name, sceneContext: lastDmScene,
                         result, targets: (sharedState?.combatNpcs ?? []).map(npc => ({ id: npc.id, name: npcNameOverridesById[npc.id] ?? npc.name })) });
                       if (!text) return;
