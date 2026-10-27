@@ -68,6 +68,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     restoreAllSpellSlots,
     clearConditionsOnRest,
     updateHp,
+    updateTempHp,
     dispatchRuleTrigger,
   } = useCharacter();
   const { settings, accentHex } = useAppSettings();
@@ -85,6 +86,29 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
   const currentCodeRef = useRef<string | null>(null);
   const currentMemberIdRef = useRef<string | null>(null);
   const processingRestRequestIdsRef = useRef<Set<string>>(new Set());
+  const localHpRef = useRef({ hp: character.currentHp, tempHp: character.tempHp ?? 0 });
+  localHpRef.current = { hp: character.currentHp, tempHp: character.tempHp ?? 0 };
+  const latestHpReceiptRef = useRef<string | null>(null);
+  const reconcileCommittedMemberHp = useCallback((results: PartyMemberSummary[], mid: string | null) => {
+    const own = results.find(member => member.id === mid);
+    if (!own || !Number.isFinite(own.currentHp) || !Number.isFinite(own.tempHp)) return;
+    const receipt = `${mid}:${own.updatedAt}:${own.currentHp}:${own.tempHp}`;
+    if (latestHpReceiptRef.current === receipt) return;
+    latestHpReceiptRef.current = receipt;
+    const delta = own.currentHp - localHpRef.current.hp;
+    if (delta) {
+      updateHp(delta, "ai");
+      if (delta < 0) triggerEffect("damage_flash");
+      else triggerEffect("heal_flash");
+      localHpRef.current.hp = own.currentHp;
+    }
+    if (own.tempHp !== localHpRef.current.tempHp) {
+      updateTempHp(own.tempHp);
+      localHpRef.current.tempHp = own.tempHp;
+      if (!delta && own.tempHp < (character.tempHp ?? 0)) triggerEffect("damage_flash");
+    }
+  }, [updateHp, updateTempHp, character.tempHp]);
+
   const combatStateRequestSeqRef = useRef(0);
   const latestCombatStateRef = useRef<{ revision: number; updatedAt: string }>({ revision: -1, updatedAt: "" });
 
@@ -264,6 +288,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     try {
       const result = await fetchPartyMembers(code);
       setMembers(result.members);
+      reconcileCommittedMemberHp(result.members, mid);
       setError(null);
       if (mid) {
         await syncApprovedRestRequests(code, mid);
@@ -276,7 +301,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       const e = err as Error;
       setError(e.message ?? "Failed to refresh party");
     }
-  }, [handleSessionEnded, isSessionGoneError, sessionEndedMessage, syncApprovedRestRequests]);
+  }, [handleSessionEnded, isSessionGoneError, sessionEndedMessage, syncApprovedRestRequests, reconcileCommittedMemberHp]);
 
   const startPolling = useCallback(
     (code: string) => {
@@ -287,6 +312,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         try {
           const result = await fetchPartyMembers(currentCodeRef.current);
           setMembers(result.members);
+          reconcileCommittedMemberHp(result.members, currentMemberIdRef.current);
           if (currentMemberIdRef.current) {
             await syncApprovedRestRequests(currentCodeRef.current, currentMemberIdRef.current);
           }
@@ -297,7 +323,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         }
       }, POLL_INTERVAL);
     },
-    [handleSessionEnded, isSessionGoneError, sessionEndedMessage, stopPolling, syncApprovedRestRequests]
+    [handleSessionEnded, isSessionGoneError, sessionEndedMessage, stopPolling, syncApprovedRestRequests, reconcileCommittedMemberHp]
   );
 
   useEffect(() => {
