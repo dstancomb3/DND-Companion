@@ -146,7 +146,7 @@ function buildOneOffOpeningBeat(input: {
   startInCombat: boolean;
   guidance: string;
 }): string {
-  const selectedScenario = /Scenario: (.*?)\\. Location: (.*?)\\. Flavor: (.*?)\\. Open in/.exec(input.guidance);
+  const selectedScenario = /Scenario: (.*?)\. Location: (.*?)\. Flavor: (.*?)\. Open in/.exec(input.guidance);
   if (selectedScenario) {
     const [, scenario, location, flavor] = selectedScenario;
     const place = location.split(" — ")[0].toLowerCase();
