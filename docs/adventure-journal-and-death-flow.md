@@ -76,3 +76,28 @@ Resolution pipeline: validate fall and any prevention (flight, feather fall, hov
 Test 0–9, 10, 30, 200, and >200 feet; water; prevented fall; resisted bludgeoning; temp HP; downed-at-zero damage; lethal massive damage; duplicate command; death-to-quit transition and fatal-fall epilogue. Vertical position is separate from two-dimensional encounter coordinates and cannot be inferred solely from them.
 
 **Status:** design captured; not a claim of implemented fall mechanics or exit animation.
+
+## E. Campaign Close vs End — clarified product contract (2026-10-27)
+
+**Close Campaign** is temporary navigation out of a long-running campaign. Save state, party/session context, quest progress, journal and recent narrative so the player can resume. No ending summary, no death/dream presentation, no campaign termination. Label action clearly as **Close / Return Later**.
+
+**End Campaign** is a deliberate, irreversible conclusion of that campaign's playable story; it is not the same as closing it. Before ending, show a confirmation explaining that the unfinished story and future campaign turns will be cut short. Preserve the character and historical record rather than deleting them. Mark campaign status `ended_early` if ended while alive (distinct from `completed` for a natural story conclusion), disable continuation, and optionally archive a truthful unfinished-story journal summary later. Do **not** use the dream awakening for a living character deliberately ending an unfinished campaign.
+
+**End Campaign after confirmed character death**: this is the same cinematic **vivid-dream awakening** presentation as Quit Adventure after death: fade the adventure to full black, navigate to the character sheet behind the veil, reveal the sheet through a Gaussian blur, show “You awaken suddenly from a very vivid dream” followed by an actual death-cause sensory echo, then fade text and blur away. Distinguish the campaign's ended/death outcome from the character's mechanical death state; the transition itself does not grant a rules resurrection. Preserve the session history and committed character state.
+
+**Revive** remains available on confirmed death when eligible and does **not** terminate the campaign. The player may continue their saved campaign after valid revival. A dead player's **Close Campaign / Return Later** retains the awaiting-revival-or-end state instead of forcing a death ending.
+
+### Expected state transitions
+
+| Current state | User action | Campaign state | Presentation |
+| --- | --- | --- | --- |
+| Active, alive | Close Campaign | Paused / resumable | Ordinary return to sheet/home |
+| Active, alive | End Campaign | Ended early / not resumable | Confirmation and bittersweet unfinished-story exit |
+| Active, dead | Close Campaign | Paused / resumable | Awaiting death decision on resume |
+| Active, dead | Revive | Active after authorized recovery | Return to story |
+| Active, dead | End Campaign | Ended after death / not resumable | Black fade, dream awakening, blurred sheet, death-cause echo |
+| Natural campaign finale | Complete Campaign | Completed / archived | Ending summary / future adventure journal |
+
+Guard against duplicate termination, preserve multiplayer participant boundaries, offer an explicit confirmation before End, and record one authoritative ending command receipt. The later AI journal should label `ended_early`, `ended_after_death`, and `completed` honestly.
+
+**Status:** product behavior agreed, implementation and acceptance pending.
