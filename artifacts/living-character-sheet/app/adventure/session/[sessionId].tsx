@@ -1,4 +1,5 @@
 import { SessionTurnControls } from "@/components/adventure/workspace/SessionTurnControls";
+import { narrateCommittedNpcWeaponTurn } from "@/utils/combat/npcCommittedNarration";
 import { DefeatedNpcLootModal } from "@/components/adventure/session/DefeatedNpcLootModal";
 import { buildConfirmedPlayerAttackNarration } from "@/utils/combat/playerAttackNarration";
 import { claimRollContinuation, rollContinuationReceiptKey } from "@/utils/adventure/aiDmRollContinuationReceipt";
@@ -651,9 +652,11 @@ export default function AdventureSessionPlaceholderScreen() {
               await refreshCombatState(partyCode);
               if (!committed.replayed) {
                 const receipt = committed.receipt;
-                const description = receipt.hit
-                  ? `${npc.name} attacks ${legalChoice.targetName} with ${legalChoice.weaponName}. ${receipt.critical ? "A critical hit! " : ""}The blow lands${receipt.damageToHp ? `, dealing ${receipt.damageToHp} ${receipt.damageType} damage` : ", but causes no HP loss"}.`
-                  : `${npc.name} attacks ${legalChoice.targetName} with ${legalChoice.weaponName}, but the strike misses.`;
+                const description = narrateCommittedNpcWeaponTurn({
+                  response: committed, npcName: npc.name, weaponName: legalChoice.weaponName,
+                  targetName: legalChoice.targetName,
+                });
+                if (!description) return;
                 setEntries(previous => previous.some(entry => entry.id === `npc-action:${receipt.commandId}`) ? previous :
                   [...previous, { id: `npc-action:${receipt.commandId}`, role: "dm" as const, text: description }]);
               }
