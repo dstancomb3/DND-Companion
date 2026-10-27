@@ -34,6 +34,8 @@ import { getNpcTurnWaitingStatus } from "@/utils/combat/npcTurnWaitingStatus";
 import { planNpcAttackChoices } from "@/utils/combat/npcTurnReadiness";
 import { inferNpcBehaviorProfile, planNpcBehavior } from "@/utils/combat/npcBehaviorBrain";
 import { ActionCard } from "@/components/attacks/ActionCard";
+import { getConsumableHealingRoll, rollConsumableHealing } from "@/utils/combat/healingConsumable";
+import { triggerEffect } from "@/utils/triggerEffect";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
 import { useCharacter } from "@/context/CharacterContext";
@@ -399,6 +401,7 @@ export default function AdventureSessionPlaceholderScreen() {
     addItem,
     removeItem,
     updateItem,
+    updateHp,
     incrementResource,
     decrementResource,
     resetResource,
@@ -2546,6 +2549,19 @@ export default function AdventureSessionPlaceholderScreen() {
                     effectType="note"
                     remainingUses={item.quantity}
                     onConsumeUse={() => {
+                      const healing = getConsumableHealingRoll(item);
+                      if (healing) {
+                        const rolled = rollConsumableHealing(healing);
+                        const restored = Math.min(Math.max(0, character.maxHp - character.currentHp), rolled);
+                        if (restored > 0) {
+                          updateHp(restored, "manual");
+                          triggerEffect("heal_flash");
+                        }
+                        setEntries(previous => [...previous, {
+                          id: createFeedEntryId("consumable-healing"), role: "dm" as const,
+                          text: `${character.name} drinks ${item.name}, restoring ${restored} hit points${restored < rolled ? ` (${rolled} rolled)` : ""}.`,
+                        }]);
+                      }
                       const qty = item.quantity ?? 1;
                       updateItem(item.id, { quantity: Math.max(0, qty - 1) });
                     }}
