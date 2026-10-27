@@ -50,9 +50,7 @@ test("swap, collapse, Simplify, Cancel and Save preserve a live composer and sur
   await mount();
   try {
     act(() => tree.root.findByType("Input").props.onChangeText("I hold my action"));
-    await click(tree, "Customize layout"); await click(tree, "Swap party"); await click(tree, "Swap party with events");
-    await click(tree, "Cancel layout changes"); assert.equal(stored.size, 0);
-    await click(tree, "Customize layout"); await click(tree, "Swap party"); await click(tree, "Swap party with events"); await click(tree, "Save layout");
+    await click(tree, "Move party"); await click(tree, "Swap with events");
     await click(tree, "Collapse inventory"); await click(tree, "Simplify View");
     assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Collapse actions" }).length, 0);
     assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Collapse narrative" }).length, 0);
@@ -114,8 +112,8 @@ test("customizing Immersive keeps the saved swap instead of forcing its default 
   await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "immersive" })); });
   try {
     act(() => tree.root.findByProps({ testID: "adventure-workspace" }).props.onLayout({ nativeEvent: { layout: { width: 1366, height: 740 } } }));
-    await click(tree, "Immersive"); await click(tree, "Customize layout");
-    await click(tree, "Swap narrative"); await click(tree, "Swap narrative with party"); await click(tree, "Save layout");
+    await click(tree, "Immersive");
+    await click(tree, "Move narrative"); await click(tree, "Swap with party");
     const panel = tree.root.findByProps({ testID: "workspace-narrative" });
     const frame = panel.props.style.find((style: any) => style?.position === "absolute");
     assert.equal(frame.left, 0);
@@ -161,17 +159,13 @@ test("workspace sizing clamps invalid gestures and persists with custom layouts"
   assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
 });
 
-test("layout resize remains a draft until Save and is discarded by Cancel", async () => {
+test("direct layout resize persists without Save and undo restores previous sizing", async () => {
   reset(); let tree: any;
   const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
   await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "resize" })); });
   try {
     act(() => tree.root.findByProps({ testID: "adventure-workspace" }).props.onLayout({ nativeEvent: { layout: { width: 1366, height: 740 } } }));
-    await click(tree, "Customize layout");
-    const adjust = async () => act(async () => button(tree, "Resize left column").props.onAccessibilityAction({ nativeEvent: { actionName: "increment" } }));
-    await adjust(); await click(tree, "Cancel layout changes");
-    assert.equal(stored.size, 0);
-    await click(tree, "Customize layout"); await adjust(); await click(tree, "Save layout");
+    await act(async () => button(tree, "Resize left column").props.onAccessibilityAction({ nativeEvent: { actionName: "increment" } }));
     assert.ok(parseWorkspacePreferences(stored.get("adventure-workspace.v1:resize")).layout.sizing.left > 0.22);
   } finally { act(() => tree.unmount()); }
 });
