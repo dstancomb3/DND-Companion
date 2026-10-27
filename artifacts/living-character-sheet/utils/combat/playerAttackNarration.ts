@@ -28,7 +28,7 @@ const motions: Record<ReturnType<typeof styleForWeapon>, readonly string[]> = {
   generic: ["commits to a swift attack", "moves into position and strikes", "takes the opening and attacks"],
 };
 
-function describeOutcome(row: CombatTargetResolutionResult, targetName: string, seed: string): string {
+function describeOutcome(row: CombatTargetResolutionResult, targetName: string, seed: string, committedHp?: number): string {
   const hit = row.hitOutcome;
   if (hit.status === "miss") {
     return pick(seed + ":miss", [
@@ -59,7 +59,8 @@ function describeOutcome(row: CombatTargetResolutionResult, targetName: string, 
       `${targetName} takes the impact`,
     ]);
     const result = `${impact}, dealing ${magnitude}${type ? ` ${type}` : ""} damage.`;
-    return criticalLead + (resisted ? `${result} Some of the force is resisted.` : result);
+    const aftermath = committedHp === 0 ? ` ${targetName} falls, unable to continue the fight.` : "";
+    return criticalLead + (resisted ? `${result} Some of the force is resisted.` : result) + aftermath;
   }
   if (damage.tempHpAbsorbed > 0) return `${criticalLead}The hit catches ${targetName}, but ${damage.tempHpAbsorbed} damage is absorbed by temporary protection.`;
   if (damage.hpHealing && damage.hpHealing > 0) return `The effect restores ${damage.hpHealing} hit points to ${targetName}.`;
@@ -77,6 +78,7 @@ export function buildConfirmedPlayerAttackNarration(input: {
   attackName: string;
   result: CombatActionResult;
   targets: readonly { id: string; name: string }[];
+  sceneContext?: string;
 }): string | null {
   const { result } = input;
   const receipt = result.remoteApplication;
@@ -99,8 +101,14 @@ export function buildConfirmedPlayerAttackNarration(input: {
   ]);
   const movement = pick(result.commandId + ":weapon", motions[style]);
   const action = `Using ${input.attackName}, ${input.actorName} ${movement}.`;
+  const hpByTarget = new Map(receipt.targetResults?.filter(row => row.status === "applied" && typeof row.postAttackHp === "number").map(row => [row.targetId, row.postAttackHp]) ?? []);
   const details = rows.length
-    ? rows.map(row => describeOutcome(row, names.get(row.targetId) ?? "the target", result.commandId + ":" + row.targetId)).join(" ")
+    ? rows.map(row => describeOutcome(row, names.get(row.targetId) ?? "the target", result.commandId + ":" + row.targetId, hpByTarget.get(row.targetId))).join(" ")
     : "The action is recorded, but its exact impact has not been confirmed.";
-  return `${opening} ${action} ${details}`;
+  const scene = (input.sceneContext ?? "").toLowerCase();
+  const atmosphere = /\b(rain|downpour|storm)\b/.test(scene) ? "Rain slicks the ground beneath the combatants." :
+    /\b(fog|mist)\b/.test(scene) ? "The figures move through the haze." :
+    /\b(fire|flames|burning)\b/.test(scene) ? "Firelight flickers across the battlefield." :
+    /\b(darkness|torchlight|shadows)\b/.test(scene) ? "The movement cuts across shifting shadows." : "";
+  return `${atmosphere ? atmosphere + " " : ""}${opening} ${action} ${details}`;
 }
