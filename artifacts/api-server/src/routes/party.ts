@@ -1,3 +1,4 @@
+import { validateAiRestApproval } from "../lib/restSceneSafety";
 import { canTransferNpcGear } from "../lib/lootEligibility";
 import { normalizeEncounterDistances } from "../lib/encounterDistances";
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
@@ -3165,6 +3166,13 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
       res.status(409).json({ code: "rest_unsafe_active_combat",
         error: "Cannot approve rest while a hostile encounter is still active." });
       return;
+    }
+    if (status === "approved" && req.body?.automatic === true) {
+      const safety = validateAiRestApproval(request.restType, req.body?.sceneSafety);
+      if (!safety.ok) {
+        res.status(409).json({ code: "rest_scene_unsafe", error: safety.reason });
+        return;
+      }
     }
     request.status = status;
     request.resolvedAt = new Date().toISOString();
