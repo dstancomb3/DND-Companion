@@ -88,13 +88,18 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
   const processingRestRequestIdsRef = useRef<Set<string>>(new Set());
   const localHpRef = useRef({ hp: character.currentHp, tempHp: character.tempHp ?? 0 });
   localHpRef.current = { hp: character.currentHp, tempHp: character.tempHp ?? 0 };
-  const latestHpReceiptRef = useRef<string | null>(null);
+  const lastServerHpRef = useRef<{ hp: number; tempHp: number; updatedAt: string } | null>(null);
   const reconcileCommittedMemberHp = useCallback((results: PartyMemberSummary[], mid: string | null) => {
     const own = results.find(member => member.id === mid);
     if (!own || !Number.isFinite(own.currentHp) || !Number.isFinite(own.tempHp)) return;
-    const receipt = `${mid}:${own.updatedAt}:${own.currentHp}:${own.tempHp}`;
-    if (latestHpReceiptRef.current === receipt) return;
-    latestHpReceiptRef.current = receipt;
+    const last = lastServerHpRef.current;
+    if (last && own.updatedAt < last.updatedAt) return;
+    // Unchanged server HP is not proof that a locally applied healing effect failed.
+    // Keep it pending until its guarded sync finishes.
+    const serverChanged = !last || own.currentHp !== last.hp || own.tempHp !== last.tempHp;
+    lastServerHpRef.current = { hp: own.currentHp, tempHp: own.tempHp, updatedAt: own.updatedAt };
+    if (!serverChanged) return;
+    const oldTemp = localHpRef.current.tempHp;
     const delta = own.currentHp - localHpRef.current.hp;
     if (delta) {
       updateHp(delta, "ai");
@@ -102,12 +107,12 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       else triggerEffect("heal_flash");
       localHpRef.current.hp = own.currentHp;
     }
-    if (own.tempHp !== localHpRef.current.tempHp) {
+    if (own.tempHp !== oldTemp) {
       updateTempHp(own.tempHp);
       localHpRef.current.tempHp = own.tempHp;
-      if (!delta && own.tempHp < (character.tempHp ?? 0)) triggerEffect("damage_flash");
+      if (!delta && own.tempHp < oldTemp) triggerEffect("damage_flash");
     }
-  }, [updateHp, updateTempHp, character.tempHp]);
+  }, [updateHp, updateTempHp]);
 
   const combatStateRequestSeqRef = useRef(0);
   const latestCombatStateRef = useRef<{ revision: number; updatedAt: string }>({ revision: -1, updatedAt: "" });
@@ -132,6 +137,8 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       currentHp: character.currentHp,
       maxHp: character.maxHp,
       tempHp: character.tempHp ?? 0,
+      expectedCurrentHp: lastServerHpRef.current?.hp,
+      expectedTempHp: lastServerHpRef.current?.tempHp,
       armorClass: character.armorClass,
       damageResistances: character.damageResistances ?? [],
       damageImmunities: character.damageImmunities ?? [],
@@ -188,6 +195,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     currentMemberIdRef.current = null;
     latestCombatStateRef.current = { revision: -1, updatedAt: "" };
     processingRestRequestIdsRef.current.clear();
+    lastServerHpRef.current = null;
     await clearSession();
     setError(message);
   }, [clearSession, stopPolling]);
@@ -344,6 +352,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
           currentCodeRef.current = session.partyCode;
           currentMemberIdRef.current = session.memberId;
           setMembers(result.members);
+          reconcileCommittedMemberHp(result.members, session.memberId);
           await refreshCombatState(session.partyCode);
           startPolling(session.partyCode);
         } catch {
@@ -355,7 +364,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     });
 
     return () => stopPolling();
-  }, [refreshCombatState, startPolling, stopPolling]);
+  }, [refreshCombatState, startPolling, stopPolling, reconcileCommittedMemberHp]);
 
   useEffect(() => {
     const code = currentCodeRef.current;
@@ -371,6 +380,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       const syncMemberId = currentMemberIdRef.current;
       try {
         await syncPartyMember(buildSnapshot(syncMemberId, syncCode));
+        await refreshMembers();
       } catch (err) {
         if (err instanceof PartyMemberAccessError) {
           if (currentCodeRef.current === syncCode && currentMemberIdRef.current === syncMemberId) await handleSessionEnded(err.message);
