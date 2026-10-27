@@ -439,7 +439,8 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       await persistSession(code, mid);
       startPolling(code);
     } catch (err: any) {
-      setError(err.message ?? "Failed to create party");
+      setError(err instanceof Error ? err.message : "Failed to create party");
+      throw err; // Session bootstrap must distinguish failure from success and offer retry.
     } finally {
       setIsLoading(false);
     }
