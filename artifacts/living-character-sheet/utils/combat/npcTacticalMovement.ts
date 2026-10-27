@@ -24,5 +24,12 @@ export function planNpcTacticalMovement(input: {
   const xFeet = start.xFeet + sign * step * (nearest.p.xFeet - start.xFeet) / nearest.distance;
   const yFeet = start.yFeet + sign * step * (nearest.p.yFeet - start.yFeet) / nearest.distance;
   if (!Number.isFinite(xFeet) || !Number.isFinite(yFeet)) return null;
+  // A straight-line move is only safe to propose when its endpoint is free.
+  // In the absence of a map/pathfinder, do not teleport into occupied space.
+  const destinationOccupied = eligible.some(p =>
+    p.combatantId !== input.npcId &&
+    Math.hypot(p.xFeet - xFeet, p.yFeet - yFeet) < 5
+  );
+  if (destinationOccupied) return null;
   return { xFeet, yFeet };
 }
