@@ -3248,7 +3248,10 @@ router.post("/party/:code/defeated-npc/:npcId/loot", async (req, res) => {
       const now = new Date().toISOString();
       const assignments: LootAssignment[] = selected.map(gear => ({
         id: generateId(), targetMemberId: memberId,
-        item: { name: gear.name, quantity: 1, category: gear.category, notes: gear.notes },
+        item: { name: gear.name, quantity: 1, category: gear.category, notes: gear.notes,
+          inventoryItem: { name: gear.name, quantity: 1, equipped: false, category: gear.category,
+            notes: gear.notes, damageDice: gear.damageDice, damageModifier: gear.damageModifier,
+            damageType: gear.damageType, weaponRange: gear.range } },
         assignedBy: "defeated_npc", assignedAt: now,
       }));
       npc.gear = (npc.gear ?? []).filter(gear => !itemIds.includes(gear.id));
