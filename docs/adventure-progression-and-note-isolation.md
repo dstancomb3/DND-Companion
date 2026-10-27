@@ -35,3 +35,19 @@ Test a player with existing live-DM notes entering a one-off (no contamination),
 ## Clarification: complete Notes system scope
 
 In this project, **Notes** is the entire related five-part world-information system: **Notes, People, Quests, Planes, and Locations**. Scope all five together, including parent/child locations, plane-location containment, person-location associations, quest people and places, relationship graphs, status/history, AI retrieval/indexing, and generated records. References must be checked against the same scope; reject cross-scope links unless the player explicitly chooses a supported import/copy flow. Ending a one-off removes that scope from active retrieval and UI without deleting persistent character progression. Closing a campaign keeps all five categories for later continuation; ending a campaign archives them as a unit.
+
+## Quest items: inventory and narrative scope boundary
+
+Quest objects are a special inventory category because a character can carry them physically without owning them as permanent rewards.
+
+- **Adventure-bound quest item:** has a stable inventory instance ID, owner character, source session/campaign scope, source quest ID, `disposition: "quest_bound"`, and explicit visibility/equip/use permissions. It belongs to the relevant one-off or campaign scope even though it appears in the current character inventory. This includes letters, keys, evidence, relics held for delivery, and other unresolved plot objects. Do not expose them in unrelated adventures or live-DM inventory.
+- **Earned reward / ordinary loot:** `disposition: "persistent_reward"`, with a verified award/transfer receipt. Its inventory remains with the character when a one-off ends, including items that used to be quest objects but were deliberately awarded or released by an authoritative quest outcome.
+- **Existing character-owned items:** retain their original provenance and cannot be deleted by cleanup for an adventure they were merely brought into.
+- **One-off termination:** retire only still-quest-bound instances associated with that exact one-off after recording the ending. Never match or delete by item name, category, or shared item definition. Preserve consumed-item debits and all persistent loot.
+- **Campaign close:** retain quest items for its next session; **campaign end:** archive/retire still-bound quest objects with that campaign, while preserving explicitly granted permanent rewards.
+- **Death awakening:** follows the same one-off/campaign termination cleanup policy. A quest object cannot follow the character out merely because it was present when they died; an explicitly awarded object can.
+- **Quest completion:** may consume/turn in the object, return it to an NPC, or award ownership. Each operation needs one authoritative, idempotent inventory/quest receipt and updates the linked quest state. Never assume the player keeps the item just because the quest became completed.
+- **UI:** show a `Quest Item · [Adventure]` badge, distinguish temporary from permanent items, and before End Adventure / End Campaign optionally explain which bound items will be left behind. Scope-aware inventory and AI prompts must filter them correctly.
+- **Security and recovery:** verify exact owner and adventure scope on creation, use, trade, consumption, promotion and cleanup. Promotion to persistent inventory must be DM/game-authorized rather than a client toggle. Atomic ending cleanup must not run twice, delete similarly named real items, or duplicate rewards.
+
+Acceptance: acquire two same-named keys from different scopes; retain an imported real key; close/reopen campaign; complete quest and convert relic to awarded item; end one-off after death and preserve XP/reward but retire quest key; duplicate end request; disconnected device reconciliation. These are proposed rules; runtime implementation remains outstanding.
