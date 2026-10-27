@@ -2291,6 +2291,12 @@ router.post("/party/:code/npc-move-turn", async (req, res) => {
         (npc.dummyState?.currentHp ?? 0) <= 0 ||
         npc.conditions?.some(c => /^(stunned|paralyzed|incapacitated|petrified|unconscious|grappled|restrained)$/i.test(c.name)))
         throw new CompanionLifecycleError(409, "npc_unavailable", "This NPC cannot move.");
+      // Cover requires an authoritative terrain/obstruction record. Encounter
+      // combatant coordinates alone cannot establish that a destination is safe.
+      if (stance === "seek_cover") {
+        throw new CompanionLifecycleError(409, "cover_geometry_missing",
+          "No confirmed cover terrain exists for this NPC movement decision.");
+      }
       const current = state.encounterPositions.find(p => p.battleId === battleId && p.combatantId === npcId);
       if (!current || !["dm_confirmed", "grid_authority"].includes(current.source))
         throw new CompanionLifecycleError(409, "position_unconfirmed", "Confirm NPC starting position before movement.");
