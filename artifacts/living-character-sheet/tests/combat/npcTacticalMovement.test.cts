@@ -23,3 +23,8 @@ test("occupied squares are not valid NPC movement destinations", () => {
   const blocked = [...positions, {battleId:"b", combatantId:"ally",xFeet:15,yFeet:0,source:"dm_confirmed"}];
   assert.equal(planNpcTacticalMovement({...input,positions:blocked,stance:"reposition"}),null);
 });
+
+test("rejects movement through occupied intermediate space", () => {
+  const blocked = [...positions, {battleId:"b",combatantId:"ally",xFeet:8,yFeet:0,source:"dm_confirmed"}];
+  assert.equal(planNpcTacticalMovement({...input,positions:blocked,stance:"reposition"}),null);
+});
