@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Modal, Text, TouchableOpacity, View, ScrollView } from "react-native";
 import { useColors } from "@/hooks/useColors";
-import type { CombatNpc } from "@/utils/partyApi";
+import type { CombatNpc, LootAssignment } from "@/utils/partyApi";
 
-export function DefeatedNpcLootModal({ npc, onClose, onTransfer }: {
+export function DefeatedNpcLootModal({ npc, pendingAssignments, onClose, onTransfer, onRecover }: {
   npc: CombatNpc | null;
+  pendingAssignments: readonly LootAssignment[];
+  onRecover: () => Promise<void>;
   onClose: () => void;
   onTransfer: (itemIds: string[]) => Promise<void>;
 }) {
@@ -38,6 +40,7 @@ export function DefeatedNpcLootModal({ npc, onClose, onTransfer }: {
             </TouchableOpacity>;
           }) : <Text style={{ color: c.mutedForeground }}>No available belongings remain.</Text>}
         </ScrollView>
+        {pendingAssignments.length ? <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={async () => { setBusy(true); setError(""); try { await onRecover(); } catch (e) { setError(e instanceof Error ? e.message : "Could not finish pending loot."); } finally { setBusy(false); } }} style={{ borderWidth: 1, borderColor: c.primary, padding: 10, borderRadius: 8 }}><Text style={{ color: c.primary, fontWeight: "700" }}>Finish {pendingAssignments.length} pending transfer(s)</Text></TouchableOpacity> : null}
         {error ? <Text accessibilityRole="alert" style={{ color: c.destructive }}>{error}</Text> : null}
         <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
           <TouchableOpacity accessibilityRole="button" disabled={busy || !selected.length} onPress={() => void transfer(selected)}
