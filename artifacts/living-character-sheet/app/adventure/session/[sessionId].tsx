@@ -446,7 +446,8 @@ export default function AdventureSessionPlaceholderScreen() {
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
   const [combatPanelOpen, setCombatPanelOpen] = useState(false);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
-  const [showSessionTools, setShowSessionTools] = useState(false);
+  const [showSystemComments, setShowSystemComments] = useState(false);
+  const [partyBootstrapError, setPartyBootstrapError] = useState<string | null>(null);
   const [showEncounterDetails, setShowEncounterDetails] = useState(false);
   const workspaceRef = useRef<AdventureWorkspaceHandle>(null);
   const pendingRollYRef = useRef(0);
@@ -502,6 +503,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const autoKickoffAttemptedRef = useRef(false);
   const handleCampaignRuntimeTurnRef = useRef(handleCampaignRuntimeTurn);
   const autoPartyBootstrapStartedRef = useRef(false);
+  const bootstrapSessionIdRef = useRef(sessionId);
 
   const recap = useMemo(() => {
     if (isCampaignScaffold) return undefined;
@@ -807,6 +809,7 @@ export default function AdventureSessionPlaceholderScreen() {
     if (autoPartyBootstrapStartedRef.current) return;
 
     autoPartyBootstrapStartedRef.current = true;
+    setPartyBootstrapError(null);
     if (shouldForceFreshPartyForNewOneOff) {
       setIsRebindingOneOffParty(true);
     }
@@ -814,13 +817,13 @@ export default function AdventureSessionPlaceholderScreen() {
       try {
         await createAndJoinParty();
         setEntries((prev) => {
-          if (prev.some((entry) => entry.role === "system" && /auto-connected party/i.test(entry.text))) {
+          if (prev.some((entry) => entry.id === "oneoff-party-bootstrap-success")) {
             return prev;
           }
           return [
             ...prev,
             {
-              id: createFeedEntryId("oneoff-party-bootstrap"),
+              id: "oneoff-party-bootstrap-success",
               role: "system",
               text: shouldForceFreshPartyForNewOneOff
                 ? "Started a fresh party session for this new one-off so previous encounters do not carry over."
@@ -829,16 +832,9 @@ export default function AdventureSessionPlaceholderScreen() {
           ];
         });
       } catch (error) {
-        autoPartyBootstrapStartedRef.current = false;
         const message = error instanceof Error ? error.message : "Failed to auto-connect party session.";
-        setEntries((prev) => [
-          ...prev,
-          {
-            id: createFeedEntryId("oneoff-party-bootstrap-error"),
-            role: "system",
-            text: `Party auto-connect failed: ${message}`,
-          },
-        ]);
+        setPartyBootstrapError(message);
+
       } finally {
         if (shouldForceFreshPartyForNewOneOff) {
           setIsRebindingOneOffParty(false);
@@ -887,6 +883,8 @@ export default function AdventureSessionPlaceholderScreen() {
     canonicalEncounterActorRegistryRef.current.clear();
     autoKickoffAttemptedRef.current = false;
     autoPartyBootstrapStartedRef.current = false;
+    bootstrapSessionIdRef.current = sessionId;
+    setPartyBootstrapError(null);
     setIsOneOffSessionHydrated(isCampaignScaffold);
     setIsRebindingOneOffParty(false);
   }, [feedSeed, isCampaignScaffold]);
@@ -1159,6 +1157,10 @@ export default function AdventureSessionPlaceholderScreen() {
   );
 
   function handleInputSubmit(playerText: string) {
+    if (!isCampaignScaffold && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId)) {
+      setPartyBootstrapError("The party connection is not ready. Check that the API server is running, then reconnect before narrating an action.");
+      return;
+    }
     if (activeOneOffBattleId) {
       setEntries((prev) => [...prev, {
         id: createFeedEntryId("combat-action-block"),
@@ -2090,6 +2092,8 @@ export default function AdventureSessionPlaceholderScreen() {
           entries={entries}
           guidanceSource={feedSeed.guidanceSource}
           campaignMode={isCampaignScaffold}
+          showSystemComments={showSystemComments}
+          onToggleSystemComments={() => setShowSystemComments(value => !value)}
           isStreaming={isStreamingResponse}
           streamingText={streamingResponseText}
         />
@@ -2128,10 +2132,13 @@ export default function AdventureSessionPlaceholderScreen() {
             </TouchableOpacity>
           </>
         ) : (
-          <AiDmSessionInputComposer
-            onSubmit={handleInputSubmit}
-            isPending={isCampaignRuntimeTurnPending}
-          />
+          <>
+            <AiDmSessionInputComposer
+              onSubmit={handleInputSubmit}
+              isPending={isCampaignRuntimeTurnPending || (!isCampaignScaffold && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId))}
+            />
+            {!isCampaignScaffold && partyBootstrapError ? <Text accessibilityRole="alert" style={{ color: c.destructive, padding: 8 }}>{partyBootstrapError}</Text> : null}
+          </>
         )}
       </View>
 
@@ -2571,30 +2578,6 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold ? (
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={showSessionTools ? "Hide more tools" : "Show more tools"}
-            onPress={() => setShowSessionTools((open) => !open)}
-            style={[styles.composerDisclosureRow, { borderColor: c.border, backgroundColor: c.card }]}>
-            <Text style={{ color: c.foreground }}>More tools</Text>
-            <Feather name={showSessionTools ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
-          </TouchableOpacity>
-        ) : null}
-        {!isCampaignScaffold && showSessionTools ? <AiDmSessionQuickActionsRow onAction={handleQuickAction} /> : null}
-        {!isCampaignScaffold && showSessionTools ? <AiDmCombatSubmodePanel mode={isCampaignScaffold ? "ai_campaign" : "ai_one_off"} onToolEvent={handleCombatPanelToolEvent} /> : null}
-        {isCampaignScaffold ? null : (
-        <AiDmSessionOutcomeShell
-          outcomeState={outcomeState}
-          recap={recap}
-          isHandoffApproved={isHandoffApproved}
-          canApplyHandoff={canApplyHandoff}
-          onApproveHandoff={handleApproveHandoff}
-          onApplyHandoff={() => void handleApplyHandoff()}
-          onReset={() => {
-            setOutcomeState(createInitialOneOffOutcomeState());
-            setIsHandoffApproved(false);
-          }}
-        />
-        )}
       </>
     ) },
     party: { title: "Party", content: <SessionPartyPanel
