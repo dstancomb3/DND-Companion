@@ -3156,6 +3156,16 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
       return;
     }
 
+    if (status === "approved" && request.targetMemberIds.some(id => {
+      const battleId = state.participantBattleById[id];
+      if (!battleId) return false;
+      return state.combatNpcs.some(npc => state.participantBattleById[npc.id] === battleId &&
+        npc.disposition === "hostile" && (npc.dummyState?.currentHp ?? 1) > 0);
+    })) {
+      res.status(409).json({ code: "rest_unsafe_active_combat",
+        error: "Cannot approve rest while a hostile encounter is still active." });
+      return;
+    }
     request.status = status;
     request.resolvedAt = new Date().toISOString();
     request.resolvedBy = "dm"; // Derived from host proof, not caller labels.
