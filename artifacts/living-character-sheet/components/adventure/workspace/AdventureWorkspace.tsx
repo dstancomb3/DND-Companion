@@ -38,12 +38,16 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   const { preferences, ready, error, update, retry } = useWorkspacePreferences(preferenceKey);
   const [draft, setDraft] = useState<WorkspaceLayout | null>(null);
   const [swapFrom, setSwapFrom] = useState<WorkspacePanelId | null>(null);
+  const draggedPanel = useRef<WorkspacePanelId | null>(null);
+  const undo = useRef<WorkspaceLayout[]>([]);
+  const draftRef = useRef<WorkspaceLayout | null>(null);
   const [focusExpanded, setFocusExpanded] = useState<WorkspacePanelId[]>([]);
   useEffect(() => { setDraft(null); setSwapFrom(null); setFocusExpanded([]); }, [preferenceKey]);
   const layout = draft ?? preferences.layout;
+  draftRef.current = draft;
   const visiblePanels = Object.fromEntries(panelOrder.map(id => [id, (layout.replacements?.[id] && alternatives?.[id]?.[layout.replacements[id]!]) || panels[id]])) as WorkspacePanels;
-  const focused = !draft && (preferences.simplify || layout.base === "immersive");
-  const temporaryFocus = !draft && preferences.simplify;
+  const focused = preferences.simplify || layout.base === "immersive";
+  const temporaryFocus = preferences.simplify;
   const positions = temporaryFocus ? presetWorkspaceLayout().positions : layout.positions;
   const baseFrames = workspacePanelFrames(size.width, size.height, layout.base, focused ? preferences.simplify ? "simplify" : "immersive" : "none", layout.sizing ?? DEFAULT_WORKSPACE_SIZING);
   const hidden = (id: WorkspacePanelId) => id !== "actions" && (temporaryFocus ? id !== "narrative" && !focusExpanded.includes(id) : layout.collapsed.includes(id));
@@ -59,10 +63,22 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   const pointerDrag = useRef<Partial<Record<keyof WorkspaceSizing, { id: number; coordinate: number }>>>({});
   const touchDrag = useRef<Partial<Record<keyof WorkspaceSizing, number>>>({});
   function adjust(field: keyof WorkspaceSizing, delta: number) {
-    setDraft(current => current ? resizeWorkspaceLayout(current, field, delta) : current);
+    if (!ready || temporaryFocus) return;
+    setDraft(current => resizeWorkspaceLayout(current ?? preferences.layout, field, delta));
+  }
+  function commitResize() {
+    const next = draftRef.current;
+    if (next) { undo.current.push(preferences.layout); update(current => saveCustomWorkspace(current, next)); }
+    setDraft(null);
+  }
+  function commitSwap(from: WorkspacePanelId, to: WorkspacePanelId) {
+    if (!ready || temporaryFocus || from === to) return;
+    undo.current.push(preferences.layout);
+    update(current => saveCustomWorkspace(current, swapWorkspacePanels(current.layout, from, to)));
+    setSwapFrom(null);
   }
   function separator(field: keyof WorkspaceSizing, title: string, horizontal: boolean, at: number) {
-    if (!draft || !baseFrames) return null;
+    if (!ready || temporaryFocus || !baseFrames) return null;
     const onDelta = (delta: number) => adjust(field, delta / (horizontal ? Math.max(size.width - 24, 1) : Math.max(size.height - 12, 1)));
     const direction = horizontal && field === "right" ? -1 : 1;
     const responder = PanResponder.create({
@@ -75,7 +91,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         touchDrag.current[field] = position;
         onDelta((position - previous) * direction);
       },
-      onPanResponderRelease: () => { delete touchDrag.current[field]; },
+      onPanResponderRelease: () => { delete touchDrag.current[field]; commitResize(); },
       onPanResponderTerminate: () => { delete touchDrag.current[field]; },
     });
     // Incremental deltas survive React rerenders as frames update during dragging.
@@ -101,13 +117,14 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         delete pointerDrag.current[field];
         if (delta) onDelta(delta * direction);
         event.currentTarget.releasePointerCapture?.(event.pointerId);
+        commitResize();
       },
       onPointerCancel: (event: any) => {
         if (pointerDrag.current[field]?.id === event.pointerId) delete pointerDrag.current[field];
       },
     } : {};
     return <View key={field} {...(Platform.OS === "web" ? webPointerHandlers : responder.panHandlers)} accessible accessibilityRole="adjustable"
-      accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((draft.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
+      accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
       accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
       onAccessibilityAction={event => adjust(field, (event.nativeEvent.actionName === "increment" ? 0.025 : -0.025))}
       style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35, ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }} />;
@@ -136,18 +153,13 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   return (
     <View style={styles.root}>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingBottom: 10 }}>
-        {draft ? <>
-          {button("Save layout", () => { update(current => saveCustomWorkspace({ ...current, simplify: false }, draft)); setFocusExpanded([]); setDraft(null); setSwapFrom(null); })}
-          {button("Cancel layout changes", () => { setDraft(null); setSwapFrom(null); })}
-          {button("Reset draft to Balanced", () => { setDraft(presetWorkspaceLayout()); setSwapFrom(null); })}
-        </> : <>
-          {button("Customize layout", () => { setDraft(preferences.layout); setSwapFrom(null); }, !ready)}
-          {button(preferences.simplify ? "Exit Simplify View" : "Simplify View", () => { setFocusExpanded([]); update(current => ({ ...current, simplify: !current.simplify })); }, !ready, preferences.simplify)}
-          {(["balanced", "immersive", "tactical", ...(preferences.custom ? ["custom" as const] : [])] as const).map(preset => button(preset === "custom" ? "My layout" : preset[0].toUpperCase() + preset.slice(1), () => { setFocusExpanded([]); update(current => selectWorkspacePreset(current, preset)); }, !ready, preferences.selected === preset))}
-        </>}
+        {button(preferences.simplify ? "Exit Simplify View" : "Simplify View", () => { setFocusExpanded([]); update(current => ({ ...current, simplify: !current.simplify })); }, !ready, preferences.simplify)}
+        {(["balanced", "immersive", "tactical", ...(preferences.custom ? ["custom" as const] : [])] as const).map(preset => button(preset === "custom" ? "My layout" : preset[0].toUpperCase() + preset.slice(1), () => { setDraft(null); setFocusExpanded([]); update(current => selectWorkspacePreset(current, preset)); }, !ready, preferences.selected === preset))}
+        {button("Undo layout change", () => { const previous = undo.current.pop(); if (previous) update(current => saveCustomWorkspace(current, previous)); }, !ready || !undo.current.length)}
+        {button("Reset layout", () => update(current => saveCustomWorkspace(current, presetWorkspaceLayout())), !ready)}
       </View>
       {statusSummary ? <Text accessibilityLiveRegion="polite" style={{ color: c.foreground, fontSize: 12, marginBottom: 8 }}>{statusSummary}</Text> : null}
-      {draft ? <Text style={{ color: c.mutedForeground, fontSize: 12, marginBottom: 8 }}>Swap or replace panels. Drag the highlighted dividers or use their accessibility increment/decrement actions to resize. Save or Cancel when finished.</Text> : null}
+
       {error ? <View><Text accessibilityRole="alert" style={{ color: c.destructive }}>{error}</Text>{button("Retry layout storage", retry)}</View> : null}
       <View testID="adventure-workspace" style={styles.root} onLayout={event => setSize(event.nativeEvent.layout)}>
       <ScrollView ref={outerRef} scrollEnabled={!frames} style={styles.root}
@@ -158,15 +170,23 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
             style={[styles.panel, { backgroundColor: c.card, borderColor: c.border },
               frames ? { position: "absolute", ...frames[id] } : id === "narrative" && !hidden(id) ? { height: Math.max(300, Math.min(480, size.height * 0.6)) } : undefined]}>
             <View style={{ flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: c.border, minHeight: 39 }}>
-              <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: c.mutedForeground, flex: 1 }]}>{visiblePanels[id].title}</Text>
-              {draft && id === "inventory" && alternatives?.inventory?.["character-summary"] ? button(
+              <View {...(Platform.OS === "web" && ready && !temporaryFocus ? {
+                draggable: true,
+                onDragStart: (event: any) => { draggedPanel.current = id; event.dataTransfer?.setData("text/plain", id); },
+                onDragOver: (event: any) => event.preventDefault(),
+                onDrop: (event: any) => { event.preventDefault(); const from = draggedPanel.current; if (from) commitSwap(from, id); draggedPanel.current = null; },
+                onDragEnd: () => { draggedPanel.current = null; },
+              } as any : {})} style={{ flex: 1, minWidth: 0, ...(Platform.OS === "web" ? { cursor: "grab" } as any : {}) }}>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Move ${visiblePanels[id].title}`}
+                  onPress={() => setSwapFrom(previous => previous === id ? null : id)} disabled={!ready || temporaryFocus}>
+                  <Text accessibilityRole="header" numberOfLines={1} style={[styles.title, { color: c.mutedForeground }]}>{visiblePanels[id].title}</Text>
+                </TouchableOpacity>
+              </View>
+              {id === "inventory" && alternatives?.inventory?.["character-summary"] ? button(
                 layout.replacements?.inventory === "character-summary" ? "Replace with Inventory" : "Replace with Character Summary",
-                () => setDraft(replaceWorkspacePanel(draft, "inventory", layout.replacements?.inventory === "character-summary" ? null : "character-summary"))
+                () => update(current => saveCustomWorkspace(current, replaceWorkspacePanel(current.layout, "inventory", current.layout.replacements?.inventory === "character-summary" ? null : "character-summary")))
               ) : null}
-              {draft ? button(swapFrom && swapFrom !== id ? `Swap ${panels[swapFrom].title} with ${panels[id].title}` : `Swap ${panels[id].title}`, () => {
-                if (swapFrom && swapFrom !== id) { setDraft(swapWorkspacePanels(draft, swapFrom, id)); setSwapFrom(null); }
-                else setSwapFrom(swapFrom === id ? null : id);
-              }, false, swapFrom === id, swapFrom && swapFrom !== id ? "Swap here" : "Swap") : null}
+              {swapFrom && swapFrom !== id ? button(`Swap with ${panels[id].title}`, () => commitSwap(swapFrom, id)) : null}
               {id !== "actions" && !(temporaryFocus && id === "narrative") ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${hidden(id) ? "Expand" : "Collapse"} ${panels[id].title}`} accessibilityState={{ expanded: !hidden(id) }}
                 disabled={!ready} onPress={() => toggle(id)} style={{ paddingHorizontal: 10, paddingVertical: 8 }}>
                 <Text style={{ color: c.primary }}>{hidden(id) ? "+" : "−"}</Text>
@@ -186,7 +206,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
           </View>
         ))}
       </ScrollView>
-      {draft && baseFrames ? <>
+      {ready && !temporaryFocus && baseFrames ? <>
         {separator("left", "left column", true, baseFrames.narrative.left - 6)}
         {separator("right", "right column", true, baseFrames.encounter.left - 6)}
         {separator("leftRow", "left row", false, baseFrames.inventory.top - 6)}
