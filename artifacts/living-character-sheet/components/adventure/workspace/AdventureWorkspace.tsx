@@ -5,7 +5,7 @@ import { useColors } from "@/hooks/useColors";
 import { useWorkspacePreferences } from "../../../hooks/useWorkspacePreferences";
 import { presetWorkspaceLayout, saveCustomWorkspace, selectWorkspacePreset, swapWorkspacePanels, toggleWorkspacePanel, replaceWorkspacePanel, resizeWorkspaceLayout, DEFAULT_WORKSPACE_SIZING, type WorkspaceSizing, type WorkspaceLayout, type WorkspacePanelId, type WorkspaceSlotId } from "../../../utils/adventure/workspaceLayoutPreferences";
 export type { WorkspacePanelId } from "../../../utils/adventure/workspaceLayoutPreferences";
-export interface WorkspacePanel { title: string; content: ReactNode; footer?: ReactNode }
+export interface WorkspacePanel { title: string; content: ReactNode; toolbar?: ReactNode; footer?: ReactNode }
 export type WorkspacePanels = Record<WorkspacePanelId, WorkspacePanel>;
 export interface AdventureWorkspaceHandle { focusActions: (y?: number) => void }
 
@@ -196,6 +196,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
             </View>
             <View style={hidden(id) ? { display: "none" } : frames || id === "narrative" ? styles.root : undefined}
               importantForAccessibility={hidden(id) ? "no-hide-descendants" : "auto"}>
+            {visiblePanels[id].toolbar ? <View style={{ paddingHorizontal: 8, paddingTop: 6, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: c.border }}>{visiblePanels[id].toolbar}</View> : null}
             {id === "narrative" ? <View style={styles.story}>{visiblePanels[id].content}</View> : (
               <ScrollView ref={id === "actions" ? actionRef : undefined}
                 nestedScrollEnabled style={frames ? styles.root : { maxHeight: id === "actions" ? 640 : 360 }}
