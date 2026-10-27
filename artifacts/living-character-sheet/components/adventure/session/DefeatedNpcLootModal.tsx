@@ -1,3 +1,4 @@
+import { canTransferNpcGear } from "@/utils/combat/lootEligibility";
 import React, { useEffect, useState } from "react";
 import { Modal, Text, TouchableOpacity, View, ScrollView } from "react-native";
 import { useColors } from "@/hooks/useColors";
@@ -15,7 +16,7 @@ export function DefeatedNpcLootModal({ npc, pendingAssignments, onClose, onTrans
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { setSelected([]); setError(""); }, [npc?.id]);
-  const items = npc?.dummyState?.currentHp === 0 && npc.projection?.combatantKind !== "companion" ? (npc.gear ?? []).filter(gear => !gear.id.startsWith("intrinsic-") && !/^unarmed\\s*strike$/i.test(gear.name)) : [];
+  const items = npc?.dummyState?.currentHp === 0 && npc.projection?.combatantKind !== "companion" ? (npc.gear ?? []).filter(canTransferNpcGear) : [];
   async function transfer(ids: string[]) {
     if (!npc || busy || !ids.length) return;
     setBusy(true); setError("");
