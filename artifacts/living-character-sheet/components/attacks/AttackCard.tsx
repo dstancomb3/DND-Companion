@@ -46,6 +46,7 @@ export function AttackCard({ attack, pinned = false, compact = false, onTogglePi
   const { isInParty, memberId, combatState, members } = useParty();
   const extras = attack.additionalDamage ?? [];
   const [attackActionUsed, setAttackActionUsed] = useState(false);
+  const [compactExpanded, setCompactExpanded] = useState(false);
   const submissionInFlight = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attackFeedback, setAttackFeedback] = useState<{ message: string; error: boolean } | null>(null);
@@ -501,6 +502,11 @@ export function AttackCard({ attack, pinned = false, compact = false, onTogglePi
           </View>
         </View>
 
+        {compact ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${compactExpanded ? "Collapse" : "Expand"} ${attack.name} attack controls`} accessibilityState={{ expanded: compactExpanded }} onPress={() => setCompactExpanded(value => !value)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+          <Text style={{ color: c.primary, fontSize: 11, fontWeight: "700" }}>{compactExpanded ? "Hide dice and attack controls" : "Roll and attack"}</Text>
+          <Feather name={compactExpanded ? "chevron-up" : "chevron-down"} size={15} color={c.primary} />
+        </TouchableOpacity> : null}
+        {(!compact || compactExpanded) ? <>
         {/* Calculator */}
         <View style={[styles.calcSection, compact && { paddingTop: 5, marginBottom: 3 }, { borderTopColor: c.border }]}>
           {/* To Hit */}
@@ -799,6 +805,7 @@ export function AttackCard({ attack, pinned = false, compact = false, onTogglePi
             })}
           </View>
         )}
+        </> : null}
       </Card>
 
       {/* Extra Damage Edit Modal */}
