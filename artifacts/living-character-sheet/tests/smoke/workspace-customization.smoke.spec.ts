@@ -37,6 +37,7 @@ test("[smoke:adventure] directly resize, swap, replace and restore workspace", a
     return { dividerExists: !!divider, dividerRect: divider?.getBoundingClientRect().toJSON(),
       hitTag: hit?.tagName, hitLabel: hit?.getAttribute("aria-label"),
       hitElement: hit?.outerHTML.slice(0, 400),
+      hitText: hit?.textContent?.slice(0, 280),
       hitAncestors: Array.from((function*() { let node = hit; for(let i=0; node && i<5;i++, node=node.parentElement) yield node; })())
         .map(node => ({tag:node.tagName, label:node.getAttribute("aria-label"),
           className:node.className, zIndex:getComputedStyle(node).zIndex, pointerEvents:getComputedStyle(node).pointerEvents})),
