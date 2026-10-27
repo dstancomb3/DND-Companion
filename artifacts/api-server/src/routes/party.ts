@@ -3195,10 +3195,11 @@ router.post("/party/:code/rest-requests", async (req, res) => {
 
     const state = await getOrHydrateCombatState(code);
     const existing = state.restRequests.find(
-      (request) =>
-        request.status === "pending" &&
-        request.requestedByMemberId === memberId &&
-        request.restType === restType
+      request => request.requestedByMemberId === memberId &&
+        request.restType === restType &&
+        (request.status === "pending" ||
+          (request.status === "approved" &&
+            request.targetMemberIds.some(id => !request.acknowledgements.includes(id))))
     );
     if (existing) {
       res.json({ ok: true, request: existing });
@@ -3299,6 +3300,14 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
         res.status(409).json({ code: "rest_scene_unsafe", error: safety.reason });
         return;
       }
+    }
+    // A resolution is a state transition, not a repeatable command. Replay
+    // of the same decision is harmless; contradictory decisions are rejected.
+    if (request.status !== "pending") {
+      if (request.status === status) { res.json({ ok: true, request, replayed: true }); return; }
+      res.status(409).json({ code: "rest_already_resolved",
+        error: "This rest request has already been resolved." });
+      return;
     }
     request.status = status;
     request.resolvedAt = new Date().toISOString();
