@@ -612,7 +612,7 @@ export default function AdventureSessionPlaceholderScreen() {
     void (async () => {
       try {
         setNpcTurnAutomationError("");
-        await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true);
+        await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true, npcTurnStatus.npcId);
         await refreshCombatState(partyCode);
         setEntries(previous => [...previous, {
           id: `npc-hold:${turnKey}`, role: "dm" as const, text: fallback,
