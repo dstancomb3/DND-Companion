@@ -129,6 +129,26 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         if (event.button !== 0 || pointerDrag.current[field]) return;
         pointerDrag.current[field] = { id: -1, coordinate: horizontal ? event.clientX : event.clientY };
         setActiveDivider(field);
+        const onMove = (move: MouseEvent) => {
+          const drag = pointerDrag.current[field];
+          if (!drag || drag.id !== -1) return;
+          const coordinate = horizontal ? move.clientX : move.clientY;
+          const delta = coordinate - drag.coordinate;
+          drag.coordinate = coordinate;
+          if (delta) onDelta(delta * direction);
+        };
+        const onUp = (up: MouseEvent) => {
+          onMove(up);
+          if (pointerDrag.current[field]?.id === -1) {
+            delete pointerDrag.current[field];
+            setActiveDivider(null);
+            commitResize();
+          }
+          window.removeEventListener("mousemove", onMove);
+          window.removeEventListener("mouseup", onUp);
+        };
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp, { once: true });
         event.preventDefault?.();
       },
       onMouseMove: (event: any) => {
