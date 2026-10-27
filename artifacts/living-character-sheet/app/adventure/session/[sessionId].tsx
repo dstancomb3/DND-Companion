@@ -2328,7 +2328,8 @@ export default function AdventureSessionPlaceholderScreen() {
                   {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
                   <View key={attack.id} style={{ width: "48%", minWidth: 245, flexGrow: 1 }}><AttackCard attack={attack} compact pinned={attack.pinned === true}
                     onResolved={result => {
-                      const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name,
+                      const lastDmScene = [...entries].reverse().find(entry => entry.role === "dm")?.text ?? "";
+                      const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name, sceneContext: lastDmScene,
                         result, targets: (sharedState?.combatNpcs ?? []).map(npc => ({ id: npc.id, name: npcNameOverridesById[npc.id] ?? npc.name })) });
                       if (!text) return;
                       const id = `confirmed-attack:${result.commandId}`;
