@@ -8,6 +8,16 @@ export interface NpcBrainDecision {
   reason: string;
 }
 
+/** Characterization from established NPC labels; owners may later override it. */
+export function inferNpcBehaviorProfile(input: { name: string; disposition: string }): NpcBehaviorProfile {
+  if (input.disposition !== "hostile") return "passive";
+  const name = input.name.toLowerCase();
+  if (/assassin|rogue|thief|shadow|scout|stalker/.test(name)) return "sneaky";
+  if (/sniper|archer|lookout|watcher/.test(name)) return "cautious";
+  if (/guardian|protector|defender|shieldbearer|sentinel/.test(name)) return "defensive";
+  return "aggressive";
+}
+
 /** A tactical *proposal*, not permission to commit an attack or skip initiative. */
 export function planNpcBehavior(input: {
   profile: NpcBehaviorProfile;
@@ -24,11 +34,12 @@ export function planNpcBehavior(input: {
   if ((profile === "cautious" || profile === "defensive" || profile === "sneaky") && hp <= 0.25) {
     return { kind: "retreat", reason: "preserve_self" };
   }
-  if (profile === "sneaky") return { kind: "reposition", reason: "seek_advantage_before_attack" };
-  if (profile === "defensive") return { kind: "seek_cover", reason: "prioritize_cover" };
+  const moodSeed = [...input.commandSeed].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
+  if (profile === "sneaky" && moodSeed % 3 === 0) return { kind: "reposition", reason: "seek_advantage_before_attack" };
+  if (profile === "defensive" && moodSeed % 4 === 0) return { kind: "seek_cover", reason: "prioritize_cover" };
   const choices = readiness.choices;
   if (!choices.length) return { kind: "hold", reason: "no_valid_attack" };
-  const seed = [...input.commandSeed].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
+  const seed = moodSeed;
   const ranked = [...choices].sort((a, b) => {
     const powerA = a.attackBonus + a.damageModifier;
     const powerB = b.attackBonus + b.damageModifier;
