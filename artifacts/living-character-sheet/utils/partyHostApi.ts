@@ -100,6 +100,19 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
         body: JSON.stringify({ partyCode: code, ...payload }),
       });
     },
+    async executeNpcMoveTurn(code: string, payload: {
+      commandId: string; battleId: string; npcId: string; expectedRevision: number;
+      stance: "reposition" | "retreat" | "seek_cover";
+      destination: { xFeet: number; yFeet: number };
+    }): Promise<{ ok: true; replayed: boolean; receipt: {
+      commandId: string; battleId: string; npcId: string; stance: string;
+      xFeet: number; yFeet: number; movedFeet: number; nextTurnId: string;
+    } }> {
+      return request(`/party/${code}/npc-move-turn`, {
+        method: "POST", headers: await encounterHeaders(code, "execute NPC movement"),
+        body: JSON.stringify(payload),
+      });
+    },
     async executeNpcWeaponTurn(code: string, payload: {
       commandId: string; battleId: string; npcId: string; weaponId: string;
       targetMemberId: string; expectedRevision: number;
