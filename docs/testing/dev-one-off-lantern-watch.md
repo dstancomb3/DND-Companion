@@ -42,3 +42,17 @@
 For each step mark PASS/FAIL/BLOCKED, copy the session ID, character name, timestamp, actual message, expected state, actual state and (if relevant) a screenshot plus any API/event-log error. A BLOCKED step does not count as PASS.
 
 Stop and report after any HP duplication, missing damage, remote mutation conflict, or repeated loot claim. Keep PR #84 unmerged until all critical steps pass and CI is green.
+
+## 2026-10-27 partial-feature reconciliation
+
+The feature-status and implementation-log documents track older phased work and are not evidence that recent PR #84 changes passed acceptance. Outstanding domains include:
+- **NPC cover:** behavior selection and coordinate movement exist, but confirmed terrain, cover bonuses, obstacle routing, opportunity attacks and reactions on movement are incomplete.
+- **Rest/provisions:** client now offers an opt-in selection of existing ration/food/water items; request persistence is supported. Approval, actual inventory validation/debit, crash-safe exactly-once consumption, and AI-DM rest orchestration remain incomplete. Do not mark selections as consumed.
+- **Encounter closure:** automated death cleanup and manual closure preserving defeated NPC instances exist. Verify surviving nonhostiles, repeat end requests, persistent corpse loot, active-turn removal and state reopening after restart.
+- **Generalized combat:** resistances/conditions are bounded, while arbitrary item effects, reflection and full homebrew convergence are incomplete.
+- **Session orchestration:** the shared AI-DM narrative/roll loop is still partially local; multiplayer/campaign restart continuity, idempotent outcome receipts and interaction with authoritative combat need integration acceptance.
+- **State history:** local undo is intentionally contained/disabled in risky paths. Shared server history and DM rollback are not implemented.
+- **Party security and delivery:** access controls improved, but authorization-to-commit race safety and exactly-once inventory/notes delivery need verification.
+- **Workspace:** resize browser acceptance remained red on the preceding checked run. Use actual Playwright evidence, not only unit tests.
+
+This is a QA backlog, not a completion claim. The Lantern Watch one-off is a guided story seed, not a deterministic encounter fixture.
