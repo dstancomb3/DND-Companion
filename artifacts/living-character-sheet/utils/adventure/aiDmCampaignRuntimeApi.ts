@@ -35,6 +35,7 @@ export interface CampaignRuntimeTurnResponse {
     dmText: string;
     choices: string[];
     stateTags: string[];
+    sceneSafety?: { dangerScore: number; shortRestFeasible: boolean; longRestFeasible: boolean; reason: string };
     itemChanges: CampaignRuntimeTurnItemChange[];
     encounterIntent: CampaignRuntimeTurnEncounterIntent | null;
     adjudicationRequests: CampaignRuntimeTurnAdjudicationRequest[];
