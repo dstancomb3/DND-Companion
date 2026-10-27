@@ -23,8 +23,24 @@ test("[smoke:adventure] directly resize, swap, replace and restore workspace", a
   const rect = await edge.boundingBox();
   expect(rect).not.toBeNull();
   const x = rect!.x + rect!.width / 2, y = rect!.y + 60;
+  const probe = await page.evaluate(({ x, y }) => {
+    const divider = document.querySelector('[aria-label="Resize left column"]');
+    const hit = document.elementFromPoint(x, y);
+    const events: string[] = [];
+    for (const type of ["pointerdown", "pointermove", "mousedown", "mousemove"]) {
+      document.addEventListener(type, event => {
+        const target = event.target as HTMLElement | null;
+        events.push(`${type}:${target?.getAttribute("aria-label") ?? target?.tagName ?? "unknown"}`);
+      }, { capture: true });
+    }
+    (window as any).__workspaceDragEvents = events;
+    return { dividerExists: !!divider, dividerRect: divider?.getBoundingClientRect().toJSON(),
+      hitTag: hit?.tagName, hitLabel: hit?.getAttribute("aria-label") };
+  }, { x, y });
+  console.log("Workspace drag geometry", JSON.stringify(probe));
   await page.mouse.move(x, y); await page.mouse.down();
   await page.mouse.move(x + 45, y, { steps: 8 });
+  console.log("Workspace drag events", JSON.stringify(await page.evaluate(() => (window as any).__workspaceDragEvents)));
   await expect.poll(async () => (await box("narrative")).width).toBeLessThan(before.width);
   await page.mouse.up();
   const resized = (await box("narrative")).width;
