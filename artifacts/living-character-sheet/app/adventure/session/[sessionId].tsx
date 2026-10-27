@@ -2100,6 +2100,44 @@ export default function AdventureSessionPlaceholderScreen() {
       footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
       content: (
       <>
+        {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
+          <View onLayout={event => { pendingRollYRef.current = event.nativeEvent.layout.y; }} style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
+            <View style={styles.rollPromptHeaderRow}>
+              <Feather name="target" size={16} color="#f59e0b" />
+              <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>DM Roll Request</Text>
+            </View>
+            {encounterGateVisibility?.isActive ? (
+              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
+            ) : (
+              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>Roll now to keep the scene moving.</Text>
+            )}
+            {pendingRollRequests.map((request) => {
+              const modifier = getModifierForStatKey(request.statKey);
+              const isRolling = rollingRequestId === request.id;
+              return (
+                <View key={request.id} style={[styles.rollPromptRequestCard, { backgroundColor: c.background, borderColor: "#f59e0b44" }]}>
+                  <Text style={[styles.rollPromptRequestTitle, { color: c.foreground }]}>{request.label}</Text>
+                  <Text style={[styles.rollPromptBody, { color: c.foreground }]}>{formatRollCheckName(request.statKey)}</Text>
+                  <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
+                    Your modifier: {modifier >= 0 ? `+${modifier}` : `${modifier}`}
+                  </Text>
+                  <TouchableOpacity
+                    disabled={isRolling}
+                    onPress={() => void handlePendingRollResponse(request)}
+                    style={[styles.rollPromptButton, { backgroundColor: "#f59e0b", opacity: isRolling ? 0.6 : 1 }]}
+                    activeOpacity={0.85}
+                  >
+                    <Feather name="zap" size={14} color="#fff" />
+                    <Text style={styles.rollPromptButtonText}>
+                      {isRolling ? "Rolling..." : `Roll d20 + ${modifier >= 0 ? modifier : `(${modifier})`}`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
       <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
         {!isCampaignScaffold && activeOneOffBattleId ? (
           <>
@@ -2188,7 +2226,7 @@ export default function AdventureSessionPlaceholderScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {campaignChoiceOptions.length > 0 ? (
+        {campaignChoiceOptions.length > 0 && !activeOneOffBattleId && pendingRollRequests.length === 0 ? (
           <View style={[styles.choicesCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.choicesLabel, { color: c.mutedForeground }]}>WHAT DO YOU DO?</Text>
             {campaignChoiceOptions.map((choice, index) => (
@@ -2344,44 +2382,6 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <View onLayout={event => { pendingRollYRef.current = event.nativeEvent.layout.y; }} style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
-            <View style={styles.rollPromptHeaderRow}>
-              <Feather name="target" size={16} color="#f59e0b" />
-              <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>DM Roll Request</Text>
-            </View>
-            {encounterGateVisibility?.isActive ? (
-              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
-            ) : (
-              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>Roll now to keep the scene moving.</Text>
-            )}
-            {pendingRollRequests.map((request) => {
-              const modifier = getModifierForStatKey(request.statKey);
-              const isRolling = rollingRequestId === request.id;
-              return (
-                <View key={request.id} style={[styles.rollPromptRequestCard, { backgroundColor: c.background, borderColor: "#f59e0b44" }]}>
-                  <Text style={[styles.rollPromptRequestTitle, { color: c.foreground }]}>{request.label}</Text>
-                  <Text style={[styles.rollPromptBody, { color: c.foreground }]}>{formatRollCheckName(request.statKey)}</Text>
-                  <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
-                    Your modifier: {modifier >= 0 ? `+${modifier}` : `${modifier}`}
-                  </Text>
-                  <TouchableOpacity
-                    disabled={isRolling}
-                    onPress={() => void handlePendingRollResponse(request)}
-                    style={[styles.rollPromptButton, { backgroundColor: "#f59e0b", opacity: isRolling ? 0.6 : 1 }]}
-                    activeOpacity={0.85}
-                  >
-                    <Feather name="zap" size={14} color="#fff" />
-                    <Text style={styles.rollPromptButtonText}>
-                      {isRolling ? "Rolling..." : `Roll d20 + ${modifier >= 0 ? modifier : `(${modifier})`}`}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        ) : null}
-
         {!isCampaignScaffold && npcTurnStatus.kind === "npc_turn" ? (
           <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>
@@ -2408,14 +2408,7 @@ export default function AdventureSessionPlaceholderScreen() {
             <Feather name={combatPanelOpen ? "chevron-up" : "chevron-down"} color={c.primary} size={18} />
           </TouchableOpacity>
         ) : null}
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
-          <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
-            style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
-            <AiDmCombatTargetPicker attackRanges={composerAttackOptions.map(({ attack }) => ({ id: attack.id, name: attack.name, range: attack.range }))} />
-          </View>
-        ) : null}
-
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
+        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterToolsHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
@@ -2604,6 +2597,14 @@ export default function AdventureSessionPlaceholderScreen() {
     inventory: { title: "Inventory", content: <SessionInventoryPanel items={inventory} /> },
     encounter: { title: "Encounter", content: <>
       <SessionEncounterStatus session={workspaceSession} />
+        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
+          <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
+            style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
+            <AiDmCombatTargetPicker attackRanges={composerAttackOptions.map(({ attack }) => ({ id: attack.id, name: attack.name, range: attack.range }))} />
+          </View>
+        ) : null}
+
+
       {(sharedState?.combatNpcs ?? []).filter(npc => workspaceSession.encounter.battleId &&
         sharedState?.participantBattleById[npc.id] === workspaceSession.encounter.battleId).map(npc => (
           <View key={npc.id} style={{ gap: 4, paddingVertical: 8 }}>
