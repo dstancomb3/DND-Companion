@@ -126,7 +126,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
     return <View key={field} {...(Platform.OS === "web" ? webPointerHandlers : responder.panHandlers)} accessible accessibilityRole="adjustable"
       accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
       accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
-      onAccessibilityAction={event => adjust(field, (event.nativeEvent.actionName === "increment" ? 0.025 : -0.025))}
+      onAccessibilityAction={event => { const delta = event.nativeEvent.actionName === "increment" ? 0.025 : -0.025; undo.current.push(preferences.layout); update(current => saveCustomWorkspace(current, resizeWorkspaceLayout(current.layout, field, delta))); }}
       style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35, ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }} />;
   }
   function toggle(id: WorkspacePanelId) {
