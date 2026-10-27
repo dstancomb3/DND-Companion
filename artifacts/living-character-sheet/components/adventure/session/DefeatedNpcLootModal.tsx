@@ -15,7 +15,7 @@ export function DefeatedNpcLootModal({ npc, pendingAssignments, onClose, onTrans
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { setSelected([]); setError(""); }, [npc?.id]);
-  const items = npc?.dummyState?.currentHp === 0 && npc.projection?.combatantKind !== "companion" ? npc.gear ?? [] : [];
+  const items = npc?.dummyState?.currentHp === 0 && npc.projection?.combatantKind !== "companion" ? (npc.gear ?? []).filter(gear => !gear.id.startsWith("intrinsic-") && !/^unarmed\\s*strike$/i.test(gear.name)) : [];
   async function transfer(ids: string[]) {
     if (!npc || busy || !ids.length) return;
     setBusy(true); setError("");
