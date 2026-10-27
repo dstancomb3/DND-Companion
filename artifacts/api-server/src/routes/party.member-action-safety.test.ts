@@ -54,7 +54,7 @@ for(const op of operations){
    const code=`member-success-${++serial}`,now=new Date(),target=scenario==="foreign target"?"other":"member";
    let durable:Record<string,unknown>={partyCode:code,schemaVersion:1,stateRevision:1,updatedAt:now,snapshot:{
     rollRequests:[{id:"request",statKey:"dexterity",label:"Dexterity",targetMemberIds:[target],requestedAt:now.toISOString(),responses:[]}],
-    restRequests:[{id:"request",restType:"short_rest",requestedByMemberId:"member",targetMemberIds:[target],requestedAt:now.toISOString(),status:"approved",acknowledgements:[]}],
+    restRequests:op.name==="rest request"?[]:[{id:"request",restType:"short_rest",requestedByMemberId:"member",targetMemberIds:[target],requestedAt:now.toISOString(),status:"approved",acknowledgements:[]}],
     lootAssignments:[{id:"loot",targetMemberId:target,item:{name:"Torch",quantity:2,category:"gear"},assignedAt:now.toISOString()}],
    }};
    let writes=0;
