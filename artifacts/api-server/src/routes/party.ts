@@ -3252,7 +3252,7 @@ router.post("/party/:code/defeated-npc/:npcId/loot", async (req, res) => {
           inventoryItem: { name: gear.name, quantity: 1, equipped: false, category: gear.category,
             notes: gear.notes, damageDice: gear.damageDice, damageModifier: gear.damageModifier,
             damageType: gear.damageType, weaponRange: gear.range } },
-        assignedBy: "defeated_npc", assignedAt: now,
+        assignedBy: `defeated_npc:${npcId}`, assignedAt: now,
       }));
       npc.gear = (npc.gear ?? []).filter(gear => !itemIds.includes(gear.id));
       state.lootAssignments.unshift(...assignments);
