@@ -1,5 +1,6 @@
 import React from "react";
 import { Text, View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import type { PartyMemberSummary, PartyEvent } from "@/utils/partyApi";
 import type { InventoryItem } from "@/types";
@@ -21,9 +22,9 @@ export function SessionInventoryPanel({ items }: { items: readonly InventoryItem
   const c = useColors();
   const visible = items.filter(item => item.quantity > 0);
   return <View style={{ gap: 10 }}>
-    {visible.length ? visible.map(item => <View key={item.id} style={{ gap: 3 }}>
-      <Text style={{ color: c.foreground, fontSize: 13 }}>{item.name} ×{item.quantity}</Text>
-      {item.equipped ? <Text style={{ color: c.primary, fontSize: 11 }}>Equipped</Text> : null}
+    {visible.length ? visible.map(item => <View key={item.id} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <Text style={{ color: c.foreground, fontSize: 13, flexShrink: 1 }}>{item.name} ×{item.quantity}</Text>
+      {item.equipped ? <View accessibilityLabel="Equipped" accessibilityRole="image"><Feather name="check-circle" size={13} color={c.primary} /></View> : null}
     </View>) : <Text style={{ color: c.mutedForeground }}>No items in inventory.</Text>}
   </View>;
 }
