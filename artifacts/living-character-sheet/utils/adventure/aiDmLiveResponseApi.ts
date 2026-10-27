@@ -113,6 +113,7 @@ export async function requestLiveResponse(
           }
         }
         })()]);
+        return; // The request completed successfully; do not submit another turn.
       } finally {
         if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
       }
