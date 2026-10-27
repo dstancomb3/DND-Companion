@@ -2472,7 +2472,7 @@ export default function AdventureSessionPlaceholderScreen() {
                   ))}
                 </View>
                 {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
-                  <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true}
+                  <AttackCard key={attack.id} attack={attack} compact pinned={attack.pinned === true}
                     onResolved={result => {
                       const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name,
                         result, targets: (sharedState?.combatNpcs ?? []).map(npc => ({ id: npc.id, name: npcNameOverridesById[npc.id] ?? npc.name })) });
