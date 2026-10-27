@@ -2133,8 +2133,13 @@ export default function AdventureSessionPlaceholderScreen() {
           <>
             <AiDmSessionInputComposer
               onSubmit={handleInputSubmit}
-              isPending={isCampaignRuntimeTurnPending || (!isCampaignScaffold && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId))}
+              isPending={isCampaignRuntimeTurnPending}
             />
+            {!isCampaignScaffold && !isCampaignRuntimeTurnPending && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId) && !partyBootstrapError ? (
+              <Text style={{ color: c.mutedForeground, fontSize: 12, paddingHorizontal: 8 }}>
+                Connecting to the session. You can write your action now; it will be ready to send once connected.
+              </Text>
+            ) : null}
             {!isCampaignScaffold && !isCampaignRuntimeTurnPending && campaignRuntimeStatus ? (
               <View accessibilityRole="alert" style={{ borderWidth: 1, borderColor: c.destructive, borderRadius: 8, padding: 10, gap: 5 }}>
                 <Text style={{ color: c.destructive, fontWeight: "700" }}>The DM did not respond</Text>
