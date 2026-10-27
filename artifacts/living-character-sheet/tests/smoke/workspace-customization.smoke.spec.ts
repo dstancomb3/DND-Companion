@@ -7,7 +7,7 @@ test("[smoke:adventure] directly resize, swap, replace and restore workspace", a
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/landing", { timeout: 90_000 });
   await page.getByText("Try demo character (Lyra Shadowstep)").click();
-  await expect(page).toHaveURL(/\\/(tabs)?\\/?$/);
+  await expect(page).toHaveURL(/\/(tabs)?\/?$/);
   await page.goto("/adventure/session/customization-smoke?title=Workspace%20fixture", { timeout: 90_000 });
   const click = (name: string) => page.getByRole("button", { name, exact: true }).click();
   const box = async (id: string) => {
