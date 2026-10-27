@@ -270,6 +270,7 @@ export interface EndPartyTurnPayload {
   memberId?: string;
   battleId?: string;
   isDmOverride?: boolean;
+  expectedCurrentTurnId?: string;
 }
 
 export interface SyncPayload {
@@ -519,10 +520,11 @@ export async function endPartyTurn(code: string, memberId?: string): Promise<voi
   await sendPartyEndTurn(code, memberId ? { memberId } : {});
 }
 
-export async function endPartyTurnForBattle(code: string, battleId?: string, isDmOverride?: boolean): Promise<void> {
+export async function endPartyTurnForBattle(code: string, battleId?: string, isDmOverride?: boolean, expectedCurrentTurnId?: string): Promise<void> {
   await sendPartyEndTurn(code, {
     ...(battleId ? { battleId } : {}),
     ...(isDmOverride ? { isDmOverride: true } : {}),
+    ...(expectedCurrentTurnId ? { expectedCurrentTurnId } : {}),
   });
 }
 
