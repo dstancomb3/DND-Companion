@@ -33,6 +33,7 @@ import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAtta
 import { getNpcTurnWaitingStatus } from "@/utils/combat/npcTurnWaitingStatus";
 import { planNpcAttackChoices } from "@/utils/combat/npcTurnReadiness";
 import { inferNpcBehaviorProfile, planNpcBehavior } from "@/utils/combat/npcBehaviorBrain";
+import { planNpcTacticalMovement } from "@/utils/combat/npcTacticalMovement";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { getConsumableHealingRoll, rollConsumableHealing } from "@/utils/combat/healingConsumable";
 import { triggerEffect } from "@/utils/triggerEffect";
@@ -93,6 +94,7 @@ import {
   endPartyTurnForBattle,
   adjudicateNpcTurn,
   executeNpcWeaponTurn,
+  executeNpcMoveTurn,
   type PartyRestType,
   createPartyRollRequest,
   fetchPartyMembers,
@@ -679,6 +681,27 @@ export default function AdventureSessionPlaceholderScreen() {
     void (async () => {
       try {
         setNpcTurnAutomationError("");
+        if ((behavior.kind === "retreat" || behavior.kind === "reposition" || behavior.kind === "seek_cover") && npc && revision >= 1) {
+          const destination = planNpcTacticalMovement({
+            battleId: activeOneOffBattleId, npcId: npc.id,
+            targetIds: members.map(member => member.id),
+            positions: combatState.encounterPositions ?? [],
+            speedFeet: npc.coreStats.speed, stance: behavior.kind,
+          });
+          if (destination) {
+            const committed = await executeNpcMoveTurn(partyCode, {
+              commandId: `ai-npc-move:${npc.id.slice(0, 35)}:${revision}`,
+              battleId: activeOneOffBattleId, npcId: npc.id, expectedRevision: revision,
+              stance: behavior.kind, destination,
+            });
+            await refreshCombatState(partyCode);
+            if (!committed.replayed) setEntries(previous => [...previous, {
+              id: `npc-move:${committed.receipt.commandId}`, role: "dm" as const,
+              text: `${npc.name} ${behavior.kind === "retreat" ? "falls back" : "moves into a better position"}, covering ${Math.round(committed.receipt.movedFeet)} feet.`,
+            }]);
+            return;
+          }
+        }
         if (behavior.kind === "attack" && plan.status === "ready" && npc && revision >= 1) {
           const recentScene = [...entries].reverse().find(entry =>
             entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
