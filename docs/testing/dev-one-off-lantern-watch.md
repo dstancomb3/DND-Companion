@@ -62,3 +62,9 @@ This is a QA backlog, not a completion claim. The Lantern Watch one-off is a gui
 - Approved rests on a client now validate explicitly selected provision IDs against current food/water inventory, subtract one unit per selected item, and store a per-party/member/rest local replay marker before applying local rest recovery. Ordinary polling and reload retries skip already-marked rests.
 - This is **not exactly-once durable inventory delivery**. A crash between writing that marker and saving item/recovery changes can leave the result partially applied; other devices and server inventory are not committed transactionally. Server-owned inventory/recovery and a committed application receipt remain required before marking full rest provisioning complete.
 - If provision validation fails, the request remains unacknowledged for review rather than silently restoring resources or losing inventory.
+
+### Interrupted-rest receipt containment (2026-10-27)
+
+- Rest receipt phases now distinguish unstarted, applying, and applied; a legacy `1` counts as applied. Repeated polling after an applied receipt retries acknowledgment without applying recovery again.
+- A persisted applying marker means local inventory/recovery may have been interrupted. The client deliberately does **not** retry or acknowledge it automatically. This requires manual reconciliation; no recovery interface or server-atomic transaction is supplied by this change.
+- Because character writes and receipt storage are separate, even an applied local marker is **not proof** that all character changes persisted. A server-authoritative transactional inventory and rest commit remains the completion criterion.
