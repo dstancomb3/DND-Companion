@@ -21,7 +21,7 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
   const [hasUnread, setHasUnread] = useState(false);
 
   const visibleEntries = props.entries.filter((e) =>
-    (props.showSystemComments !== false || e.role !== "system") &&
+    (props.showSystemComments !== false || (e.role !== "system" && e.role !== "tool")) &&
     (!props.campaignMode || e.role === "dm" || e.role === "player")
   );
 
@@ -38,7 +38,7 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
   return (
     <View style={[styles.wrap, { borderColor: c.border, backgroundColor: c.card }]}>
     {props.onToggleSystemComments ? <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 12, paddingVertical: 5 }}>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={props.showSystemComments === false ? "Show system comments" : "Hide system comments"} onPress={props.onToggleSystemComments} style={{ paddingHorizontal: 10, paddingVertical: 5 }}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={props.showSystemComments === false ? "Show system and tool comments" : "Hide system and tool comments"} onPress={props.onToggleSystemComments} style={{ paddingHorizontal: 10, paddingVertical: 5 }}>
         <Text style={{ color: c.mutedForeground, fontSize: 11 }}>{props.showSystemComments === false ? "Show system comments" : "Hide system comments"}</Text>
       </TouchableOpacity>
     </View> : null}
