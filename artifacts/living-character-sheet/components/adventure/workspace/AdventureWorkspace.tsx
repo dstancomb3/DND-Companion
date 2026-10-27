@@ -61,6 +61,7 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   }
   const pointerDrag = useRef<Partial<Record<keyof WorkspaceSizing, { id: number; coordinate: number }>>>({});
   const touchDrag = useRef<Partial<Record<keyof WorkspaceSizing, number>>>({});
+  const [activeDivider, setActiveDivider] = useState<keyof WorkspaceSizing | null>(null);
   function adjust(field: keyof WorkspaceSizing, delta: number) {
     if (!ready || temporaryFocus) return;
     setDraft(current => resizeWorkspaceLayout(current ?? preferences.layout, field, delta));
@@ -82,21 +83,22 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
     const responder = PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => { touchDrag.current[field] = 0; },
+      onPanResponderGrant: () => { touchDrag.current[field] = 0; setActiveDivider(field); },
       onPanResponderMove: (_, gesture) => {
         const position = horizontal ? gesture.dx : gesture.dy;
         const previous = touchDrag.current[field] ?? 0;
         touchDrag.current[field] = position;
         onDelta((position - previous) * direction);
       },
-      onPanResponderRelease: () => { delete touchDrag.current[field]; commitResize(); },
-      onPanResponderTerminate: () => { delete touchDrag.current[field]; },
+      onPanResponderRelease: () => { delete touchDrag.current[field]; setActiveDivider(null); commitResize(); },
+      onPanResponderTerminate: () => { delete touchDrag.current[field]; setActiveDivider(null); },
     });
     // Incremental deltas survive React rerenders as frames update during dragging.
     const webPointerHandlers: any = Platform.OS === "web" ? {
       onPointerDown: (event: any) => {
         if (event.button !== 0) return;
         pointerDrag.current[field] = { id: event.pointerId, coordinate: horizontal ? event.clientX : event.clientY };
+        setActiveDivider(field);
         event.currentTarget.setPointerCapture?.(event.pointerId);
         event.preventDefault?.();
       },
@@ -115,17 +117,20 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
         delete pointerDrag.current[field];
         if (delta) onDelta(delta * direction);
         event.currentTarget.releasePointerCapture?.(event.pointerId);
+        setActiveDivider(null);
         commitResize();
       },
       onPointerCancel: (event: any) => {
-        if (pointerDrag.current[field]?.id === event.pointerId) delete pointerDrag.current[field];
+        if (pointerDrag.current[field]?.id === event.pointerId) { delete pointerDrag.current[field]; setActiveDivider(null); }
       },
     } : {};
-    return <View key={field} {...(Platform.OS === "web" ? webPointerHandlers : responder.panHandlers)} accessible accessibilityRole="adjustable"
+    return <View key={field} {...(Platform.OS === "web" ? { ...webPointerHandlers, onPointerEnter: () => setActiveDivider(field), onPointerLeave: () => { if (!pointerDrag.current[field]) setActiveDivider(previous => previous === field ? null : previous); } } : responder.panHandlers)} accessible accessibilityRole="adjustable"
       accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((layout.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
       accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
-      onAccessibilityAction={event => { const delta = event.nativeEvent.actionName === "increment" ? 0.025 : -0.025; undo.current.push(preferences.layout); update(current => saveCustomWorkspace(current, resizeWorkspaceLayout(current.layout, field, delta))); }}
-      style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35, ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }} />;
+      onAccessibilityAction={event => { const delta = event.nativeEvent.actionName === "increment" ? 0.025 : -0.025; update(current => saveCustomWorkspace(current, resizeWorkspaceLayout(current.layout, field, delta))); }}
+      style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: "transparent", alignItems: "center", justifyContent: "center", ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }}>
+      {activeDivider === field ? <View pointerEvents="none" style={{ backgroundColor: c.mutedForeground, opacity: 0.8, borderRadius: 3, ...(horizontal ? { width: 3, height: 34 } : { width: 34, height: 3 }) }} /> : null}
+    </View>;
   }
   function toggle(id: WorkspacePanelId) {
     if (temporaryFocus) setFocusExpanded(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id]);
