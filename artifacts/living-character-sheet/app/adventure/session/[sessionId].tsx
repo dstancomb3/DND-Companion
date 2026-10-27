@@ -444,7 +444,6 @@ export default function AdventureSessionPlaceholderScreen() {
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
-  const [combatPanelOpen, setCombatPanelOpen] = useState(false);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
   const [showSystemComments, setShowSystemComments] = useState(false);
   const [partyBootstrapError, setPartyBootstrapError] = useState<string | null>(null);
@@ -583,7 +582,6 @@ export default function AdventureSessionPlaceholderScreen() {
 
 
   const goToCombatControls = () => {
-    setCombatPanelOpen(true);
     setTimeout(() => {
       if (combatSectionYRef.current !== null) workspaceRef.current?.focusActions(combatSectionYRef.current);
     }, 100);
@@ -2427,17 +2425,7 @@ export default function AdventureSessionPlaceholderScreen() {
         ) : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
-          <TouchableOpacity accessibilityRole="button"
-            accessibilityLabel={combatPanelOpen ? "Hide combat actions" : "Show combat actions"}
-            onPress={() => setCombatPanelOpen((open) => !open)}
-            onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }}
-            style={[styles.composerDisclosureRow, { borderColor: c.border, backgroundColor: c.card }]}>
-            <Text style={{ color: c.foreground, fontWeight: "700" }}>Combat actions and targets</Text>
-            <Feather name={combatPanelOpen ? "chevron-up" : "chevron-down"} color={c.primary} size={18} />
-          </TouchableOpacity>
-        ) : null}
-        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
-          <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }} style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterToolsHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
               <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Choose an action</Text>
