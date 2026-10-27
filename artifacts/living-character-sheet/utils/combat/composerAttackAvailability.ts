@@ -109,7 +109,7 @@ export function buildSessionCombatAttacks(
     (item.tags ?? []).includes("Unarmed Weapon") && item.suppressWeaponCard,
   );
   let unarmed: Attack[] = [];
-  if (!hasTwoHandedWeapon && !savedAttacks.some((attack) => attack.id === "unarmed-strike")) {
+  if (!hasTwoHandedWeapon && !savedAttacks.some((attack) => attack.id === "unarmed-strike" || attack.name.trim().toLowerCase() === "unarmed strike")) {
     if (mergeWeapon) {
       unarmed = [{ ...attackForItem(mergeWeapon), id: "unarmed-strike", notes: "Replacing Unarmed Strike" }];
     } else {
@@ -128,6 +128,13 @@ export function buildSessionCombatAttacks(
     }
   }
   const augments = collectEquippedAttackAugments(inventory);
+  const seenUnarmed = new Set<string>();
   return [...unarmed, ...savedAttacks, ...generated]
+    .filter((attack) => {
+      if (attack.name.trim().toLowerCase() !== "unarmed strike") return true;
+      if (seenUnarmed.has("unarmed strike")) return false;
+      seenUnarmed.add("unarmed strike");
+      return true;
+    })
     .map((attack) => applyEquippedAttackAugments(attack, augments));
 }
