@@ -26,13 +26,24 @@ export function planNpcBehavior(input: {
   commandSeed: string;
 }): NpcBrainDecision {
   const { profile, readiness } = input;
-  if (readiness.status !== "ready") {
-    return { kind: "hold", reason: readiness.status === "needs_adjudication" ? readiness.reason : "not_npc_turn" };
+  if (readiness.status === "not_npc_turn") return { kind: "hold", reason: "not_npc_turn" };
+  if (readiness.status === "needs_adjudication" && readiness.reason === "incapacitated") {
+    return { kind: "hold", reason: "incapacitated" };
   }
   if (profile === "passive") return { kind: "hold", reason: "avoids_hostilities" };
   const hp = input.hpFraction ?? 1;
   if ((profile === "cautious" || profile === "defensive" || profile === "sneaky") && hp <= 0.25) {
     return { kind: "retreat", reason: "preserve_self" };
+  }
+  // Intention does not confer movement authority; callers must secure a
+  // committed spatial action before reporting any change in position.
+  if (readiness.status === "needs_adjudication") {
+    if (readiness.reason === "no_valid_attack" || readiness.reason === "no_eligible_targets") {
+      if (profile === "sneaky") return { kind: "reposition", reason: "seek_sightline" };
+      if (profile === "defensive") return { kind: "seek_cover", reason: "avoid_exposure" };
+      if (profile === "cautious") return { kind: "retreat", reason: "avoid_unwinnable_exchange" };
+    }
+    return { kind: "hold", reason: readiness.reason };
   }
   const moodSeed = [...input.commandSeed].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
   if (profile === "sneaky" && moodSeed % 3 === 0) return { kind: "reposition", reason: "seek_advantage_before_attack" };
