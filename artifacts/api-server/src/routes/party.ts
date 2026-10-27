@@ -2307,6 +2307,21 @@ router.post("/party/:code/npc-move-turn", async (req, res) => {
         throw new CompanionLifecycleError(409, "npc_destination_occupied",
           "Another combatant occupies the proposed destination.");
       }
+      // A straight-line move may not pass through another occupied square.
+      const pathBlocked = state.encounterPositions.some(point => {
+        if (point.battleId !== battleId || point.combatantId === npcId ||
+            state.participantBattleById[point.combatantId] !== battleId ||
+            (point.source !== "dm_confirmed" && point.source !== "grid_authority")) return false;
+        const dx = destination.xFeet - current.xFeet;
+        const dy = destination.yFeet - current.yFeet;
+        const t = Math.max(0, Math.min(1,
+          ((point.xFeet - current.xFeet) * dx + (point.yFeet - current.yFeet) * dy) /
+          (dx * dx + dy * dy)));
+        return Math.hypot(point.xFeet - (current.xFeet + t * dx),
+          point.yFeet - (current.yFeet + t * dy)) < 5;
+      });
+      if (pathBlocked) throw new CompanionLifecycleError(409, "npc_path_blocked",
+        "An occupied combatant space blocks the proposed movement path.");
       const order = state.battleTurnOrderById[battleId] ?? [];
       const index = order.indexOf(npcId);
       if (index < 0 || order.length < 2) throw new CompanionLifecycleError(409, "turn_order_invalid", "Cannot advance initiative.");
