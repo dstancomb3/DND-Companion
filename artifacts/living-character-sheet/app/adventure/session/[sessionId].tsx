@@ -2323,7 +2323,7 @@ export default function AdventureSessionPlaceholderScreen() {
               {npcTurnStatus.npcName}'s turn
             </Text>
             <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
-              {npcTurnStatus.detail} The DM must resolve this turn before initiative can continue.
+              {npcTurnAutomationError ? `Automatic turn advance failed: ${npcTurnAutomationError}` : "The AI DM is resolving the NPC turn. Unverified attacks are held rather than applied."}
             </Text>
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh NPC turn status"
               onPress={() => { if (partyCode) void refreshCombatState(partyCode); }}
