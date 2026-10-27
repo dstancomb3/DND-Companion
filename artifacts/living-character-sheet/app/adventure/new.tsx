@@ -13,6 +13,7 @@ import { createAiDmCampaignSessionBootstrap } from "@/utils/adventure/aiDmCampai
 import { AI_DM_ROUTES, buildAiDmSessionPath, buildAiDmSessionRouteParams } from "@/utils/aiDmRouteDefs";
 import type { AiDmDifficultyProfile, AiDmStylePreset } from "@/types";
 import { ONE_OFF_SEEDS, resolveOneOffSeeds, buildSeedGuidance, type OneOffSeedKind } from "@/utils/adventure/oneOffAdventureSeeds";
+import { DEV_ONE_OFF_TITLE, DEV_ONE_OFF_GUIDANCE } from "@/utils/adventure/devOneOffScenario";
 
 function buildInventoryBrief(snapshot: CharacterSnapshot): string {
   const liveItems = (snapshot.inventory ?? []).filter((item) => item.quantity > 0);
@@ -88,6 +89,7 @@ export default function AdventureNewScreen() {
 
   const [sessionType, setSessionType] = React.useState<"campaign_scaffold" | "one_off">("campaign_scaffold");
   const [startInCombat, setStartInCombat] = React.useState(false);
+  const [devOneOff, setDevOneOff] = React.useState(false);
 
   const [savedChars, setSavedChars] = React.useState<SavedCharacter[]>([]);
   const [selectedCharId, setSelectedCharId] = React.useState<string | null>(null);
@@ -110,8 +112,8 @@ export default function AdventureNewScreen() {
   function handleStart() {
     const intentLine = intent.trim();
     const characterBrief = selectedChar ? buildCharacterBrief(selectedChar.snapshot) : "";
-    const resolvedSeeds = sessionType === "one_off" ? resolveOneOffSeeds(seedChoices) : null;
-    const seededIntent = resolvedSeeds ? [buildSeedGuidance(resolvedSeeds), intentLine].filter(Boolean).join(" ") : intentLine;
+    const resolvedSeeds = sessionType === "one_off" && !devOneOff ? resolveOneOffSeeds(seedChoices) : null;
+    const seededIntent = devOneOff && sessionType === "one_off" ? DEV_ONE_OFF_GUIDANCE : resolvedSeeds ? [buildSeedGuidance(resolvedSeeds), intentLine].filter(Boolean).join(" ") : intentLine;
     const guidanceText = sessionType === "one_off"
       ? buildOneOffGuidance(selectedChar?.snapshot ?? null, seededIntent)
       : [
@@ -126,7 +128,7 @@ export default function AdventureNewScreen() {
         params: buildAiDmSessionRouteParams({
           source: "new-oneoff",
           mode: "one_off",
-          title: sessionLabel.trim() || "One-Off Encounter",
+          title: devOneOff ? DEV_ONE_OFF_TITLE : sessionLabel.trim() || "One-Off Encounter",
           difficulty,
           stylePreset,
           startInCombat,
@@ -208,6 +210,33 @@ export default function AdventureNewScreen() {
             ) : null}
           </View>
 
+          {sessionType === "one_off" ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Use development test one-off"
+              onPress={() => {
+                setDevOneOff(value => !value);
+                setStartInCombat(false);
+                setDifficulty("balanced");
+                setStylePreset("grounded");
+              }}
+              style={[styles.toggleRow, { borderColor: devOneOff ? c.primary : c.border, backgroundColor: c.card }]}
+              activeOpacity={0.8}
+            >
+              <View style={styles.toggleInfo}>
+                <Feather name="tool" size={15} color={devOneOff ? c.primary : c.mutedForeground} />
+                <View style={{ flexShrink: 1 }}>
+                  <Text style={[styles.toggleLabel, { color: c.foreground }]}>Dev Test One-Off: The Lantern Watch</Text>
+                  <Text style={{ color: c.mutedForeground, fontSize: 11 }}>
+                    Repeatable story path for combat, healing, loot and rest testing
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.togglePill, { backgroundColor: devOneOff ? c.primary : c.border }]}>
+                <View style={[styles.toggleThumb, { marginLeft: devOneOff ? 14 : 2 }]} />
+              </View>
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: c.mutedForeground }]}>SESSION TITLE</Text>
             <TextInput
