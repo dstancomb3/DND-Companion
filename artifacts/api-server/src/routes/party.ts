@@ -372,7 +372,7 @@ type RemoteApplyRejectedTarget = {
 
 type RemoteApplyTargetResultEntry = {
   requestIndex: number;
-  postAttackHp?: number;
+  defeated?: boolean;
   targetType?: string;
   targetId?: string;
   status: "applied" | "skipped_invalid" | "skipped_missing_target" | "skipped_noop";
@@ -2765,7 +2765,7 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
           targetType: "member",
           targetId: operation.memberId,
           status: "applied",
-          postAttackHp: operation.nextHp,
+          defeated: operation.nextHp === 0,
         });
         continue;
       }
@@ -2791,7 +2791,7 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
         targetType: "npc",
         targetId: operation.npcId,
         status: "applied",
-        postAttackHp: operation.nextHp ?? undefined,
+        ...(operation.nextHp !== null ? { defeated: operation.nextHp === 0 } : {}),
       });
     }
 
