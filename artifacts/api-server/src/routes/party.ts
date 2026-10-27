@@ -2765,7 +2765,7 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
           targetType: "member",
           targetId: operation.memberId,
           status: "applied",
-          defeated: operation.nextHp === 0,
+          defeated: member.currentHp > 0 && operation.nextHp === 0,
         });
         continue;
       }
@@ -2781,6 +2781,7 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
         });
         continue;
       }
+      const npcWasStanding = typeof npc.dummyState?.currentHp === "number" && npc.dummyState.currentHp > 0;
       if (npc.dummyState && operation.nextHp !== null) {
         npc.dummyState.currentHp = operation.nextHp;
       }
@@ -2791,7 +2792,7 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
         targetType: "npc",
         targetId: operation.npcId,
         status: "applied",
-        ...(operation.nextHp !== null ? { defeated: operation.nextHp === 0 } : {}),
+        ...(operation.nextHp !== null ? { defeated: npcWasStanding && operation.nextHp === 0 } : {}),
       });
     }
 
