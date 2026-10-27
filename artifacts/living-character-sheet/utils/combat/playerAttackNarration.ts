@@ -39,17 +39,19 @@ function describeOutcome(row: CombatTargetResolutionResult, targetName: string, 
   }
   if (hit.status === "unresolved") return `The result against ${targetName} remains unresolved.`;
 
+  const critical = hit.status === "hit" && hit.attackRoll === 20;
+  const criticalLead = critical ? "A critical strike! " : "";
   const damage = row.damageBreakdown;
   if (!damage) {
     return hit.status === "hit"
-      ? `The attack connects with ${targetName}, but its effect is not yet established.`
+      ? `${criticalLead}The attack connects with ${targetName}, but its effect is not yet established.`
       : `The attack reaches ${targetName}; the outcome is not fully established.`;
   }
   const immune = damage.packets.length > 0 && damage.packets.every(packet => packet.immune || packet.adjustedAmount === 0 && packet.immune);
   const resisted = damage.packets.some(packet => packet.resisted);
   const type = damage.packets.find(packet => packet.damageType)?.damageType;
   const magnitude = damage.hpDamage;
-  if (immune && damage.adjustedTotal === 0) return `The strike connects, but ${targetName} is immune to the damage.`;
+  if (immune && damage.adjustedTotal === 0) return `${criticalLead}The strike connects, but ${targetName} is immune to the damage.`;
   if (magnitude > 0) {
     const impact = pick(seed + ":impact", [
       `The blow lands against ${targetName}`,
@@ -57,9 +59,9 @@ function describeOutcome(row: CombatTargetResolutionResult, targetName: string, 
       `${targetName} takes the impact`,
     ]);
     const result = `${impact}, dealing ${magnitude}${type ? ` ${type}` : ""} damage.`;
-    return resisted ? `${result} Some of the force is resisted.` : result;
+    return criticalLead + (resisted ? `${result} Some of the force is resisted.` : result);
   }
-  if (damage.tempHpAbsorbed > 0) return `The hit catches ${targetName}, but ${damage.tempHpAbsorbed} damage is absorbed by temporary protection.`;
+  if (damage.tempHpAbsorbed > 0) return `${criticalLead}The hit catches ${targetName}, but ${damage.tempHpAbsorbed} damage is absorbed by temporary protection.`;
   if (damage.hpHealing && damage.hpHealing > 0) return `The effect restores ${damage.hpHealing} hit points to ${targetName}.`;
   if (damage.adjustedTotal === 0 && damage.rawTotal > 0) return `The strike lands, but no damage gets through ${targetName}'s defenses.`;
   return `The attack connects with ${targetName}, without any confirmed loss of hit points.`;
