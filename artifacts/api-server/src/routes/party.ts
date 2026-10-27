@@ -4387,8 +4387,14 @@ router.delete("/party/:code/encounters/:battleId", async (req, res) => {
       return;
     }
 
-    // Remove NPCs from combat entirely
-    state.combatNpcs = state.combatNpcs.filter((npc) => !npcIdsInBattle.includes(npc.id));
+    // Preserve confirmed defeated NPCs outside initiative, including their
+    // unclaimed physical gear. Manual DM closure must not erase corpse loot.
+    const defeatedNpcIds = new Set(state.eventLog.filter(event =>
+      event.type === "npc_defeated" &&
+      typeof event.metadata?.npcId === "string").map(event => String(event.metadata!.npcId)));
+    state.combatNpcs = state.combatNpcs.filter(npc =>
+      !npcIdsInBattle.includes(npc.id) ||
+      (defeatedNpcIds.has(npc.id) && (npc.dummyState?.currentHp ?? 1) <= 0));
 
     // Un-assign all participants from this battle
     for (const id of allIdsInBattle) {
