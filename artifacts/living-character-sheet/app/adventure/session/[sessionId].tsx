@@ -2097,43 +2097,27 @@ export default function AdventureSessionPlaceholderScreen() {
     actions: { title: "Your next action",
       toolbar: !isCampaignScaffold ? <View style={{ gap: 6 }}>
         {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <View onLayout={event => { pendingRollYRef.current = event.nativeEvent.layout.y; }} style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
-            <View style={styles.rollPromptHeaderRow}>
-              <Feather name="target" size={16} color="#f59e0b" />
-              <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>DM Roll Request</Text>
-            </View>
-            {encounterGateVisibility?.isActive ? (
-              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
-            ) : (
-              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>Roll now to keep the scene moving.</Text>
-            )}
-            {pendingRollRequests.map((request) => {
+          <View accessibilityLabel="Pending DM rolls" style={{ borderWidth: 1, borderColor: "#f59e0b55", borderRadius: 8, backgroundColor: c.card, paddingHorizontal: 8, paddingVertical: 5, gap: 4 }}>
+            {pendingRollRequests.map(request => {
               const modifier = getModifierForStatKey(request.statKey);
               const isRolling = rollingRequestId === request.id;
               return (
-                <View key={request.id} style={[styles.rollPromptRequestCard, { backgroundColor: c.background, borderColor: "#f59e0b44" }]}>
-                  <Text style={[styles.rollPromptRequestTitle, { color: c.foreground }]}>{request.label}</Text>
-                  <Text style={[styles.rollPromptBody, { color: c.foreground }]}>{formatRollCheckName(request.statKey)}</Text>
-                  <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
-                    Your modifier: {modifier >= 0 ? `+${modifier}` : `${modifier}`}
-                  </Text>
-                  <TouchableOpacity
-                    disabled={isRolling}
-                    onPress={() => void handlePendingRollResponse(request)}
-                    style={[styles.rollPromptButton, { backgroundColor: "#f59e0b", opacity: isRolling ? 0.6 : 1 }]}
-                    activeOpacity={0.85}
-                  >
-                    <Feather name="zap" size={14} color="#fff" />
-                    <Text style={styles.rollPromptButtonText}>
-                      {isRolling ? "Rolling..." : `Roll d20 + ${modifier >= 0 ? modifier : `(${modifier})`}`}
-                    </Text>
+                <View key={request.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 38 }}>
+                  <Feather name="target" size={14} color="#f59e0b" />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ color: c.foreground, fontWeight: "700", fontSize: 12 }}>{request.label}</Text>
+                    <Text numberOfLines={1} style={{ color: c.mutedForeground, fontSize: 11 }}>{formatRollCheckName(request.statKey)} · {modifier >= 0 ? `+${modifier}` : modifier}</Text>
+                  </View>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Roll ${request.label}`}
+                    disabled={isRolling} onPress={() => void handlePendingRollResponse(request)}
+                    style={{ backgroundColor: "#f59e0b", paddingHorizontal: 12, height: 34, borderRadius: 7, justifyContent: "center", opacity: isRolling ? 0.6 : 1 }}>
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{isRolling ? "Rolling..." : "Roll d20"}</Text>
                   </TouchableOpacity>
                 </View>
               );
             })}
           </View>
         ) : null}
-
 
         {shouldShowEncounterSnapshot ? <>
           <Text style={{ color: c.mutedForeground, fontWeight: "700", fontSize: 11 }}>COMBAT ACTIONS</Text>
