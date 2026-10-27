@@ -6,6 +6,7 @@ export interface AiDmSessionFeedEntry {
   id: string;
   role: AiDmSessionFeedRole;
   text: string;
+  defeatedNpcIds?: string[];
 }
 
 export type AiDmQuickActionKey =
