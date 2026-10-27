@@ -66,3 +66,16 @@ test("critical wording requires a confirmed natural twenty, not an assumed criti
   result.targetResults[0].hitOutcome.attackRoll = 19;
   assert.doesNotMatch(narrate(result)!, /critical strike/i);
 });
+
+test("only a server-confirmed defeated flag can narrate a fallen enemy", () => {
+  const confirmed = action("hit", 8);
+  confirmed.remoteApplication.targetResults[0].defeated = true;
+  assert.match(narrate(confirmed)!, /falls, unable to continue/);
+  const unknown = action("hit", 8);
+  assert.doesNotMatch(narrate(unknown)!, /falls, unable to continue/);
+});
+test("scene atmosphere uses provided narration and does not invent weather", () => {
+  const input = { actorName: "Lyra", attackName: "Quarterstaff", targets: [{id:"guard",name:"Guard"}], result: action("hit", 3) };
+  assert.match(buildConfirmedPlayerAttackNarration({...input, sceneContext:"Heavy rain beats against the cobblestones."})!, /Rain slicks the ground/);
+  assert.doesNotMatch(buildConfirmedPlayerAttackNarration({...input, sceneContext:"The guard stands in a dry stone hall."})!, /Rain slicks|haze|Firelight/);
+});
