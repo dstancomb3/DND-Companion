@@ -2134,6 +2134,7 @@ export default function AdventureSessionPlaceholderScreen() {
             <AiDmSessionInputComposer
               onSubmit={handleInputSubmit}
               isPending={isCampaignRuntimeTurnPending}
+              isReady={isCampaignScaffold || (isPartyHydrated && isOneOffSessionHydrated && !isRebindingOneOffParty && Boolean(partyCode && memberId))}
             />
             {!isCampaignScaffold && !isCampaignRuntimeTurnPending && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId) && !partyBootstrapError ? (
               <Text style={{ color: c.mutedForeground, fontSize: 12, paddingHorizontal: 8 }}>
