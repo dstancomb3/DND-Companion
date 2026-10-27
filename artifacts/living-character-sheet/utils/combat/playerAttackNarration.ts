@@ -105,7 +105,8 @@ export function buildConfirmedPlayerAttackNarration(input: {
   const details = rows.length
     ? rows.map(row => describeOutcome(row, names.get(row.targetId) ?? "the target", result.commandId + ":" + row.targetId, defeatedByTarget.get(row.targetId))).join(" ")
     : "The action is recorded, but its exact impact has not been confirmed.";
-  const scene = (input.sceneContext ?? "").toLowerCase();
+  const scene = (input.sceneContext ?? "").toLowerCase()
+    .replace(/\\b(?:no|without|lack of)\\s+(?:rain|downpour|storm|fog|mist|fire|flames|darkness|shadows)\\b/g, "");
   const atmosphere = /\b(rain|downpour|storm)\b/.test(scene) ? "Rain slicks the ground beneath the combatants." :
     /\b(fog|mist)\b/.test(scene) ? "The figures move through the haze." :
     /\b(fire|flames|burning)\b/.test(scene) ? "Firelight flickers across the battlefield." :
