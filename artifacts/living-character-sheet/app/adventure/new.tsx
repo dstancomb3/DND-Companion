@@ -12,6 +12,7 @@ import type { CharacterSnapshot } from "@/types";
 import { createAiDmCampaignSessionBootstrap } from "@/utils/adventure/aiDmCampaignSessionBootstrap";
 import { AI_DM_ROUTES, buildAiDmSessionPath, buildAiDmSessionRouteParams } from "@/utils/aiDmRouteDefs";
 import type { AiDmDifficultyProfile, AiDmStylePreset } from "@/types";
+import { ONE_OFF_SEEDS, resolveOneOffSeeds, buildSeedGuidance, type OneOffSeedKind } from "@/utils/adventure/oneOffAdventureSeeds";
 
 function buildInventoryBrief(snapshot: CharacterSnapshot): string {
   const liveItems = (snapshot.inventory ?? []).filter((item) => item.quantity > 0);
@@ -78,6 +79,9 @@ export default function AdventureNewScreen() {
 
   const [sessionLabel, setSessionLabel] = React.useState("");
   const [intent, setIntent] = React.useState("");
+  const [seedChoices, setSeedChoices] = React.useState<Partial<Record<OneOffSeedKind, string>>>({});
+  const [seedSearch, setSeedSearch] = React.useState("");
+  const [openSeed, setOpenSeed] = React.useState<OneOffSeedKind | null>(null);
   const [showAdvanced, setShowAdvanced] = React.useState(false);
   const [difficulty, setDifficulty] = React.useState<AiDmDifficultyProfile>("balanced");
   const [stylePreset, setStylePreset] = React.useState<AiDmStylePreset>("cinematic");
@@ -106,8 +110,10 @@ export default function AdventureNewScreen() {
   function handleStart() {
     const intentLine = intent.trim();
     const characterBrief = selectedChar ? buildCharacterBrief(selectedChar.snapshot) : "";
+    const resolvedSeeds = sessionType === "one_off" ? resolveOneOffSeeds(seedChoices) : null;
+    const seededIntent = resolvedSeeds ? [buildSeedGuidance(resolvedSeeds), intentLine].filter(Boolean).join(" ") : intentLine;
     const guidanceText = sessionType === "one_off"
-      ? buildOneOffGuidance(selectedChar?.snapshot ?? null, intentLine)
+      ? buildOneOffGuidance(selectedChar?.snapshot ?? null, seededIntent)
       : [
           characterBrief ? `Character: ${characterBrief}` : null,
           intentLine || "Begin an original D&D session.",
@@ -294,6 +300,43 @@ export default function AdventureNewScreen() {
               ) : null}
             </View>
           </View>
+
+          {sessionType === "one_off" ? (
+            <View style={[styles.fieldGroup, { gap: 10 }]}>
+              <Text style={[styles.fieldLabel, { color: c.mutedForeground }]}>ADVENTURE SEEDS</Text>
+              <Text style={{ color: c.mutedForeground, fontSize: 12 }}>Choose any combination. Blank choices are randomized when you start. Each category has 100 possibilities.</Text>
+              {(["scenario", "location", "flavor"] as OneOffSeedKind[]).map(kind => (
+                <View key={kind} style={{ gap: 6 }}>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Choose ${kind}`}
+                    onPress={() => { setOpenSeed(old => old === kind ? null : kind); setSeedSearch(""); }}
+                    style={[styles.input, { borderColor: c.border, backgroundColor: c.card, justifyContent: "center" }]}>
+                    <Text style={{ color: c.foreground }}>{kind[0].toUpperCase() + kind.slice(1)}: {seedChoices[kind] || "Surprise me"}</Text>
+                  </TouchableOpacity>
+                  {openSeed === kind ? <View style={{ gap: 5 }}>
+                    <TextInput value={seedSearch} onChangeText={setSeedSearch} accessibilityLabel={`Search ${kind} seeds`}
+                      placeholder={`Search 100 ${kind} options...`} placeholderTextColor={c.mutedForeground}
+                      style={[styles.input, { borderColor: c.border, color: c.foreground, backgroundColor: c.card }]} />
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Randomize ${kind}`}
+                      onPress={() => { setSeedChoices(old => ({ ...old, [kind]: undefined })); setOpenSeed(null); }}>
+                      <Text style={{ color: c.primary, padding: 8 }}>Surprise me (random)</Text>
+                    </TouchableOpacity>
+                    <ScrollView nestedScrollEnabled style={{ maxHeight: 200 }} keyboardShouldPersistTaps="always">
+                      {ONE_OFF_SEEDS[kind].filter(option => option.toLowerCase().includes(seedSearch.toLowerCase())).map(option => (
+                        <TouchableOpacity key={option} onPress={() => { setSeedChoices(old => ({ ...old, [kind]: option })); setOpenSeed(null); }}
+                          style={{ padding: 10, borderBottomWidth: 1, borderColor: c.border }}>
+                          <Text style={{ color: c.foreground }}>{option}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View> : null}
+                </View>
+              ))}
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Surprise me with everything"
+                onPress={() => { setSeedChoices({}); setOpenSeed(null); }}>
+                <Text style={{ color: c.primary, paddingVertical: 8 }}>Surprise me with everything</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <View style={styles.fieldGroup}>
             <Text style={[styles.fieldLabel, { color: c.mutedForeground }]}>TELL THE DM WHAT YOU WANT</Text>
