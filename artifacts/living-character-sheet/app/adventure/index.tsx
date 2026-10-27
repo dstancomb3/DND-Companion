@@ -1,6 +1,6 @@
 import React from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert, Platform } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal } from "react-native";
 import { router } from "expo-router";
 import { AdventureHeaderBackButton } from "@/components/adventure/AdventureHeaderBackButton";
 import { AiDmSessionAwarenessPlaceholderStrip } from "@/components/adventure/AiDmSessionAwarenessPlaceholderStrip";
@@ -15,29 +15,20 @@ export default function AdventureHomeScreen() {
   const c = useColors();
   const { awarenessPlaceholder, clearActiveSession } = useAdventureSessionAwareness();
   const [hasDiagnosticsContext, setHasDiagnosticsContext] = React.useState<boolean>(false);
+  const [showEndConfirmation, setShowEndConfirmation] = React.useState(false);
+  const [endingSession, setEndingSession] = React.useState(false);
 
-  const handleEndAdventureSession = React.useCallback(() => {
-    if (Platform.OS === "web") {
-      const confirmed = typeof window !== "undefined"
-        ? window.confirm("Clear active adventure session awareness on this device?")
-        : false;
-      if (confirmed) {
-        void clearActiveSession();
-      }
-      return;
+  const handleEndAdventureSession = React.useCallback(() => setShowEndConfirmation(true), []);
+  const confirmEndAdventureSession = React.useCallback(async () => {
+    if (endingSession) return;
+    setEndingSession(true);
+    try {
+      await clearActiveSession();
+      setShowEndConfirmation(false);
+    } finally {
+      setEndingSession(false);
     }
-
-    Alert.alert("End Adventure Session", "Clear active adventure session awareness on this device?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "End Session",
-        style: "destructive",
-        onPress: () => {
-          void clearActiveSession();
-        },
-      },
-    ]);
-  }, [clearActiveSession]);
+  }, [clearActiveSession, endingSession]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -104,12 +95,40 @@ export default function AdventureHomeScreen() {
         ) : null}
 
       </ScrollView>
+      <Modal visible={showEndConfirmation} transparent animationType="fade" onRequestClose={() => { if (!endingSession) setShowEndConfirmation(false); }}>
+        <View style={styles.modalBackdrop}>
+          <View accessibilityRole="alert" style={[styles.modalCard, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[styles.modalTitle, { color: c.foreground }]}>End Adventure Session?</Text>
+            <Text style={[styles.modalBody, { color: c.mutedForeground }]}>
+              This clears the active adventure indicator on this device. It does not delete saved adventures.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel ending adventure" disabled={endingSession}
+                onPress={() => setShowEndConfirmation(false)}
+                style={[styles.modalButton, { borderColor: c.border }]}>
+                <Text style={{ color: c.foreground, fontWeight: "700" }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Confirm end adventure" disabled={endingSession}
+                onPress={() => void confirmEndAdventureSession()}
+                style={[styles.modalButton, { backgroundColor: c.destructive, borderColor: c.destructive }]}>
+                <Text style={{ color: "#fff", fontWeight: "700" }}>{endingSession ? "Ending..." : "End Session"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  modalBackdrop: { flex: 1, backgroundColor: "#000000AA", justifyContent: "center", alignItems: "center", padding: 20 },
+  modalCard: { width: "100%", maxWidth: 460, borderWidth: 1, borderRadius: 14, padding: 22, gap: 14 },
+  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalBody: { fontSize: 14, lineHeight: 21 },
+  modalActions: { flexDirection: "row", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" },
+  modalButton: { borderWidth: 1, borderRadius: 9, paddingVertical: 11, paddingHorizontal: 18 },
   content: {
     padding: 16,
     gap: 12,
