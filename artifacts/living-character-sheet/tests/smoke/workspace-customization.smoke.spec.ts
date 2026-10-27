@@ -35,7 +35,13 @@ test("[smoke:adventure] directly resize, swap, replace and restore workspace", a
     }
     (window as any).__workspaceDragEvents = events;
     return { dividerExists: !!divider, dividerRect: divider?.getBoundingClientRect().toJSON(),
-      hitTag: hit?.tagName, hitLabel: hit?.getAttribute("aria-label") };
+      hitTag: hit?.tagName, hitLabel: hit?.getAttribute("aria-label"),
+      hitElement: hit?.outerHTML.slice(0, 400),
+      hitAncestors: Array.from((function*() { let node = hit; for(let i=0; node && i<5;i++, node=node.parentElement) yield node; })())
+        .map(node => ({tag:node.tagName, label:node.getAttribute("aria-label"),
+          className:node.className, zIndex:getComputedStyle(node).zIndex, pointerEvents:getComputedStyle(node).pointerEvents})),
+      dividerStyle: divider ? {zIndex:getComputedStyle(divider).zIndex, pointerEvents:getComputedStyle(divider).pointerEvents,
+        position:getComputedStyle(divider).position} : null };
   }, { x, y });
   console.log("Workspace drag geometry", JSON.stringify(probe));
   await page.mouse.move(x, y); await page.mouse.down();
