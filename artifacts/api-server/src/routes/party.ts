@@ -2297,6 +2297,16 @@ router.post("/party/:code/npc-move-turn", async (req, res) => {
       const speed = npc.coreStats.speed;
       if (!Number.isFinite(speed) || speed <= 0 || speed > 200 || feet < 0.01 || feet > speed + 0.001)
         throw new CompanionLifecycleError(422, "movement_out_of_range", "Movement exceeds NPC speed or has no displacement.");
+      // Client plans are untrusted: revalidate occupied destinations inside
+      // the same transaction that moves the NPC and advances initiative.
+      if (state.encounterPositions.some(point => point.battleId === battleId &&
+          point.combatantId !== npcId &&
+          state.participantBattleById[point.combatantId] === battleId &&
+          (point.source === "dm_confirmed" || point.source === "grid_authority") &&
+          Math.hypot(point.xFeet - destination.xFeet, point.yFeet - destination.yFeet) < 5)) {
+        throw new CompanionLifecycleError(409, "npc_destination_occupied",
+          "Another combatant occupies the proposed destination.");
+      }
       const order = state.battleTurnOrderById[battleId] ?? [];
       const index = order.indexOf(npcId);
       if (index < 0 || order.length < 2) throw new CompanionLifecycleError(409, "turn_order_invalid", "Cannot advance initiative.");
