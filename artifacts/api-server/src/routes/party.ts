@@ -2251,6 +2251,83 @@ router.put("/party/:code/initiative/roll", async (req, res) => {
  * The AI DM must select from canonical weapon IDs; it cannot supply rolls,
  * damage, attacker modifiers, narration or player HP.
  */
+/** NPC movement: atomic, bounded and based on established encounter coordinates. */
+router.post("/party/:code/npc-move-turn", async (req, res) => {
+  const { code } = req.params;
+  const { commandId, battleId, npcId, expectedRevision, destination, stance } = req.body ?? {};
+  if (typeof commandId !== "string" || commandId.length < 1 || commandId.length > 128 ||
+      typeof battleId !== "string" || !battleId || typeof npcId !== "string" || !npcId ||
+      !Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
+      !["reposition", "retreat", "seek_cover"].includes(stance) ||
+      !destination || typeof destination.xFeet !== "number" || typeof destination.yFeet !== "number" ||
+      !Number.isFinite(destination.xFeet) || !Number.isFinite(destination.yFeet) ||
+      Math.abs(destination.xFeet) > 10000 || Math.abs(destination.yFeet) > 10000) {
+    res.status(400).json({ error: "Valid NPC turn, bounded destination, and stance required." }); return;
+  }
+  try {
+    const result = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash))
+        throw new CompanionLifecycleError(403, "party_host_required", "Only the encounter host controls NPC movement.");
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt))
+        throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable) throw new CompanionLifecycleError(409, "combat_state_missing", "Encounter state unavailable.");
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      const prior = state.eventLog.find(event => event.type === "npc_move_turn_committed" && event.metadata?.commandId === commandId);
+      if (prior) {
+        if (prior.metadata?.npcId !== npcId || prior.metadata?.battleId !== battleId ||
+          prior.metadata?.stance !== stance ||
+          prior.metadata?.xFeet !== destination.xFeet || prior.metadata?.yFeet !== destination.yFeet)
+          throw new CompanionLifecycleError(409, "command_id_conflict", "Movement command reused with different parameters.");
+        return { replayed: true, receipt: prior.metadata };
+      }
+      if (durable.stateRevision !== expectedRevision) throw new RuntimeConflictError(expectedRevision, durable.stateRevision);
+      if (state.currentTurnIdByBattle[battleId] !== npcId || state.participantBattleById[npcId] !== battleId)
+        throw new CompanionLifecycleError(409, "npc_turn_changed", "The NPC no longer owns this turn.");
+      const npc = state.combatNpcs.find(entry => entry.id === npcId);
+      if (!npc || npc.projection?.combatantKind === "companion" || npc.disposition !== "hostile" ||
+        (npc.dummyState?.currentHp ?? 0) <= 0 ||
+        npc.conditions?.some(c => /^(stunned|paralyzed|incapacitated|petrified|unconscious|grappled|restrained)$/i.test(c.name)))
+        throw new CompanionLifecycleError(409, "npc_unavailable", "This NPC cannot move.");
+      const current = state.encounterPositions.find(p => p.battleId === battleId && p.combatantId === npcId);
+      if (!current || !["dm_confirmed", "grid_authority"].includes(current.source))
+        throw new CompanionLifecycleError(409, "position_unconfirmed", "Confirm NPC starting position before movement.");
+      const feet = Math.hypot(destination.xFeet - current.xFeet, destination.yFeet - current.yFeet);
+      const speed = npc.coreStats.speed;
+      if (!Number.isFinite(speed) || speed <= 0 || speed > 200 || feet < 0.01 || feet > speed + 0.001)
+        throw new CompanionLifecycleError(422, "movement_out_of_range", "Movement exceeds NPC speed or has no displacement.");
+      const order = state.battleTurnOrderById[battleId] ?? [];
+      const index = order.indexOf(npcId);
+      if (index < 0 || order.length < 2) throw new CompanionLifecycleError(409, "turn_order_invalid", "Cannot advance initiative.");
+      state.encounterPositions = state.encounterPositions.map(p => p === current
+        ? { ...p, xFeet: destination.xFeet, yFeet: destination.yFeet, source: "dm_confirmed" as const } : p);
+      // Distances touching the moved NPC are stale; only confirmed positions remain authoritative.
+      state.encounterDistances = state.encounterDistances.filter(d => d.viewerId !== npcId && d.targetId !== npcId);
+      const nextTurnId = order[(index + 1) % order.length];
+      state.currentTurnIdByBattle[battleId] = nextTurnId;
+      syncLegacyTurnState(state);
+      const receipt = { commandId, battleId, npcId, stance, xFeet: destination.xFeet,
+        yFeet: destination.yFeet, movedFeet: feet, nextTurnId };
+      appendEvent(state, { type: "npc_move_turn_committed",
+        message: `${npc.name} moves ${Math.round(feet)} feet to ${stance.replace("_", " ")}.`, metadata: receipt });
+      const saved = await savePartyRuntimeSnapshot({
+        partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision,
+      }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(expectedRevision, saved.conflictRevision);
+      return { replayed: false, receipt };
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) {
+      res.status(error.status).json({ code: error.code, error: error.message }); return;
+    }
+    res.status(500).json({ error: "NPC movement could not be committed." });
+  }
+});
+
 router.post("/party/:code/npc-weapon-turn", async (req, res) => {
   const { code } = req.params;
   const commandId = typeof req.body?.commandId === "string" ? req.body.commandId.trim() : "";
