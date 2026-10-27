@@ -1,4 +1,5 @@
 import { SessionTurnControls } from "@/components/adventure/workspace/SessionTurnControls";
+import { DefeatedNpcLootModal } from "@/components/adventure/session/DefeatedNpcLootModal";
 import { buildConfirmedPlayerAttackNarration } from "@/utils/combat/playerAttackNarration";
 import { claimRollContinuation, rollContinuationReceiptKey } from "@/utils/adventure/aiDmRollContinuationReceipt";
 import { shouldBlockStoryInputForPendingRolls } from "@/utils/adventure/oneOffPendingRollGate";
@@ -84,6 +85,8 @@ import { buildCampaignChoiceOptions } from "@/utils/adventure/aiDmCampaignChoice
 import {
   addCombatNpc,
   createPartyRestRequest,
+  collectDefeatedNpcLoot,
+  claimPartyLootAssignment,
   endPartyTurnForBattle,
   type PartyRestType,
   createPartyRollRequest,
@@ -585,6 +588,7 @@ export default function AdventureSessionPlaceholderScreen() {
   );
   const npcTurnProcessedRef = useRef<Set<string>>(new Set());
   const [npcTurnAutomationError, setNpcTurnAutomationError] = useState("");
+  const [lootNpcId, setLootNpcId] = useState<string | null>(null);
   const [npcTurnRetryNonce, setNpcTurnRetryNonce] = useState(0);
   React.useEffect(() => {
     if (isCampaignScaffold || !isOneOffSessionHydrated || !partyCode || !activeOneOffBattleId ||
@@ -2146,6 +2150,19 @@ export default function AdventureSessionPlaceholderScreen() {
     }
   }
 
+  const lootNpc = (combatState?.combatNpcs ?? []).find(npc => npc.id === lootNpcId) ?? null;
+  async function transferDefeatedLoot(itemIds: string[]) {
+    if (!partyCode || !memberId || !lootNpcId) throw new Error("Reconnect to the encounter before looting.");
+    const reservation = await collectDefeatedNpcLoot(partyCode, lootNpcId, { memberId, itemIds });
+    for (const assignment of reservation.assignments) {
+      const claim = await claimPartyLootAssignment(partyCode, assignment.id, { memberId });
+      const item = claim.assignment.item;
+      addItem({ ...item.inventoryItem, name: item.name, quantity: item.quantity,
+        category: item.category, equipped: false } as Parameters<typeof addItem>[0]);
+    }
+    await refreshCombatState(partyCode);
+  }
+
   const workspaceSession = projectSessionView({
     mode: isCampaignScaffold ? "ai_campaign" : "ai_one_off", partyCode, memberId, members, combatState,
   });
@@ -2158,6 +2175,7 @@ export default function AdventureSessionPlaceholderScreen() {
           campaignMode={isCampaignScaffold}
           showSystemComments={showSystemComments}
           onToggleSystemComments={() => setShowSystemComments(value => !value)}
+          onLootNpc={id => setLootNpcId(id)}
           isStreaming={isStreamingResponse}
           streamingText={streamingResponseText}
         />
@@ -2380,7 +2398,9 @@ export default function AdventureSessionPlaceholderScreen() {
                       if (!text) return;
                       const id = `confirmed-attack:${result.commandId}`;
                       setEntries(previous => previous.some(entry => entry.id === id) ? previous : [...previous,
-                        { id, role: "dm", text }]);
+                        { id, role: "dm", text, defeatedNpcIds: (result.remoteApplication?.targetResults ?? [])
+                          .filter(row => row.status === "applied" && row.defeated === true && typeof row.targetId === "string")
+                          .map(row => row.targetId!) }]);
                     }} /></View>
                 ))}
                 </View>
@@ -2565,6 +2585,7 @@ export default function AdventureSessionPlaceholderScreen() {
       </View>
       <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} alternatives={{ inventory: { "character-summary": { title: "Character Summary", content: <View style={{ gap: 8 }}><Text style={{ color: c.foreground, fontSize: 16, fontWeight: "700" }}>{character.name}</Text><Text style={{ color: c.foreground }}>{`${character.currentHp}/${character.maxHp} HP`}</Text><Text style={{ color: c.foreground }}>{`Initiative ${character.initiative ?? 0}`}</Text><Text style={{ color: c.mutedForeground }}>{conditions.length ? conditions.map(condition => condition.name).join(", ") : "No active conditions"}</Text></View> } } }} preferenceKey={`character:${character.id}`}
         statusSummary={`${character.currentHp}/${character.maxHp} HP${conditions.length ? ` · ${conditions.map(condition => condition.name).join(", ")}` : ""}${pendingRollRequests.length ? ` · ${pendingRollRequests.length} roll request(s)` : ""}${workspaceSession.encounter.status === "combat" ? workspaceSession.encounter.isPlayerTurn ? " · Your turn" : ` · ${workspaceSession.encounter.currentActorName ?? "Waiting for initiative"}` : ""}`} /></View>
+      <DefeatedNpcLootModal npc={lootNpc} onClose={() => setLootNpcId(null)} onTransfer={transferDefeatedLoot} />
     </SafeAreaView>
   );
 }
