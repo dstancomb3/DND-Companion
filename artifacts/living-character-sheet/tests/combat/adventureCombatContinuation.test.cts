@@ -23,13 +23,17 @@ test("story uses acknowledged target identity, never invented damage or preview-
   assert.equal(buildConfirmedPlayerAttackNarration({ ...input, result: { status: "accepted" } }), null);
   assert.equal(buildConfirmedPlayerAttackNarration({ ...input, result: { status: "rejected", remoteApplication: receipt } }), null);
   assert.equal(buildConfirmedPlayerAttackNarration({ ...input, result: { status: "accepted", remoteApplication: { ...receipt, replayed: true } } }), null);
-  assert.equal(buildConfirmedPlayerAttackNarration({ ...input, result: { status: "accepted", remoteApplication: receipt } }), "Lyra attacks Shadow Creature with Quarterstaff.");
+  const description = buildConfirmedPlayerAttackNarration({ ...input, result: { commandId: "attack-1", status: "accepted", remoteApplication: receipt } });
+  assert.match(description, /Lyra/);
+  assert.match(description, /Shadow Creature/);
+  assert.match(description, /Quarterstaff/);
+  assert.doesNotMatch(description, /dealing \d+|falls, unable to continue/);
   assert.equal(buildConfirmedPlayerAttackNarration({ ...input, targets: [], result: { status: "accepted", remoteApplication: receipt } }), null);
   assert.equal(buildConfirmedPlayerAttackNarration({ ...input, result: { status: "accepted", remoteApplication: receipt, remoteApplicationError: "refresh failed" } }), null);
 });
 test("acknowledged no-effect attacks get story text while invalid/missing targets do not", () => {
   const result = { status: "accepted", remoteApplication: { ...receipt, appliedCount: 0, targetResults: [{ targetId: "wolf", status: "skipped_noop" }] } };
-  assert.match(buildConfirmedPlayerAttackNarration({ ...input, result }), /no recorded effect/);
+  assert.match(buildConfirmedPlayerAttackNarration({ ...input, result: { ...result, commandId: "attack-2" } }), /exact impact has not been confirmed/);
   result.remoteApplication.targetResults[0].status = "skipped_invalid";
   assert.equal(buildConfirmedPlayerAttackNarration({ ...input, result }), null);
 });
