@@ -1338,7 +1338,7 @@ function rebuildTurnOrder(state: PartyCombatState, liveMemberIds: string[]) {
       const rolledIds = rolled.filter((id) => state.participantBattleById[id] === battleId);
       const unrolledIds = participantIds.filter((id) => !rolledIds.includes(id));
       const order = [...rolledIds, ...unrolledIds];
-      if (state.includeEnvironment) order.push(ENVIRONMENT_TURN_ID);
+      // The DM acts through NPC turns. Conditions tick at turn boundaries, not in an extra initiative slot.
       return [battleId, order];
     })
   );
@@ -2802,6 +2802,38 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
         status: "applied",
         ...(operation.nextHp !== null ? { defeated: npcWasStanding && operation.nextHp === 0 } : {}),
       });
+    }
+
+    // End a battle as soon as its final hostile falls. Preserve defeated NPC
+    // instances outside initiative so their verified corpse loot remains claimable.
+    const defeatedInThisCommit = targetResultsSummary.some(row => row.targetType === "npc" && row.defeated === true);
+    if (defeatedInThisCommit) {
+      const battles = new Set(
+        state.eventLog.filter(entry => entry.type === "npc_defeated" &&
+          entry.metadata?.commandId === commandId)
+          .map(entry => state.participantBattleById[String(entry.metadata?.npcId ?? "")])
+          .filter((id): id is string => typeof id === "string" && !!id)
+      );
+      for (const battleId of battles) {
+        const hasRemainingHostiles = state.combatNpcs.some(npc =>
+          state.participantBattleById[npc.id] === battleId &&
+          npc.disposition === "hostile" && (npc.dummyState?.currentHp ?? 1) > 0);
+        if (hasRemainingHostiles) continue;
+        const participantIds = Object.keys(state.participantBattleById).filter(id => state.participantBattleById[id] === battleId);
+        for (const id of participantIds) {
+          delete state.participantBattleById[id];
+          delete state.initiativeByMember[id];
+        }
+        state.activeMemberIds = state.activeMemberIds.filter(id => !participantIds.includes(id));
+        delete state.battleTurnOrderById[battleId];
+        delete state.currentTurnIdByBattle[battleId];
+        appendEvent(state, { type: "encounter_ended",
+          message: "The last hostile falls. Combat ends; defeated enemies can still be looted.",
+          metadata: { battleId, cause: "all_hostiles_defeated" } });
+      }
+      // Do not rebuild here: initiative was intentionally removed for the
+      // completed battle and will be established by the next encounter.
+      syncLegacyTurnState(state);
     }
 
     targetResultsSummary.sort((a, b) => a.requestIndex - b.requestIndex);
