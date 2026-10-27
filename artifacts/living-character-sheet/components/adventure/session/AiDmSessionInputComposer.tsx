@@ -6,12 +6,13 @@ import { useColors } from "@/hooks/useColors";
 export interface AiDmSessionInputComposerProps {
   onSubmit: (value: string) => void;
   isPending?: boolean;
+  isReady?: boolean;
 }
 
-export function AiDmSessionInputComposer({ onSubmit, isPending = false }: AiDmSessionInputComposerProps) {
+export function AiDmSessionInputComposer({ onSubmit, isPending = false, isReady = true }: AiDmSessionInputComposerProps) {
   const c = useColors();
   const [value, setValue] = useState("");
-  const canSubmit = useMemo(() => !isPending && value.trim().length > 0, [isPending, value]);
+  const canSubmit = useMemo(() => !isPending && isReady && value.trim().length > 0, [isPending, isReady, value]);
 
   return (
     <View style={[styles.wrap, { borderColor: c.border, backgroundColor: c.card }]}> 
@@ -42,7 +43,7 @@ export function AiDmSessionInputComposer({ onSubmit, isPending = false }: AiDmSe
       >
         {isPending && <ActivityIndicator size="small" color={c.primaryForeground} />}
         <Text style={[styles.buttonText, { color: c.primaryForeground }]}>
-          {isPending ? "Waiting..." : "Send"}
+          {isPending ? "Waiting..." : !isReady ? "Connecting..." : "Send"}
         </Text>
       </TouchableOpacity>
     </View>
