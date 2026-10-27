@@ -1,6 +1,10 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import OpenAI from "openai";
+import { db } from "@workspace/db";
+import { partySessions } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+import { hasPartyHostToken } from "../lib/partyHostToken";
 import { AI_UPSTREAM_REQUEST_OPTIONS } from "../lib/aiUpstreamRequestOptions";
 import { randomUUID } from "node:crypto";
 
@@ -1187,6 +1191,73 @@ router.post("/adventure/campaign-runtime/turn", async (req, res) => {
       detail: message,
       code: statusCode === 503 ? "ai_not_configured" : "campaign_runtime_turn_failed",
     });
+  }
+});
+
+/**
+ * Host-authenticated AI DM spatial adjudication. The model proposes a
+ * line-of-sight and distance ruling; the atomic party executor still owns
+ * initiative, weapon stats, dice, HP, and validation.
+ */
+const npcAdjudicationSchema = z.object({
+  partyCode: z.string().trim().min(1).max(128),
+  battleId: z.string().trim().min(1).max(128),
+  npcId: z.string().trim().min(1).max(128),
+  npcName: z.string().trim().min(1).max(120),
+  profile: z.enum(["aggressive", "cautious", "defensive", "sneaky", "passive"]),
+  sceneText: z.string().max(3500),
+  choices: z.array(z.object({
+    weaponId: z.string().min(1).max(128),
+    weaponName: z.string().min(1).max(120),
+    targetMemberId: z.string().min(1).max(128),
+    targetName: z.string().min(1).max(120),
+    range: z.string().max(80),
+  })).min(1).max(24),
+});
+
+router.post("/adventure/npc-turn-adjudication", async (req, res) => {
+  const parsed = npcAdjudicationSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid NPC turn adjudication request." }); return; }
+  const input = parsed.data;
+  try {
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, input.partyCode));
+    if (!sessions[0] || !hasPartyHostToken(req.get("authorization"), sessions[0].hostTokenHash)) {
+      res.status(403).json({ error: "Only the authenticated AI DM host may request NPC adjudication." }); return;
+    }
+    const prompt = [
+      "You are the D&D Dungeon Master adjudicating a single NPC weapon turn.",
+      "Use only the established scene and canonical action choices below. Do not invent an intervening movement action or ignore cover.",
+      "A tactical personality influences which valid attack is preferred, but it never overrides range or sight.",
+      "If distance or line of sight cannot be fairly determined from the scene, choose HOLD. Never guess a measured distance.",
+      "Output JSON only: {\"kind\":\"attack\"|\"hold\",\"weaponId\":\"...\",\"targetMemberId\":\"...\",\"distanceFeet\":0,\"clearLineOfSight\":true,\"reason\":\"...\"}.",
+      "For HOLD, omit weaponId, targetMemberId and distanceFeet. Attacks require clearLineOfSight exactly true.",
+      `NPC: ${input.npcName}; profile: ${input.profile}.`,
+      `Recent scene: ${input.sceneText.slice(0, 3500)}`,
+      `Available weapon/target pairings: ${JSON.stringify(input.choices)}`,
+    ].join("\n");
+    const result = await getOpenAI().chat.completions.create({
+      model: ADVENTURE_CAMPAIGN_TURN_MODEL,
+      max_completion_tokens: 200,
+      temperature: 0.15,
+      messages: [{ role: "system", content: prompt }],
+    });
+    const raw = result.choices[0]?.message?.content ?? "";
+    let decision: Record<string, unknown> = {};
+    try { const value = JSON.parse(raw); if (value && typeof value === "object" && !Array.isArray(value)) decision = value; }
+    catch { /* Malformed model output always holds rather than inventing an attack. */ }
+    const chosen = input.choices.find(choice =>
+      choice.weaponId === decision.weaponId && choice.targetMemberId === decision.targetMemberId);
+    const distance = decision.distanceFeet;
+    if (decision.kind !== "attack" || !chosen || decision.clearLineOfSight !== true ||
+        typeof distance !== "number" || !Number.isFinite(distance) || distance < 0 || distance > 10000) {
+      res.json({ ok: true, kind: "hold", reason: typeof decision.reason === "string" ? decision.reason.slice(0, 180) : "No verified attack available." });
+      return;
+    }
+    res.json({ ok: true, kind: "attack", weaponId: chosen.weaponId, targetMemberId: chosen.targetMemberId,
+      distanceFeet: distance, reason: typeof decision.reason === "string" ? decision.reason.slice(0, 180) : "DM-verified range and sightline." });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "NPC adjudication unavailable.";
+    res.status(/not configured/i.test(message) ? 503 : 500).json({ error: "NPC adjudication failed.", detail: message });
   }
 });
 
