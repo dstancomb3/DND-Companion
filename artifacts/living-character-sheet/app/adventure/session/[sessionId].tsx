@@ -31,7 +31,7 @@ import { AttackCard } from "@/components/attacks/AttackCard";
 import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
 import { getNpcTurnWaitingStatus } from "@/utils/combat/npcTurnWaitingStatus";
 import { planNpcAttackChoices } from "@/utils/combat/npcTurnReadiness";
-import { planNpcBehavior } from "@/utils/combat/npcBehaviorBrain";
+import { inferNpcBehaviorProfile, planNpcBehavior } from "@/utils/combat/npcBehaviorBrain";
 import { ActionCard } from "@/components/attacks/ActionCard";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
@@ -604,8 +604,9 @@ export default function AdventureSessionPlaceholderScreen() {
     const npc = combatState.combatNpcs.find(candidate => candidate.id === npcTurnStatus.npcId);
     const hpFraction = npc?.dummyState?.maxHp
       ? npc.dummyState.currentHp / npc.dummyState.maxHp : 1;
+    const npcProfile = inferNpcBehaviorProfile({ name: npc?.name ?? npcTurnStatus.npcName, disposition: npc?.disposition ?? "passive" });
     const behavior = planNpcBehavior({
-      profile: npc?.disposition === "hostile" ? "aggressive" : "passive",
+      profile: npcProfile,
       readiness: plan, hpFraction, commandSeed: turnKey,
     });
 
@@ -634,7 +635,7 @@ export default function AdventureSessionPlaceholderScreen() {
           if (choices.length) {
             const adjudication = await adjudicateNpcTurn(partyCode, {
               battleId: activeOneOffBattleId, npcId: npc.id, npcName: npc.name,
-              profile: "aggressive", sceneText: recentScene.slice(0, 3500), choices,
+              profile: npcProfile, sceneText: recentScene.slice(0, 3500), choices,
             });
             const legalChoice = choices.find(choice =>
               choice.weaponId === adjudication.weaponId && choice.targetMemberId === adjudication.targetMemberId);
