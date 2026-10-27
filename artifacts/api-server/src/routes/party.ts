@@ -1,4 +1,4 @@
-import { canTransferNpcGear } from "../../../living-character-sheet/utils/combat/lootEligibility";
+import { canTransferNpcGear } from "../lib/lootEligibility";
 import { normalizeEncounterDistances } from "../lib/encounterDistances";
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
 import { randomUUID, randomInt } from "node:crypto";
