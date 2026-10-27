@@ -503,7 +503,6 @@ export default function AdventureSessionPlaceholderScreen() {
   const autoKickoffAttemptedRef = useRef(false);
   const handleCampaignRuntimeTurnRef = useRef(handleCampaignRuntimeTurn);
   const autoPartyBootstrapStartedRef = useRef(false);
-  const bootstrapSessionIdRef = useRef(sessionId);
 
   const recap = useMemo(() => {
     if (isCampaignScaffold) return undefined;
@@ -883,7 +882,6 @@ export default function AdventureSessionPlaceholderScreen() {
     canonicalEncounterActorRegistryRef.current.clear();
     autoKickoffAttemptedRef.current = false;
     autoPartyBootstrapStartedRef.current = false;
-    bootstrapSessionIdRef.current = sessionId;
     setPartyBootstrapError(null);
     setIsOneOffSessionHydrated(isCampaignScaffold);
     setIsRebindingOneOffParty(false);
@@ -2137,7 +2135,14 @@ export default function AdventureSessionPlaceholderScreen() {
               onSubmit={handleInputSubmit}
               isPending={isCampaignRuntimeTurnPending || (!isCampaignScaffold && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId))}
             />
-            {!isCampaignScaffold && partyBootstrapError ? <Text accessibilityRole="alert" style={{ color: c.destructive, padding: 8 }}>{partyBootstrapError}</Text> : null}
+            {!isCampaignScaffold && partyBootstrapError ? <View style={{ padding: 8, gap: 8 }}>
+              <Text accessibilityRole="alert" style={{ color: c.destructive }}>{partyBootstrapError}</Text>
+              {source === "new-oneoff" && !partyCode && !memberId ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry party connection"
+                onPress={() => { setPartyBootstrapError(null); setIsRebindingOneOffParty(true); void createAndJoinParty().catch(error => setPartyBootstrapError(error instanceof Error ? error.message : "Connection failed.")).finally(() => setIsRebindingOneOffParty(false)); }}
+                style={{ borderWidth: 1, borderColor: c.border, padding: 10, borderRadius: 8 }}>
+                <Text style={{ color: c.foreground }}>Retry connection</Text>
+              </TouchableOpacity> : null}
+            </View> : null}
           </>
         )}
       </View>
