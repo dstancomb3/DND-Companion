@@ -42,7 +42,7 @@ test("preset switches retain custom placements/collapse settings and Simplify do
   assert.deepEqual(p.layout, custom); assert.equal(p.simplify, true);
   assert.deepEqual(toggleWorkspacePanel(p.layout, "actions"), p.layout);
 });
-test("swap, collapse, Simplify, Cancel and Save preserve a live composer and survive remount", async () => {
+test("swap, collapse and preset selection preserve a live composer and survive remount", async () => {
   reset(); let tree: any, mounts = 0;
   function Composer() { const [value, set] = React.useState(""); React.useEffect(() => { mounts++; }, []); return React.createElement("Input", { value, onChangeText: set }); }
   const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: id === "actions" ? React.createElement(Composer) : React.createElement("Text", null, id) }]));
@@ -51,10 +51,10 @@ test("swap, collapse, Simplify, Cancel and Save preserve a live composer and sur
   try {
     act(() => tree.root.findByType("Input").props.onChangeText("I hold my action"));
     await click(tree, "Move party"); await click(tree, "Swap with events");
-    await click(tree, "Collapse inventory"); await click(tree, "Simplify View");
+    await click(tree, "Collapse inventory"); await click(tree, "Simplify");
     assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Collapse actions" }).length, 0);
     assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Collapse narrative" }).length, 0);
-    await click(tree, "Exit Simplify View");
+    await click(tree, "My layout");
     assert.equal(tree.root.findByType("Input").props.value, "I hold my action"); assert.equal(mounts, 1);
     const saved = parseWorkspacePreferences(stored.get("adventure-workspace.v1:hero"));
     assert.equal(saved.layout.positions.party, "bottom_right"); assert.ok(saved.layout.collapsed.includes("inventory"));
@@ -106,7 +106,7 @@ test("read failures never overwrite saved layouts and retry loads the original p
   } finally { act(() => tree.unmount()); }
 });
 
-test("customizing Immersive keeps the saved swap instead of forcing its default positions", async () => {
+test("swapping panels in Immersive keeps saved placements when leaving Simplify", async () => {
   reset(); let tree: any;
   const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
   await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "immersive" })); });
@@ -117,10 +117,10 @@ test("customizing Immersive keeps the saved swap instead of forcing its default 
     const panel = tree.root.findByProps({ testID: "workspace-narrative" });
     const frame = panel.props.style.find((style: any) => style?.position === "absolute");
     assert.equal(frame.left, 0);
-    await click(tree, "Simplify View");
+    await click(tree, "Simplify");
     const focusFrame = tree.root.findByProps({ testID: "workspace-narrative" }).props.style.find((style: any) => style?.position === "absolute");
     assert.ok(focusFrame.left > 0);
-    await click(tree, "Exit Simplify View");
+    await click(tree, "My layout");
     const restored = tree.root.findByProps({ testID: "workspace-narrative" }).props.style.find((style: any) => style?.position === "absolute");
     assert.equal(restored.left, 0);
   } finally { act(() => tree.unmount()); }
@@ -159,7 +159,7 @@ test("workspace sizing clamps invalid gestures and persists with custom layouts"
   assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
 });
 
-test("direct layout resize persists without Save and undo restores previous sizing", async () => {
+test("direct layout resize persists without a Save button", async () => {
   reset(); let tree: any;
   const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
   await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "resize" })); });
