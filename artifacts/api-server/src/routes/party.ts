@@ -3249,7 +3249,7 @@ router.post("/party/:code/defeated-npc/:npcId/loot", async (req, res) => {
           npc.projection?.combatantKind === "companion" || !confirmedDefeat) {
         throw new CompanionLifecycleError(409, "npc_not_defeated", "This combatant has not been confirmed defeated.");
       }
-      const selected = (npc.gear ?? []).filter(gear => itemIds.includes(gear.id));
+      const selected = (npc.gear ?? []).filter(gear => itemIds.includes(gear.id) && !gear.id.startsWith("intrinsic-"));
       if (selected.length !== itemIds.length) throw new CompanionLifecycleError(409, "loot_unavailable", "One or more items were already taken.");
       const now = new Date().toISOString();
       const assignments: LootAssignment[] = selected.map(gear => ({
