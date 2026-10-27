@@ -39,7 +39,6 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   const [draft, setDraft] = useState<WorkspaceLayout | null>(null);
   const [swapFrom, setSwapFrom] = useState<WorkspacePanelId | null>(null);
   const draggedPanel = useRef<WorkspacePanelId | null>(null);
-  const undo = useRef<WorkspaceLayout[]>([]);
   const draftRef = useRef<WorkspaceLayout | null>(null);
   const [focusExpanded, setFocusExpanded] = useState<WorkspacePanelId[]>([]);
   useEffect(() => { setDraft(null); setSwapFrom(null); setFocusExpanded([]); }, [preferenceKey]);
@@ -68,12 +67,11 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   }
   function commitResize() {
     const next = draftRef.current;
-    if (next) { undo.current.push(preferences.layout); update(current => saveCustomWorkspace(current, next)); }
+    if (next) { update(current => saveCustomWorkspace(current, next)); }
     setDraft(null);
   }
   function commitSwap(from: WorkspacePanelId, to: WorkspacePanelId) {
     if (!ready || temporaryFocus || from === to) return;
-    undo.current.push(preferences.layout);
     update(current => saveCustomWorkspace(current, swapWorkspacePanels(current.layout, from, to)));
     setSwapFrom(null);
   }
@@ -153,10 +151,9 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
   return (
     <View style={styles.root}>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingBottom: 10 }}>
-        {button(preferences.simplify ? "Exit Simplify View" : "Simplify View", () => { setFocusExpanded([]); update(current => ({ ...current, simplify: !current.simplify })); }, !ready, preferences.simplify)}
-        {(["balanced", "immersive", "tactical", ...(preferences.custom ? ["custom" as const] : [])] as const).map(preset => button(preset === "custom" ? "My layout" : preset[0].toUpperCase() + preset.slice(1), () => { setDraft(null); setFocusExpanded([]); update(current => selectWorkspacePreset(current, preset)); }, !ready, preferences.selected === preset))}
-        {button("Undo layout change", () => { const previous = undo.current.pop(); if (previous) update(current => saveCustomWorkspace(current, previous)); }, !ready || !undo.current.length)}
-        {button("Reset layout", () => update(current => saveCustomWorkspace(current, presetWorkspaceLayout())), !ready)}
+        {button("Simplify", () => { setDraft(null); setFocusExpanded([]); update(current => ({ ...current, simplify: true })); }, !ready, preferences.simplify)}
+        {(["balanced", "immersive", "tactical", ...(preferences.custom ? ["custom" as const] : [])] as const).map(preset => button(preset === "custom" ? "My layout" : preset[0].toUpperCase() + preset.slice(1), () => { setDraft(null); setFocusExpanded([]); update(current => ({ ...selectWorkspacePreset(current, preset), simplify: false })); }, !ready, preferences.selected === preset))}
+        {button("Reset layout", () => update(current => ({ ...saveCustomWorkspace(current, presetWorkspaceLayout()), simplify: false })), !ready)}
       </View>
       {statusSummary ? <Text accessibilityLiveRegion="polite" style={{ color: c.foreground, fontSize: 12, marginBottom: 8 }}>{statusSummary}</Text> : null}
 
