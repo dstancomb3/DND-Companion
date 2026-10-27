@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-const { planNpcBehavior } = require("../../utils/combat/npcBehaviorBrain");
+const { planNpcBehavior, inferNpcBehaviorProfile } = require("../../utils/combat/npcBehaviorBrain");
 
 const readiness = { status: "ready", npcId: "guard", battleId: "battle", choices: [
   { weaponId: "sword", weaponName: "Sword", targetId: "lyra", attackBonus: 5, damageDice: "1d8", damageModifier: 3, damageType: "slashing" },
@@ -11,9 +11,16 @@ test("aggressive profiles propose a stable attack without executing combat", () 
   assert.deepEqual(planNpcBehavior(input), planNpcBehavior(input));
   assert.equal(planNpcBehavior(input).kind, "attack");
 });
-test("passive refuses hostilities and sneaky repositions", () => {
+test("passive refuses hostilities and sneaky combatants mix movement with attacks", () => {
   assert.equal(planNpcBehavior({ profile: "passive", readiness, commandSeed: "1" }).kind, "hold");
-  assert.equal(planNpcBehavior({ profile: "sneaky", readiness, commandSeed: "1" }).kind, "reposition");
+  const kinds = new Set(Array.from({length:24},(_,i)=>planNpcBehavior({profile:"sneaky",readiness,commandSeed:`turn:${i}`}).kind));
+  assert.ok(kinds.has("reposition")); assert.ok(kinds.has("attack"));
+});
+test("behavior profiles derive from NPC characterization", () => {
+  assert.equal(inferNpcBehaviorProfile({name:"Guard",disposition:"hostile"}),"aggressive");
+  assert.equal(inferNpcBehaviorProfile({name:"Shadow Assassin",disposition:"hostile"}),"sneaky");
+  assert.equal(inferNpcBehaviorProfile({name:"Guardian",disposition:"hostile"}),"defensive");
+  assert.equal(inferNpcBehaviorProfile({name:"Villager",disposition:"friendly"}),"passive");
 });
 test("low-health cautious combatants retreat", () => {
   assert.equal(planNpcBehavior({ profile: "cautious", readiness, hpFraction: 0.2, commandSeed: "1" }).kind, "retreat");
