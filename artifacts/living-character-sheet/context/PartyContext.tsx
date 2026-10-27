@@ -281,7 +281,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
             continue;
           }
           if (step === "apply") {
-            const provisionCheck = validateSelectedRestProvisions(request.provisions, inventory);
+            const provisionCheck = validateSelectedRestProvisions(request.requestedByMemberId === mid ? request.provisions : undefined, inventory);
             if (!provisionCheck.ok) {
               console.warn("[PartyContext] Approved rest awaits valid provisions:", provisionCheck.reason);
               continue;
