@@ -32,9 +32,9 @@ test("NPCs with no legal actions require adjudication", () => {
 
 test("unavailable attacks prompt profile-specific nonattack intentions", () => {
   const blocked = { status: "needs_adjudication", npcId: "guard", battleId: "battle", reason: "no_valid_attack" };
+  assert.equal(planNpcBehavior({profile:"aggressive",readiness:blocked,commandSeed:"2"}).kind, "reposition");
   assert.equal(planNpcBehavior({profile:"sneaky",readiness:blocked,commandSeed:"2"}).kind, "reposition");
   assert.equal(planNpcBehavior({profile:"defensive",readiness:blocked,commandSeed:"2"}).kind, "seek_cover");
   assert.equal(planNpcBehavior({profile:"cautious",readiness:blocked,commandSeed:"2"}).kind, "retreat");
-  assert.equal(planNpcBehavior({profile:"aggressive",readiness:blocked,commandSeed:"2"}).kind, "hold");
   assert.equal(planNpcBehavior({profile:"defensive",readiness:{...blocked,reason:"incapacitated"},commandSeed:"2"}).kind, "hold");
 });
