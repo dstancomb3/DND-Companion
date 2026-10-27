@@ -2571,6 +2571,7 @@ export default function AdventureSessionPlaceholderScreen() {
       <View style={styles.workspaceHeader}>
         <View style={styles.sessionHeader}>
           <AdventureHeaderBackButton destination={AI_DM_ROUTES.adventure.home} />
+          <Text numberOfLines={1} style={[styles.title, { color: c.foreground, flex: 1, marginLeft: 10 }]}>{title || "Adventure"}</Text>
           <TouchableOpacity
             onPress={() =>
               router.push({
@@ -2596,7 +2597,6 @@ export default function AdventureSessionPlaceholderScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
 
       </View>
       <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} alternatives={{ inventory: { "character-summary": { title: "Character Summary", content: <View style={{ gap: 8 }}><Text style={{ color: c.foreground, fontSize: 16, fontWeight: "700" }}>{character.name}</Text><Text style={{ color: c.foreground }}>{`${character.currentHp}/${character.maxHp} HP`}</Text><Text style={{ color: c.foreground }}>{`Initiative ${character.initiative ?? 0}`}</Text><Text style={{ color: c.mutedForeground }}>{conditions.length ? conditions.map(condition => condition.name).join(", ") : "No active conditions"}</Text></View> } } }} preferenceKey={`character:${character.id}`}
@@ -2607,7 +2607,7 @@ export default function AdventureSessionPlaceholderScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  workspaceHeader: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 8 },
+  workspaceHeader: { paddingHorizontal: 12, paddingTop: 3, paddingBottom: 3 },
   workspaceBody: { flex: 1, minHeight: 0, paddingHorizontal: 12, paddingBottom: 12 },
   actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
   composerDisclosureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderRadius: 10, marginVertical: 6 },
@@ -2616,7 +2616,7 @@ const styles = StyleSheet.create({
   actionDockTitle: { fontSize: 14, fontWeight: "800" },
   actionDockHint: { fontSize: 12, lineHeight: 18 },
   actionDockCombatButton: { borderRadius: 10, paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  title: { fontSize: 26, fontWeight: "800" },
+  title: { fontSize: 19, fontWeight: "800" },
   subtitle: { fontSize: 14 },
   card: {
     borderWidth: 1,
