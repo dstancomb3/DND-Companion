@@ -146,6 +146,13 @@ function buildOneOffOpeningBeat(input: {
   startInCombat: boolean;
   guidance: string;
 }): string {
+  const selectedScenario = /Scenario: (.*?)\. Location: (.*?)\. Flavor: (.*?)\. Open in/.exec(input.guidance);
+  if (selectedScenario) {
+    const [, scenario, location, flavor] = selectedScenario;
+    return input.startInCombat
+      ? `At ${location.toLowerCase()}, danger erupts: ${scenario.charAt(0).toLowerCase() + scenario.slice(1)}. The scene carries ${flavor.toLowerCase()}. Hostile movement cuts off the easiest exit. What do you do?`
+      : `You arrive at ${location.toLowerCase()}, and discover a pressing problem: ${scenario.charAt(0).toLowerCase() + scenario.slice(1)}. The mood is ${flavor.toLowerCase()}. A stranger urgently beckons you closer while another figure slips away. Who do you approach first?`;
+  }
   const combinedContext = `${input.title} ${input.guidance}`;
   const env = detectEnvironment(combinedContext);
   const isSocial = detectSocialIntent(combinedContext);
