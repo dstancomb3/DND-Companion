@@ -3218,6 +3218,57 @@ router.post("/party/:code/events", async (req, res) => {
   }
 });
 
+/** Loot only server-confirmed defeated NPC gear, and reserve each item exactly once. */
+router.post("/party/:code/defeated-npc/:npcId/loot", async (req, res) => {
+  const { code, npcId } = req.params;
+  const memberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+  const itemIds: string[] = Array.isArray(req.body?.itemIds) ? req.body.itemIds : [];
+  if (!memberId || !itemIds.length || itemIds.length > 40 ||
+      !itemIds.every(id => typeof id === "string" && id.length > 0 && id.length <= 128) ||
+      new Set(itemIds).size !== itemIds.length) {
+    res.status(400).json({ error: "Select valid, distinct loot items and a recipient." }); return;
+  }
+  try {
+    const access = await authorizePartyMember(code, memberId, req.get("authorization"));
+    if (!access.ok) { res.status(access.status).json({ error: access.error, code: access.code }); return; }
+    const outcome = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable) throw new CompanionLifecycleError(409, "combat_state_missing", "Encounter state unavailable.");
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      state.stateRevision = durable.stateRevision;
+      const npc = state.combatNpcs.find(entry => entry.id === npcId);
+      if (!npc || !npc.dummyState || npc.dummyState.currentHp > 0 ||
+          npc.projection?.combatantKind === "companion") {
+        throw new CompanionLifecycleError(409, "npc_not_defeated", "This combatant has not been confirmed defeated.");
+      }
+      const selected = (npc.gear ?? []).filter(gear => itemIds.includes(gear.id));
+      if (selected.length !== itemIds.length) throw new CompanionLifecycleError(409, "loot_unavailable", "One or more items were already taken.");
+      const now = new Date().toISOString();
+      const assignments: LootAssignment[] = selected.map(gear => ({
+        id: generateId(), targetMemberId: memberId,
+        item: { name: gear.name, quantity: 1, category: gear.category, notes: gear.notes },
+        assignedBy: "defeated_npc", assignedAt: now,
+      }));
+      npc.gear = (npc.gear ?? []).filter(gear => !itemIds.includes(gear.id));
+      state.lootAssignments.unshift(...assignments);
+      appendEvent(state, { type: "loot_assigned", memberId, message: `Loot collected from ${npc.name}.`,
+        metadata: { npcId, itemIds, assignmentIds: assignments.map(a => a.id) } });
+      const saved = await savePartyRuntimeSnapshot({ partyCode: code,
+        snapshot: toRuntimeSnapshotPayload(state), expectedRevision: durable.stateRevision }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(durable.stateRevision, saved.conflictRevision);
+      return assignments;
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, assignments: outcome });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) { res.status(error.status).json({ code: error.code, error: error.message }); return; }
+    res.status(500).json({ error: "Could not collect NPC loot." });
+  }
+});
+
 router.post("/party/:code/loot-assignments", async (req, res) => {
   try {
     const { code } = req.params;
