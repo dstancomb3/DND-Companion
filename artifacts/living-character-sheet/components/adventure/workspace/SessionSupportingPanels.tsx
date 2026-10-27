@@ -54,7 +54,12 @@ export function SessionEventLogPanel({ events, members = [], npcNames = [] }: {
     }
     if (event.type === "player_attack_used") {
       const attackName = typeof meta.attackName === "string" ? meta.attackName : event.message.replace(/^Attack:\\s*/,"");
-      return { heading: "Attack", description: `${actor} attacks with ${attackName}.` };
+      const rawTargets = Array.isArray(meta.targetIds) ? meta.targetIds :
+        meta.eventMetadata && typeof meta.eventMetadata === "object" &&
+        Array.isArray((meta.eventMetadata as Record<string, unknown>).targetIds)
+          ? (meta.eventMetadata as { targetIds: unknown[] }).targetIds : [];
+      const targets = rawTargets.filter((id): id is string => typeof id === "string").map(id => actorName(id));
+      return { heading: "Attack", description: `${actor} attacks${targets.length ? ` ${targets.join(", ")}` : ""} with ${attackName}.` };
     }
     if (event.type === "combat_remote_outcome_applied") {
       const count = typeof meta.appliedCount === "number" ? meta.appliedCount : 0;
