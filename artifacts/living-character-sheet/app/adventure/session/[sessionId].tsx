@@ -2560,7 +2560,7 @@ export default function AdventureSessionPlaceholderScreen() {
     inventory: { title: "Inventory", content: <SessionInventoryPanel items={inventory} /> },
     encounter: { title: "Encounter", content: <>
       <SessionEncounterStatus session={workspaceSession} />
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
+        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
             style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
             <AiDmCombatTargetPicker attackRanges={composerAttackOptions.map(({ attack }) => ({ id: attack.id, name: attack.name, range: attack.range }))} />
