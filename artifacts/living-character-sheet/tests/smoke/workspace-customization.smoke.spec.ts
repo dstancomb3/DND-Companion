@@ -42,8 +42,9 @@ test("[smoke:adventure] customize, save, focus and restore personal workspace", 
   const rect = await leftDivider.boundingBox();
   expect(rect).not.toBeNull();
   await page.mouse.move(rect!.x + rect!.width / 2, rect!.y + 60);
-  await page.mouse.down(); await page.mouse.move(rect!.x + rect!.width / 2 + 45, rect!.y + 60, { steps: 8 }); await page.mouse.up();
+  await page.mouse.down(); await page.mouse.move(rect!.x + rect!.width / 2 + 45, rect!.y + 60, { steps: 8 });
   await expect.poll(async () => (await box("narrative")).width).toBeLessThan(beforeResize.width);
+  await page.mouse.up();
   await click("Cancel layout changes");
   await expect.poll(async () => (await box("narrative")).width).toBe(beforeResize.width);
   await click("Customize layout"); await click("Replace with Character Summary");
