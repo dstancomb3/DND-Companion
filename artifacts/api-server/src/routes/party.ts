@@ -3284,6 +3284,14 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
       return;
     }
 
+    // A resolution is a state transition, not a repeatable command. Replay
+    // of the same decision is harmless; contradictory decisions are rejected.
+    if (request.status !== "pending") {
+      if (request.status === status) { res.json({ ok: true, request, replayed: true }); return; }
+      res.status(409).json({ code: "rest_already_resolved",
+        error: "This rest request has already been resolved." });
+      return;
+    }
     if (status === "approved" && request.targetMemberIds.some(id => {
       const battleId = state.participantBattleById[id];
       if (!battleId) return false;
@@ -3300,14 +3308,6 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
         res.status(409).json({ code: "rest_scene_unsafe", error: safety.reason });
         return;
       }
-    }
-    // A resolution is a state transition, not a repeatable command. Replay
-    // of the same decision is harmless; contradictory decisions are rejected.
-    if (request.status !== "pending") {
-      if (request.status === status) { res.json({ ok: true, request, replayed: true }); return; }
-      res.status(409).json({ code: "rest_already_resolved",
-        error: "This rest request has already been resolved." });
-      return;
     }
     request.status = status;
     request.resolvedAt = new Date().toISOString();
