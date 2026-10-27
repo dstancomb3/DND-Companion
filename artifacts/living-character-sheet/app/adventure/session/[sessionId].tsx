@@ -2239,116 +2239,6 @@ export default function AdventureSessionPlaceholderScreen() {
           <Text style={[styles.dmThinking, { color: c.mutedForeground }]}>The DM is deciding your fate...</Text>
         ) : null}
 
-        {encounterGateVisibility ? (
-          <View style={[styles.encounterGateCard, { borderColor: c.border, backgroundColor: c.card }]}> 
-            <Text style={[styles.encounterGateLabel, { color: c.foreground }]}>
-              {encounterGateVisibility.isActive ? "Encounter Gate Progress" : "Encounter Gate Cleared"}
-            </Text>
-            {encounterGateVisibility.isActive && encounterGateVisibility.status !== "cleared" ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
-            ) : null}
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={showEncounterDetails ? "Hide encounter details" : "Show encounter details"}
-              onPress={() => setShowEncounterDetails((open) => !open)}
-              style={[styles.composerDisclosureRow, { borderColor: c.border }]}>
-              <Text style={{ color: c.mutedForeground }}>Encounter details</Text>
-              <Feather name={showEncounterDetails ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
-            </TouchableOpacity>
-            {showEncounterDetails ? (
-              <>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Required rolls: {encounterGateVisibility.requiredRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Created rolls: {encounterGateVisibility.createdRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Failed rolls: {encounterGateVisibility.failedRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Resolved rolls: {encounterGateVisibility.resolvedRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Unresolved rolls: {encounterGateVisibility.unresolvedRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.completionSummary}</Text>
-            {typeof encounterGateVisibility.gateAgeMs === "number" && encounterGateVisibility.isActive ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate age: {Math.floor(encounterGateVisibility.gateAgeMs / 1000)}s</Text>
-            ) : null}
-            {encounterGateVisibility.healthReason ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
-                Gate health{encounterGateVisibility.healthReasonCode ? ` (${encounterGateVisibility.healthReasonCode})` : ""}: {encounterGateVisibility.healthReason}
-              </Text>
-            ) : null}
-            {encounterGateContext?.targetPolicyMode && encounterGateContext?.targetMemberIds ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]} numberOfLines={1}>
-                Policy: {encounterGateContext.targetPolicyMode === "live_targets" ? "live" : "locked"} ({encounterGateContext.targetMemberIds.length} tgt{encounterGateContext.targetMemberIds.length === 1 ? "" : "s"})
-              </Text>
-            ) : null}
-            {encounterGateVisibility.timeoutSummary ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate timing: {encounterGateVisibility.timeoutSummary}</Text>
-            ) : null}
-            {encounterGateVisibility.clearConfirmed && typeof encounterGateVisibility.confirmedAtMs === "number" ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
-                Confirmed by DM ({encounterGateVisibility.confirmationSource ?? "ui_confirm_action"}) {Math.max(0, Math.floor((Date.now() - encounterGateVisibility.confirmedAtMs) / 1000))}s ago
-              </Text>
-            ) : null}
-            {encounterGateVisibility.overrideMode === "acknowledge_missing_targets" ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
-                {encounterGateVisibility.overrideStatus === "active"
-                  ? `Override active, expires in ${Math.max(0, Math.ceil(((encounterGateVisibility.overrideExpiresAtMs ?? encounterGateNowMs) - encounterGateNowMs) / 1000))}s`
-                  : encounterGateVisibility.overrideStatus === "revoked"
-                    ? "Override revoked"
-                    : "Override expired, gate re-evaluated"}
-              </Text>
-            ) : null}
-            {encounterGateConfirmation.reopenedAfterConfirmation && encounterGateVisibility.isActive ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate reopened after combat update. Re-resolve required prompts.</Text>
-            ) : null}
-              </>
-            ) : null}
-            {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Ready to continue. Confirm and continue to unblock narration.</Text>
-            ) : null}
-            {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
-              <View style={styles.encounterGateActionsRow}>
-                <TouchableOpacity
-                  onPress={handleRefreshEncounterGate}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.card }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.mutedForeground }]}>Refresh</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleConfirmEncounterGateClear}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Confirm & Continue</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            {canAcknowledgeMissingTargetOverride({
-              targetPolicyMode: encounterGateContext?.targetPolicyMode,
-              healthReasonCode: encounterGateVisibility.healthReasonCode,
-              isActive: encounterGateVisibility.isActive,
-            }) && encounterGateVisibility.overrideMode === "none" ? (
-              <View style={styles.encounterGateActionsRow}>
-                <TouchableOpacity
-                  onPress={handleAcknowledgeMissingTargetOverride}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Acknowledge Missing Target</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            {encounterGateVisibility.overrideMode === "acknowledge_missing_targets" && encounterGateVisibility.overrideStatus === "active" ? (
-              <View style={styles.encounterGateActionsRow}>
-                <TouchableOpacity
-                  onPress={handleRevokeEncounterGateOverride}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.destructive, backgroundColor: c.destructive + "1A" }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.destructive }]}>Revoke Override</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            <Text style={[styles.encounterGateSummary, { color: encounterGateVisibility.isActive ? c.mutedForeground : c.primary }]}>
-              {encounterGateVisibility.summary}
-            </Text>
-          </View>
-        ) : null}
-
         {!isCampaignScaffold && isPartyHydrated && isOneOffSessionHydrated &&
           hasPlayerConversationEntry && (!partyCode?.trim() || !memberId?.trim()) ? (
           <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.destructive }]}>
@@ -2547,19 +2437,121 @@ export default function AdventureSessionPlaceholderScreen() {
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
             style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
-            <AiDmCombatTargetPicker attackRanges={composerAttackOptions.map(({ attack }) => ({ id: attack.id, name: attack.name, range: attack.range }))} />
+            <AiDmCombatTargetPicker />
           </View>
         ) : null}
 
 
-      {(sharedState?.combatNpcs ?? []).filter(npc => workspaceSession.encounter.battleId &&
-        sharedState?.participantBattleById[npc.id] === workspaceSession.encounter.battleId).map(npc => (
-          <View key={npc.id} style={{ gap: 4, paddingVertical: 8 }}>
-            <Text style={{ color: c.foreground, fontSize: 14, fontWeight: "700" }}>{npcNameOverridesById[npc.id] ?? npc.name}{sharedState?.currentTurnIdByBattle[workspaceSession.encounter.battleId!] === npc.id ? " · Active turn" : ""}</Text>
-            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>{npc.dummyState ? `HP ${npc.dummyState.currentHp}/${npc.dummyState.maxHp} · AC ${npc.dummyState.armorClass}` : "HP and armor class unknown"}</Text>
-            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>{(npc.conditions ?? []).map(condition => condition.name).join(", ") || "No conditions"}</Text>
+        {encounterGateVisibility ? (
+          <View style={[styles.encounterGateCard, { borderColor: c.border, backgroundColor: c.card }]}> 
+            <Text style={[styles.encounterGateLabel, { color: c.foreground }]}>
+              {encounterGateVisibility.isActive ? "Encounter Gate Progress" : "Encounter Gate Cleared"}
+            </Text>
+            {encounterGateVisibility.isActive && encounterGateVisibility.status !== "cleared" ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
+            ) : null}
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={showEncounterDetails ? "Hide encounter details" : "Show encounter details"}
+              onPress={() => setShowEncounterDetails((open) => !open)}
+              style={[styles.composerDisclosureRow, { borderColor: c.border }]}>
+              <Text style={{ color: c.mutedForeground }}>Encounter details</Text>
+              <Feather name={showEncounterDetails ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
+            </TouchableOpacity>
+            {showEncounterDetails ? (
+              <>
+            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Required rolls: {encounterGateVisibility.requiredRolls.join(", ") || "none"}</Text>
+            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Created rolls: {encounterGateVisibility.createdRolls.join(", ") || "none"}</Text>
+            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Failed rolls: {encounterGateVisibility.failedRolls.join(", ") || "none"}</Text>
+            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Resolved rolls: {encounterGateVisibility.resolvedRolls.join(", ") || "none"}</Text>
+            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Unresolved rolls: {encounterGateVisibility.unresolvedRolls.join(", ") || "none"}</Text>
+            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.completionSummary}</Text>
+            {typeof encounterGateVisibility.gateAgeMs === "number" && encounterGateVisibility.isActive ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate age: {Math.floor(encounterGateVisibility.gateAgeMs / 1000)}s</Text>
+            ) : null}
+            {encounterGateVisibility.healthReason ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
+                Gate health{encounterGateVisibility.healthReasonCode ? ` (${encounterGateVisibility.healthReasonCode})` : ""}: {encounterGateVisibility.healthReason}
+              </Text>
+            ) : null}
+            {encounterGateContext?.targetPolicyMode && encounterGateContext?.targetMemberIds ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]} numberOfLines={1}>
+                Policy: {encounterGateContext.targetPolicyMode === "live_targets" ? "live" : "locked"} ({encounterGateContext.targetMemberIds.length} tgt{encounterGateContext.targetMemberIds.length === 1 ? "" : "s"})
+              </Text>
+            ) : null}
+            {encounterGateVisibility.timeoutSummary ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate timing: {encounterGateVisibility.timeoutSummary}</Text>
+            ) : null}
+            {encounterGateVisibility.clearConfirmed && typeof encounterGateVisibility.confirmedAtMs === "number" ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
+                Confirmed by DM ({encounterGateVisibility.confirmationSource ?? "ui_confirm_action"}) {Math.max(0, Math.floor((Date.now() - encounterGateVisibility.confirmedAtMs) / 1000))}s ago
+              </Text>
+            ) : null}
+            {encounterGateVisibility.overrideMode === "acknowledge_missing_targets" ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
+                {encounterGateVisibility.overrideStatus === "active"
+                  ? `Override active, expires in ${Math.max(0, Math.ceil(((encounterGateVisibility.overrideExpiresAtMs ?? encounterGateNowMs) - encounterGateNowMs) / 1000))}s`
+                  : encounterGateVisibility.overrideStatus === "revoked"
+                    ? "Override revoked"
+                    : "Override expired, gate re-evaluated"}
+              </Text>
+            ) : null}
+            {encounterGateConfirmation.reopenedAfterConfirmation && encounterGateVisibility.isActive ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate reopened after combat update. Re-resolve required prompts.</Text>
+            ) : null}
+              </>
+            ) : null}
+            {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
+              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Ready to continue. Confirm and continue to unblock narration.</Text>
+            ) : null}
+            {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
+              <View style={styles.encounterGateActionsRow}>
+                <TouchableOpacity
+                  onPress={handleRefreshEncounterGate}
+                  style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.card }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.encounterGateActionBtnText, { color: c.mutedForeground }]}>Refresh</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirmEncounterGateClear}
+                  style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Confirm & Continue</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {canAcknowledgeMissingTargetOverride({
+              targetPolicyMode: encounterGateContext?.targetPolicyMode,
+              healthReasonCode: encounterGateVisibility.healthReasonCode,
+              isActive: encounterGateVisibility.isActive,
+            }) && encounterGateVisibility.overrideMode === "none" ? (
+              <View style={styles.encounterGateActionsRow}>
+                <TouchableOpacity
+                  onPress={handleAcknowledgeMissingTargetOverride}
+                  style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Acknowledge Missing Target</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {encounterGateVisibility.overrideMode === "acknowledge_missing_targets" && encounterGateVisibility.overrideStatus === "active" ? (
+              <View style={styles.encounterGateActionsRow}>
+                <TouchableOpacity
+                  onPress={handleRevokeEncounterGateOverride}
+                  style={[styles.encounterGateActionBtn, { borderColor: c.destructive, backgroundColor: c.destructive + "1A" }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.encounterGateActionBtnText, { color: c.destructive }]}>Revoke Override</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            <Text style={[styles.encounterGateSummary, { color: encounterGateVisibility.isActive ? c.mutedForeground : c.primary }]}>
+              {encounterGateVisibility.summary}
+            </Text>
           </View>
-        ))}
+        ) : null}
+
       {encounterGateVisibility ? <Text style={{ color: c.mutedForeground, fontSize: 12, lineHeight: 18 }}>{encounterGateVisibility.summary}</Text> : null}
       {chapterLabel ? <Text style={{ color: c.foreground }}>{chapterLabel}</Text> : null}
       {!encounterGateVisibility && !workspaceSession.encounter.battleId ? <Text style={{ color: c.mutedForeground }}>No active encounter objective.</Text> : null}
