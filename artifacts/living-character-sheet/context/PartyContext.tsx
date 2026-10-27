@@ -29,6 +29,7 @@ import { useCharacter } from "@/context/CharacterContext";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { useEquippedEffects, getResourceExtraMax } from "@/hooks/useEquippedEffects";
 import { triggerEffect } from "@/utils/triggerEffect";
+import { validateSelectedRestProvisions } from "@/utils/adventure/restProvisionSelection";
 
 const STORAGE_KEY = "@party_session";
 const POLL_INTERVAL = 3000;
@@ -60,6 +61,8 @@ const PartyContext = createContext<PartyContextType | null>(null);
 function PartyProviderInner({ children }: { children: ReactNode }) {
   const {
     character,
+    inventory,
+    updateItem,
     conditions,
     resources,
     resetResource,
@@ -265,7 +268,22 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         if (processingRestRequestIdsRef.current.has(request.id)) continue;
         processingRestRequestIdsRef.current.add(request.id);
         try {
-          applyRestRequest(request.restType);
+          const provisionCheck = validateSelectedRestProvisions(request.provisions, inventory);
+          if (!provisionCheck.ok) {
+            console.warn("[PartyContext] Approved rest awaits valid provisions:", provisionCheck.reason);
+            continue;
+          }
+          // A stable receipt survives polling/reloads. This prevents ordinary
+          // reapplication after a successful local effect; server-side atomic
+          // inventory debit + recovery still requires a later authority pass.
+          const receiptKey = `@party_rest_applied:${code}:${mid}:${request.id}`;
+          const previouslyApplied = await AsyncStorage.getItem(receiptKey);
+          if (!previouslyApplied) {
+            await AsyncStorage.setItem(receiptKey, "1");
+            for (const provision of provisionCheck.debit)
+              updateItem(provision.id, { quantity: provision.nextQuantity });
+            applyRestRequest(request.restType);
+          }
           await acknowledgePartyRestRequest(code, request.id, { memberId: mid });
         } catch (err) {
           if (err instanceof PartyConflictError) {
@@ -287,7 +305,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     } catch {
       // Keep polling resilient if combat-state sync is temporarily unavailable.
     }
-  }, [applyRestRequest, refreshCombatState]);
+  }, [applyRestRequest, refreshCombatState, inventory, updateItem]);
 
   const refreshMembers = useCallback(async () => {
     const code = currentCodeRef.current;
