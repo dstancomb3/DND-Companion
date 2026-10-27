@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, PanResponder } from "react-native";
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, PanResponder, Platform } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 import { useWorkspacePreferences } from "../../../hooks/useWorkspacePreferences";
@@ -66,11 +66,30 @@ export const AdventureWorkspace = forwardRef<AdventureWorkspaceHandle, { panels:
       onStartShouldSetPanResponder: () => true, onMoveShouldSetPanResponder: () => true,
       onPanResponderRelease: (_, gesture) => onDelta(horizontal ? (field === "right" ? -gesture.dx : gesture.dx) : gesture.dy),
     });
-    return <View key={field} {...responder.panHandlers} accessible accessibilityRole="adjustable"
+    // RN PanResponder handles native touch; the web uses pointer capture so dragging
+    // continues even when the cursor moves outside the narrow divider.
+    let start: { id: number; coordinate: number } | null = null;
+    const webPointerHandlers: any = Platform.OS === "web" ? {
+      onPointerDown: (event: any) => {
+        if (event.button !== 0) return;
+        start = { id: event.pointerId, coordinate: horizontal ? event.clientX : event.clientY };
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        event.preventDefault?.();
+      },
+      onPointerUp: (event: any) => {
+        if (!start || start.id !== event.pointerId) return;
+        const delta = (horizontal ? event.clientX : event.clientY) - start.coordinate;
+        start = null;
+        onDelta(horizontal && field === "right" ? -delta : delta);
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+      },
+      onPointerCancel: () => { start = null; },
+    } : {};
+    return <View key={field} {...(Platform.OS === "web" ? webPointerHandlers : responder.panHandlers)} accessible accessibilityRole="adjustable"
       accessibilityLabel={`Resize ${title}`} accessibilityValue={{ text: `${Math.round((draft.sizing?.[field] ?? DEFAULT_WORKSPACE_SIZING[field]) * 100)} percent` }}
       accessibilityActions={[{ name: "increment", label: "Increase" }, { name: "decrement", label: "Decrease" }]}
       onAccessibilityAction={event => adjust(field, (event.nativeEvent.actionName === "increment" ? 0.025 : -0.025))}
-      style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35 }} />;
+      style={{ position: "absolute", zIndex: 10, ...(horizontal ? { left: at - 6, top: 0, bottom: 0, width: 12 } : { left: field === "leftRow" ? 0 : field === "rightRow" ? size.width - baseFrames.encounter.width : baseFrames.narrative.left, top: at - 6, width: field === "leftRow" ? baseFrames.party.width : field === "rightRow" ? baseFrames.encounter.width : baseFrames.narrative.width, height: 12 }), backgroundColor: c.primary, opacity: 0.35, ...(Platform.OS === "web" ? { cursor: horizontal ? "col-resize" : "row-resize", touchAction: "none" } as any : {}) }} />;
   }
   function toggle(id: WorkspacePanelId) {
     if (temporaryFocus) setFocusExpanded(previous => previous.includes(id) ? previous.filter(x => x !== id) : [...previous, id]);
