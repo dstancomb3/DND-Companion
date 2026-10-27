@@ -2135,6 +2135,13 @@ export default function AdventureSessionPlaceholderScreen() {
               onSubmit={handleInputSubmit}
               isPending={isCampaignRuntimeTurnPending || (!isCampaignScaffold && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId))}
             />
+            {!isCampaignScaffold && !isCampaignRuntimeTurnPending && campaignRuntimeStatus ? (
+              <View accessibilityRole="alert" style={{ borderWidth: 1, borderColor: c.destructive, borderRadius: 8, padding: 10, gap: 5 }}>
+                <Text style={{ color: c.destructive, fontWeight: "700" }}>The DM did not respond</Text>
+                <Text style={{ color: c.foreground, fontSize: 12 }}>{campaignRuntimeStatus}</Text>
+                <Text style={{ color: c.mutedForeground, fontSize: 12 }}>Check that the local API server is running, then submit your action again.</Text>
+              </View>
+            ) : null}
             {!isCampaignScaffold && partyBootstrapError ? <View style={{ padding: 8, gap: 8 }}>
               <Text accessibilityRole="alert" style={{ color: c.destructive }}>{partyBootstrapError}</Text>
               {source === "new-oneoff" && !partyCode && !memberId ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry party connection"
