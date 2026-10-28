@@ -26,7 +26,15 @@ export function planNpcTacticalMovement(input: {
   const xFeet = start.xFeet + sign * step * (nearest.p.xFeet - start.xFeet) / nearest.distance;
   const yFeet = start.yFeet + sign * step * (nearest.p.yFeet - start.yFeet) / nearest.distance;
   if (!Number.isFinite(xFeet) || !Number.isFinite(yFeet)) return null;
-  if (input.stance === "retreat" && Math.hypot(xFeet - nearest.p.xFeet, yFeet - nearest.p.yFeet) <= nearest.distance) return null;
+  if (input.stance === "retreat") {
+    // Fleeing one threat must not accidentally move closer to another known
+    // enemy. Compare the nearest opponent before and after the proposed move.
+    const initialMinimum = Math.min(...eligible.filter(p => input.targetIds.includes(p.combatantId))
+      .map(p => Math.hypot(start.xFeet - p.xFeet, start.yFeet - p.yFeet)));
+    const finalMinimum = Math.min(...eligible.filter(p => input.targetIds.includes(p.combatantId))
+      .map(p => Math.hypot(xFeet - p.xFeet, yFeet - p.yFeet)));
+    if (finalMinimum <= initialMinimum + 0.001) return null;
+  }
   // A straight-line move is only safe to propose when its endpoint is free.
   // In the absence of a map/pathfinder, do not teleport into occupied space.
   const dx = xFeet - start.xFeet;
