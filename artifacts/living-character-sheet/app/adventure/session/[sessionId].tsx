@@ -710,9 +710,11 @@ export default function AdventureSessionPlaceholderScreen() {
             return;
           }
         }
-        // Cover cannot be invented without mapped cover, and a blocked reposition
-        // should not waste an otherwise legal attack. Retreat remains distinct.
-        if ((behavior.kind === "attack" || behavior.kind === "seek_cover" || behavior.kind === "reposition") &&
+        // If retreat, cover, or reposition has no legal movement, the NPC
+        // can still defend itself with an executable attack. A successful
+        // retreat above has already returned and cannot be replaced here.
+        if ((behavior.kind === "attack" || behavior.kind === "seek_cover" ||
+             behavior.kind === "reposition" || behavior.kind === "retreat") &&
             plan.status === "ready" && npc && revision >= 1) {
           const recentScene = [...entries].reverse().find(entry =>
             entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
