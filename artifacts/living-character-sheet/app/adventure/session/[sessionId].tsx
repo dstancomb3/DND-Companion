@@ -89,6 +89,7 @@ import { buildCampaignChoiceOptions } from "@/utils/adventure/aiDmCampaignChoice
 import {
   addCombatNpc,
   createPartyRestRequest,
+  resolvePartyRestRequest,
   collectDefeatedNpcLoot,
   claimPartyLootAssignment,
   endPartyTurnForBattle,
@@ -493,6 +494,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
   const [restRequestPending, setRestRequestPending] = useState<PartyRestType | null>(null);
   const [restRequestMessage, setRestRequestMessage] = useState("");
+  const pendingAiRestDecisionRef = useRef<{ id: string; restType: PartyRestType } | null>(null);
   const [restProvisionsEnabled, setRestProvisionsEnabled] = useState(false);
   const [restProvisionItemIds, setRestProvisionItemIds] = useState<string[]>([]);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
@@ -1767,6 +1769,35 @@ export default function AdventureSessionPlaceholderScreen() {
       if (resolvedTurnOutcome !== null) {
         const outcome = resolvedTurnOutcome;
 
+        // Only an explicitly requested AI one-off rest is eligible for this
+        // automatic host decision. An ordinary story turn cannot approve rests.
+        const pendingRest = pendingAiRestDecisionRef.current;
+        if (pendingRest && effectivePartyCode && !isCampaignScaffold) {
+          pendingAiRestDecisionRef.current = null;
+          try {
+            const safety = outcome.sceneSafety;
+            if (!safety) {
+              setRestRequestMessage("The DM did not assess scene safety. Rest remains pending; try asking again.");
+            } else {
+              const safe = pendingRest.restType === "short_rest"
+                ? safety.shortRestFeasible && safety.dangerScore <= 30
+                : safety.longRestFeasible && safety.dangerScore <= 10;
+              const resolution = await resolvePartyRestRequest(effectivePartyCode, pendingRest.id, {
+                status: safe ? "approved" : "denied",
+                resolvedBy: "ai_dm",
+                automatic: true,
+                sceneSafety: safety,
+              });
+              await refreshCombatState(effectivePartyCode);
+              setRestRequestMessage(resolution.request.status === "approved"
+                ? "The DM approved your rest. Recovery will apply through the party rest workflow."
+                : `The DM denied your rest: ${safety.reason}`);
+            }
+          } catch (error) {
+            setRestRequestMessage(error instanceof Error ? error.message : "The DM could not resolve this rest request.");
+          }
+        }
+
         // Inventory mutations with snapshot — avoids stale closure across iterations (Slice E)
         const inventorySnapshot = new Map<string, { id: string; quantity: number }>(
           inventory.map((i) => [i.name.toLowerCase(), { id: i.id, quantity: i.quantity }]),
@@ -2064,9 +2095,22 @@ export default function AdventureSessionPlaceholderScreen() {
       if (restProvisionsEnabled && selected.length !== restProvisionItemIds.length) {
         throw new Error("Some provisions are no longer in your inventory. Review your selections.");
       }
-      await createPartyRestRequest(partyCode, { memberId, restType, provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] } });
+      const created = await createPartyRestRequest(partyCode, { memberId, restType, provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] } });
       await refreshCombatState(partyCode);
-      setRestRequestMessage(`${restType === "short_rest" ? "Short" : "Long"} rest requested. No resources restore until the DM approves.`);
+      if (!isCampaignScaffold) {
+        pendingAiRestDecisionRef.current = { id: created.request.id, restType };
+        setRestRequestMessage("The AI DM is evaluating whether this scene is safe for resting.");
+        const completed = await handleCampaignRuntimeTurn(
+          `I request a ${restType === "short_rest" ? "short" : "long"} rest. Assess the actual scene safety and provide sceneSafety with dangerScore, shortRestFeasible, longRestFeasible and reason. Do not narrate recovery until the rest is approved.`,
+          { silent: true },
+        );
+        if (!completed && pendingAiRestDecisionRef.current?.id === created.request.id) {
+          pendingAiRestDecisionRef.current = null;
+          setRestRequestMessage("The AI DM did not complete its safety assessment. Rest remains pending.");
+        }
+      } else {
+        setRestRequestMessage(`${restType === "short_rest" ? "Short" : "Long"} rest requested. No resources restore until the DM approves.`);
+      }
     } catch (error) {
       setRestRequestMessage(error instanceof Error ? error.message : "Rest request failed.");
     } finally {
