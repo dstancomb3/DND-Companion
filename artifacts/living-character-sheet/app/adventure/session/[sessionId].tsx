@@ -708,7 +708,10 @@ export default function AdventureSessionPlaceholderScreen() {
             return;
           }
         }
-        if (behavior.kind === "attack" && plan.status === "ready" && npc && revision >= 1) {
+        // Cover cannot be invented without mapped cover, and a blocked reposition
+        // should not waste an otherwise legal attack. Retreat remains distinct.
+        if ((behavior.kind === "attack" || behavior.kind === "seek_cover" || behavior.kind === "reposition") &&
+            plan.status === "ready" && npc && revision >= 1) {
           const recentScene = [...entries].reverse().find(entry =>
             entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
           const choices = plan.choices.map(choice => ({
