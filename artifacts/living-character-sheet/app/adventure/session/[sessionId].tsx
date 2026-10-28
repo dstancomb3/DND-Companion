@@ -420,6 +420,7 @@ export default function AdventureSessionPlaceholderScreen() {
     memberId,
     members,
     combatState,
+    combatStateLoadError,
     refreshCombatState,
     createAndJoinParty,
   } = useParty();
@@ -2404,7 +2405,7 @@ export default function AdventureSessionPlaceholderScreen() {
     try {
       const state = await refreshCombatState(partyCode);
       if (!state && !combatState) {
-        setEncounterReconnectError("The combat state could not be loaded. Check the API server and try again.");
+        setEncounterReconnectError(combatStateLoadError ?? "Combat state is not yet available. Check the API server and retry.");
       }
     } catch (error) {
       setEncounterReconnectError(error instanceof Error ? error.message : "Unable to retrieve encounter state.");
@@ -2833,7 +2834,7 @@ export default function AdventureSessionPlaceholderScreen() {
           <Text accessibilityRole="alert" style={{ color: c.mutedForeground, fontSize: 12 }}>
             Encounter state is unavailable. Story narration alone cannot create or resolve combat.
           </Text>
-          {encounterReconnectError ? <Text style={{ color: c.destructive, fontSize: 12 }}>{encounterReconnectError}</Text> : null}
+          {(combatStateLoadError || encounterReconnectError) ? <Text accessibilityRole="alert" style={{ color: c.destructive, fontSize: 12 }}>{combatStateLoadError || encounterReconnectError}</Text> : null}
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading encounter"
             disabled={encounterReconnectPending}
             onPress={() => void retryEncounterState()}
