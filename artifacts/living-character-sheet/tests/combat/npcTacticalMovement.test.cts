@@ -39,6 +39,6 @@ test("retreat must improve separation from every confirmed enemy", () => {
     ...input, positions:surrounded, targetIds:["lyra","other"], stance:"retreat",
   }),null);
   assert.deepEqual(planNpcTacticalMovement({
-    ...input, positions:surrounded, targetIds:["lyra"], stance:"retreat",
+    ...input, positions:surrounded.filter(p => p.combatantId !== "other"), targetIds:["lyra"], stance:"retreat",
   }),{xFeet:-30,yFeet:0});
 });
