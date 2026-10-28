@@ -30,6 +30,10 @@ export function planNpcTacticalMovement(input: {
   const dy = yFeet - start.yFeet;
   const pathBlocked = eligible.some(p => {
     if (p.combatantId === input.npcId) return false;
+    // The selected opponent is the approach destination. Stopping at melee
+    // reach is legal; do not treat that opponent as an intervening obstacle.
+    if (input.stance === "reposition" && p.combatantId === nearest.p.combatantId &&
+        Math.hypot(p.xFeet - xFeet, p.yFeet - yFeet) >= 5 - 1e-6) return false;
     const t = Math.max(0, Math.min(1,
       ((p.xFeet - start.xFeet) * dx + (p.yFeet - start.yFeet) * dy) /
       (dx * dx + dy * dy)));
