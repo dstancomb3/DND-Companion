@@ -153,6 +153,7 @@ type CampaignRuntimeTurnRollPrompt = {
 type CampaignRuntimeTurnEncounterIntent = {
   requiresEncounterStart: boolean;
   hostileCreatureName: string;
+  hostileCreatureCount?: number;
   hostileCreatureSourceType?: "monster";
   hostileCreatureSourceId?: string;
   promptRolls: CampaignRuntimeTurnRollPrompt[];
@@ -357,6 +358,8 @@ export function normalizeCampaignRuntimeEncounterIntent(input: {
   return {
     requiresEncounterStart: true,
     hostileCreatureName,
+    hostileCreatureCount: typeof input.rawEncounterIntent.hostileCreatureCount === "number" && Number.isInteger(input.rawEncounterIntent.hostileCreatureCount)
+      ? Math.max(1, Math.min(8, input.rawEncounterIntent.hostileCreatureCount)) : 1,
     ...(hostileCreatureSourceType && hostileCreatureSourceId
       ? {
         hostileCreatureSourceType,
@@ -645,6 +648,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       "- Include promptRolls needed now. Use initiative for turn order, perception for awareness checks, and dexterity or dexterity_save for evade moments.",
       "- When the hostile creature is known from the monster compendium, include hostileCreatureSourceType=\"monster\" and hostileCreatureSourceId with the exact compendium id.",
       "- If the compendium id is unknown, omit hostileCreatureSourceType/hostileCreatureSourceId and provide only hostileCreatureName.",
+      "- For groups, set hostileCreatureCount to the number of hostiles actually entering combat (1 to 8). A pack must not be represented by only its leader. Use 1 for a solo creature.",
       "- A CURRENT HOSTILE ACTORS or KNOWN ENCOUNTER ACTORS system entry may be present. Treat those actor identities as canonical continuity anchors.",
       "- Do not rename, split, merge, or replace canonical hostile actors unless encounterIntent explicitly starts a new hostile arrival.",
       "- If no new hostile arrival occurs this turn, continue with existing hostile actor identities in context.",
@@ -666,7 +670,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       '- itemChanges: array of item mutations this turn. Each entry: {"action":"consume"|"add"|"remove","name":"item name","quantity":1}.',
       "  'consume' = item used/expended from inventory. 'add' = loot found or item given. 'remove' = item lost/stolen/destroyed.",
       "  Match item names exactly as they appear in CURRENT INVENTORY. Empty array [] if no items changed.",
-      '  - encounterIntent: null if no immediate hostile encounter setup is required, else {"requiresEncounterStart":true,"hostileCreatureName":"...","hostileCreatureSourceType":"monster"?,"hostileCreatureSourceId":"compendium-id"?,"promptRolls":[{"statKey":"initiative"|"perception"|"dexterity"|"dexterity_save","label":"..."}],"narrationBlockedUntilResolved":true,"intentKey":"short-stable-key"}.',
+      '  - encounterIntent: null if no immediate hostile encounter setup is required, else {"requiresEncounterStart":true,"hostileCreatureName":"...","hostileCreatureCount":1,"hostileCreatureSourceType":"monster"?,"hostileCreatureSourceId":"compendium-id"?,"promptRolls":[{"statKey":"initiative"|"perception"|"dexterity"|"dexterity_save","label":"..."}],"narrationBlockedUntilResolved":true,"intentKey":"short-stable-key"}.',
       '  - adjudicationRequests: [] when no extra checks are needed. Otherwise: [{"statKey":"nature"|"arcana"|"history"|"insight"|"investigation"|"perception"|"survival"|"...","label":"short check label","reason":"why this roll is required now"}].',
     ].join("\n");
 
