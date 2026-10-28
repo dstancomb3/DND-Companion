@@ -259,8 +259,8 @@ function buildMonsterNpcAttacks(monster: CompendiumMonster): CombatNpcGearItem[]
   const actions = monster.actions ?? [];
   return actions.flatMap((action, index) => {
     const description = action.desc ?? "";
-    const bonus = /(?:Melee|Ranged) (?:Weapon|Spell) Attack:\s*([+-]\d+) to hit/i.exec(description);
-    const roll = /(?:Hit:\s*\d+\s*\()?\b(\d+d(?:4|6|8|10|12)(?:\s*[+-]\s*\d+)?)\)?\s*(\w+) damage/i.exec(description);
+    const bonus = /(?:Melee|Ranged)\s+(?:(?:Weapon|Spell)\s+)?Attack(?:\s+Roll)?\s*:\s*([+-]\d+)(?:\s+to\s+hit)?/i.exec(description);
+    const roll = /(?:Hit:\s*\d+\s*\()?\b(\d+d(?:4|6|8|10|12|20)(?:\s*[+-]\s*\d+)?)\)?\s*(\w+) damage/i.exec(description);
     const distance = /reach\s*(\d+)\s*ft/i.exec(description);
     const ranged = /range\s*(\d+)(?:\s*\/\s*\d+)?\s*ft/i.exec(description);
     if (!bonus || !roll || (!distance && !ranged)) return [];
