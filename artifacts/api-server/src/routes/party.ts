@@ -2931,37 +2931,33 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
       });
     }
 
-    // End a battle as soon as its final hostile falls. Preserve defeated NPC
-    // instances outside initiative so their verified corpse loot remains claimable.
-    const defeatedInThisCommit = targetResultsSummary.some(row => row.targetType === "npc" && row.defeated === true);
-    if (defeatedInThisCommit) {
-      const battles = new Set(
-        state.eventLog.filter(entry => entry.type === "npc_defeated" &&
-          entry.metadata?.commandId === commandId)
-          .map(entry => state.participantBattleById[String(entry.metadata?.npcId ?? "")])
-          .filter((id): id is string => typeof id === "string" && !!id)
-      );
-      for (const battleId of battles) {
-        const hasRemainingHostiles = state.combatNpcs.some(npc =>
-          state.participantBattleById[npc.id] === battleId &&
-          npc.disposition === "hostile" && (npc.dummyState?.currentHp ?? 1) > 0);
-        if (hasRemainingHostiles) continue;
-        const participantIds = Object.keys(state.participantBattleById).filter(id => state.participantBattleById[id] === battleId);
-        for (const id of participantIds) {
-          delete state.participantBattleById[id];
-          delete state.initiativeByMember[id];
-        }
-        state.activeMemberIds = state.activeMemberIds.filter(id => !participantIds.includes(id));
-        delete state.battleTurnOrderById[battleId];
-        delete state.currentTurnIdByBattle[battleId];
-        appendEvent(state, { type: "encounter_ended",
-          message: "The last hostile falls. Combat ends; defeated enemies can still be looted.",
-          metadata: { battleId, cause: "all_hostiles_defeated" } });
+    // Reconcile battle completion from authoritative HP, not just a newly
+    // emitted defeat event. An earlier failed closure must be recoverable on
+    // the next committed NPC outcome without reviving the combat loop.
+    const affectedBattleIds = new Set(targetResultsSummary
+      .filter(row => row.targetType === "npc" && row.status === "applied")
+      .map(row => state.participantBattleById[row.targetId])
+      .filter((id): id is string => typeof id === "string" && !!id));
+    for (const battleId of affectedBattleIds) {
+      const hostiles = state.combatNpcs.filter(npc =>
+        state.participantBattleById[npc.id] === battleId && npc.disposition === "hostile");
+      if (!hostiles.length || hostiles.some(npc => npc.dummyState?.currentHp === undefined ||
+          npc.dummyState.currentHp > 0)) continue;
+      const participantIds = Object.keys(state.participantBattleById)
+        .filter(id => state.participantBattleById[id] === battleId);
+      for (const id of participantIds) {
+        delete state.participantBattleById[id];
+        delete state.initiativeByMember[id];
       }
-      // Do not rebuild here: initiative was intentionally removed for the
-      // completed battle and will be established by the next encounter.
-      syncLegacyTurnState(state);
+      state.activeMemberIds = state.activeMemberIds.filter(id => !participantIds.includes(id));
+      delete state.battleTurnOrderById[battleId];
+      delete state.currentTurnIdByBattle[battleId];
+      appendEvent(state, { type: "encounter_ended",
+        message: "The last hostile falls. Combat ends; defeated enemies can still be looted.",
+        metadata: { battleId, cause: "all_hostiles_defeated" } });
     }
+    // Completion clears the authoritative battle, not the corpse instances.
+    syncLegacyTurnState(state);
 
     targetResultsSummary.sort((a, b) => a.requestIndex - b.requestIndex);
 
