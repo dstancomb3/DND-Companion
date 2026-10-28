@@ -1900,30 +1900,25 @@ export default function AdventureSessionPlaceholderScreen() {
                 },
               });
 
-              if (effectivePartyCode && encounterOutcome.hostileNpcId) {
-                try {
-                  const initiativeRoll = Math.floor(Math.random() * 20) + 1;
-                  await rollNpcInitiative(effectivePartyCode, encounterOutcome.hostileNpcId, initiativeRoll);
-                  await refreshCombatState(effectivePartyCode);
-                  setEntries((prev) => [
-                    ...prev,
-                    {
-                      id: createFeedEntryId("npc-initiative-roll"),
-                      role: "tool",
-                      text: `${encounterOutcome.hostileNpcName ?? encounterIntent.hostileCreatureName} rolled initiative.`,
-                    },
-                  ]);
-                } catch (err: unknown) {
-                  // Preserve the active encounter, but expose capability/transport failure.
-                  setEntries((prev) => [
-                    ...prev,
-                    {
-                      id: createFeedEntryId("npc-initiative-error"),
-                      role: "tool",
+              if (effectivePartyCode && encounterOutcome.hostileNpcIds?.length) {
+                for (const npcId of encounterOutcome.hostileNpcIds) {
+                  try {
+                    const latest = await refreshCombatState(effectivePartyCode);
+                    if (latest?.initiativeByMember?.[npcId] !== undefined) continue;
+                    const initiativeRoll = Math.floor(Math.random() * 20) + 1;
+                    await rollNpcInitiative(effectivePartyCode, npcId, initiativeRoll);
+                    setEntries(prev => [...prev, {
+                      id: createFeedEntryId("npc-initiative-roll"), role: "tool" as const,
+                      text: `${encounterIntent.hostileCreatureName} rolled initiative.`,
+                    }]);
+                  } catch (err: unknown) {
+                    setEntries(prev => [...prev, {
+                      id: createFeedEntryId("npc-initiative-error"), role: "tool" as const,
                       text: err instanceof Error ? err.message : "NPC initiative could not be recorded.",
-                    },
-                  ]);
+                    }]);
+                  }
                 }
+                await refreshCombatState(effectivePartyCode);
               }
 
               if (encounterIntent.narrationBlockedUntilResolved) {
