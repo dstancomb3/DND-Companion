@@ -47,6 +47,7 @@ interface PartyContextType {
   memberId: string | null;
   members: PartyMemberSummary[];
   combatState: PartyCombatState | null;
+  combatStateLoadError: string | null;
   isInParty: boolean;
   isLoading: boolean;
   error: string | null;
@@ -82,6 +83,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
   const [memberId, setMemberId] = useState<string | null>(null);
   const [members, setMembers] = useState<PartyMemberSummary[]>([]);
   const [combatState, setCombatState] = useState<PartyCombatState | null>(null);
+  const [combatStateLoadError, setCombatStateLoadError] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -244,12 +246,16 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         return null;
       }
       setCombatState(state);
+      setCombatStateLoadError(null);
       latestCombatStateRef.current = {
         revision: typeof state.stateRevision === "number" ? state.stateRevision : -1,
         updatedAt: state.updatedAt ?? "",
       };
       return state;
-    } catch {
+    } catch (error) {
+      if (requestSeq === combatStateRequestSeqRef.current) {
+        setCombatStateLoadError(error instanceof Error ? error.message : "Combat state request failed.");
+      }
       return null;
     }
   }, [isIncomingCombatStateNewer]);
