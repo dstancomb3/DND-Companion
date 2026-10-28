@@ -340,7 +340,17 @@ async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnRespons
       movementUsed: 0,
     },
     visibleStatKeys: ["speed", "initiativeBonus", "strength", "dexterity", "constitution"],
-    gear: [basicNpcUnarmedAttack(12)],
+    // Ordinary generated bandits carry physical equipment. Their weapons are
+    // both usable attacks and legitimate post-combat loot. Do not fabricate
+    // inventory for other generic creatures or convert innate attacks to loot.
+    gear: /^bandit(?:\\b|$)/i.test(encounterIntent?.hostileCreatureName ?? "")
+      ? [
+          { id: "bandit-club", name: "Club", category: "weapon", equipped: true,
+            attackBonus: 3, damageDice: "1d4", damageModifier: 1,
+            damageType: "bludgeoning", range: "reach 5 ft" },
+          { id: "bandit-satchel", name: "Leather Satchel", category: "gear", equipped: false },
+        ]
+      : [basicNpcUnarmedAttack(12)],
   };
 }
 
