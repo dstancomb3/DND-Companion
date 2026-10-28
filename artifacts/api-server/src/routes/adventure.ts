@@ -609,7 +609,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       "- dmText: 2 paragraphs separated by \\n\\n. Present tense. 60-110 words.",
       "- choices: 2-3 options, each 4-10 words.",
       "- stateTags: 1-4 tags from: tension, exploration, social, combat_risk, chase, puzzle, trap, negotiation, discovery.",
-      "- sceneSafety: object with dangerScore (integer 0-100), shortRestFeasible (boolean), longRestFeasible (boolean), reason (one short sentence). Assess the actual situation AFTER narrating this turn; active combat, falling/flying unprotected, pursuit, imminent threats or unstable ground are unsafe. Long rest requires a secure location and sufficient uninterrupted time. Do not claim a rest happened.",
+      "- sceneSafety: object with dangerScore (integer 1-100), shortRestFeasible (boolean), longRestFeasible (boolean), reason (one short sentence). Assess the actual situation AFTER narrating this turn; active combat, falling/flying unprotected, pursuit, imminent threats or unstable ground are unsafe. Long rest requires a secure location and sufficient uninterrupted time. Do not claim a rest happened.",
       "- encounterIntent: set null unless immediate hostile encounter setup is explicitly required.",
     ].join("\n");
 
@@ -719,7 +719,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
   const choices = coerceStringArray(parsedRecord?.choices, 3);
   const stateTags = coerceStringArray(parsedRecord?.stateTags, 6);
   const safety = parsedRecord?.sceneSafety && typeof parsedRecord.sceneSafety === "object" ? parsedRecord.sceneSafety as Record<string, unknown> : {};
-  const dangerScore = typeof safety.dangerScore === "number" && Number.isFinite(safety.dangerScore) ? Math.min(100, Math.max(0, Math.round(safety.dangerScore))) : 100;
+  const dangerScore = typeof safety.dangerScore === "number" && Number.isFinite(safety.dangerScore) ? Math.min(100, Math.max(1, Math.round(safety.dangerScore))) : 100;
   const sceneSafety = {
     dangerScore,
     shortRestFeasible: safety.shortRestFeasible === true && dangerScore <= 30,
