@@ -2391,6 +2391,24 @@ export default function AdventureSessionPlaceholderScreen() {
     mode: isCampaignScaffold ? "ai_campaign" : "ai_one_off", partyCode, memberId, members, combatState,
   });
   const sharedState = combatState?.code === partyCode ? combatState : null;
+  const [encounterReconnectError, setEncounterReconnectError] = useState("");
+  const [encounterReconnectPending, setEncounterReconnectPending] = useState(false);
+  async function retryEncounterState() {
+    if (!partyCode || encounterReconnectPending) return;
+    setEncounterReconnectPending(true);
+    setEncounterReconnectError("");
+    try {
+      const state = await refreshCombatState(partyCode);
+      if (!state && !combatState) {
+        setEncounterReconnectError("The combat state could not be loaded. Check the API server and try again.");
+      }
+    } catch (error) {
+      setEncounterReconnectError(error instanceof Error ? error.message : "Unable to retrieve encounter state.");
+    } finally {
+      setEncounterReconnectPending(false);
+    }
+  }
+
   const workspacePanels: WorkspacePanels = {
     narrative: { title: "Adventure", content: (
         <AiDmSessionFeedShell
@@ -2806,6 +2824,21 @@ export default function AdventureSessionPlaceholderScreen() {
     inventory: { title: "Inventory", content: <SessionInventoryPanel items={inventory} /> },
     encounter: { title: "Encounter", content: <>
       <SessionEncounterStatus session={workspaceSession} />
+      {!isCampaignScaffold && partyCode && !sharedState ? (
+        <View style={{ gap: 8, padding: 10 }}>
+          <Text accessibilityRole="alert" style={{ color: c.mutedForeground, fontSize: 12 }}>
+            Encounter state is unavailable. Story narration alone cannot create or resolve combat.
+          </Text>
+          {encounterReconnectError ? <Text style={{ color: c.destructive, fontSize: 12 }}>{encounterReconnectError}</Text> : null}
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading encounter"
+            disabled={encounterReconnectPending}
+            onPress={() => void retryEncounterState()}
+            style={{ padding: 10, borderWidth: 1, borderColor: c.border, borderRadius: 8 }}>
+            <Text style={{ color: c.foreground }}>{encounterReconnectPending ? "Retrying…" : "Retry encounter connection"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
           <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
             style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
