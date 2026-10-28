@@ -29,6 +29,8 @@ import { useCharacter } from "@/context/CharacterContext";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { useEquippedEffects, getResourceExtraMax } from "@/hooks/useEquippedEffects";
 import { triggerEffect } from "@/utils/triggerEffect";
+import { validateSelectedRestProvisions } from "@/utils/adventure/restProvisionSelection";
+import { readRestApplicationPhase, restApplicationNextStep } from "@/utils/adventure/restApplicationReceipt";
 
 const STORAGE_KEY = "@party_session";
 const POLL_INTERVAL = 3000;
@@ -45,6 +47,7 @@ interface PartyContextType {
   memberId: string | null;
   members: PartyMemberSummary[];
   combatState: PartyCombatState | null;
+  combatStateLoadError: string | null;
   isInParty: boolean;
   isLoading: boolean;
   error: string | null;
@@ -60,6 +63,8 @@ const PartyContext = createContext<PartyContextType | null>(null);
 function PartyProviderInner({ children }: { children: ReactNode }) {
   const {
     character,
+    inventory,
+    updateItem,
     conditions,
     resources,
     resetResource,
@@ -68,6 +73,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     restoreAllSpellSlots,
     clearConditionsOnRest,
     updateHp,
+    updateTempHp,
     dispatchRuleTrigger,
   } = useCharacter();
   const { settings, accentHex } = useAppSettings();
@@ -77,6 +83,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
   const [memberId, setMemberId] = useState<string | null>(null);
   const [members, setMembers] = useState<PartyMemberSummary[]>([]);
   const [combatState, setCombatState] = useState<PartyCombatState | null>(null);
+  const [combatStateLoadError, setCombatStateLoadError] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +92,34 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
   const currentCodeRef = useRef<string | null>(null);
   const currentMemberIdRef = useRef<string | null>(null);
   const processingRestRequestIdsRef = useRef<Set<string>>(new Set());
+  const localHpRef = useRef({ hp: character.currentHp, tempHp: character.tempHp ?? 0 });
+  localHpRef.current = { hp: character.currentHp, tempHp: character.tempHp ?? 0 };
+  const lastServerHpRef = useRef<{ hp: number; tempHp: number; updatedAt: string } | null>(null);
+  const reconcileCommittedMemberHp = useCallback((results: PartyMemberSummary[], mid: string | null) => {
+    const own = results.find(member => member.id === mid);
+    if (!own || !Number.isFinite(own.currentHp) || !Number.isFinite(own.tempHp)) return;
+    const last = lastServerHpRef.current;
+    if (last && own.updatedAt < last.updatedAt) return;
+    // Unchanged server HP is not proof that a locally applied healing effect failed.
+    // Keep it pending until its guarded sync finishes.
+    const serverChanged = !last || own.currentHp !== last.hp || own.tempHp !== last.tempHp;
+    lastServerHpRef.current = { hp: own.currentHp, tempHp: own.tempHp, updatedAt: own.updatedAt };
+    if (!serverChanged) return;
+    const oldTemp = localHpRef.current.tempHp;
+    const delta = own.currentHp - localHpRef.current.hp;
+    if (delta) {
+      updateHp(delta, "ai");
+      if (delta < 0) triggerEffect("damage_flash");
+      else triggerEffect("heal_flash");
+      localHpRef.current.hp = own.currentHp;
+    }
+    if (own.tempHp !== oldTemp) {
+      updateTempHp(own.tempHp);
+      localHpRef.current.tempHp = own.tempHp;
+      if (!delta && own.tempHp < oldTemp) triggerEffect("damage_flash");
+    }
+  }, [updateHp, updateTempHp]);
+
   const combatStateRequestSeqRef = useRef(0);
   const latestCombatStateRef = useRef<{ revision: number; updatedAt: string }>({ revision: -1, updatedAt: "" });
 
@@ -108,6 +143,8 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       currentHp: character.currentHp,
       maxHp: character.maxHp,
       tempHp: character.tempHp ?? 0,
+      expectedCurrentHp: lastServerHpRef.current?.hp,
+      expectedTempHp: lastServerHpRef.current?.tempHp,
       armorClass: character.armorClass,
       damageResistances: character.damageResistances ?? [],
       damageImmunities: character.damageImmunities ?? [],
@@ -164,6 +201,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     currentMemberIdRef.current = null;
     latestCombatStateRef.current = { revision: -1, updatedAt: "" };
     processingRestRequestIdsRef.current.clear();
+    lastServerHpRef.current = null;
     await clearSession();
     setError(message);
   }, [clearSession, stopPolling]);
@@ -180,7 +218,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       return;
     }
 
-    resources.forEach((resource) => {
+    resources.filter(resource => resource.resetOn === "short_rest" || resource.resetOn === "long_rest").forEach((resource) => {
       resetResource(resource.id, resource.max + getResourceExtraMax(resource, resourceMaxBonuses));
     });
     rechargeSpellEffects("long_rest");
@@ -208,12 +246,16 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         return null;
       }
       setCombatState(state);
+      setCombatStateLoadError(null);
       latestCombatStateRef.current = {
         revision: typeof state.stateRevision === "number" ? state.stateRevision : -1,
         updatedAt: state.updatedAt ?? "",
       };
       return state;
-    } catch {
+    } catch (error) {
+      if (requestSeq === combatStateRequestSeqRef.current) {
+        setCombatStateLoadError(error instanceof Error ? error.message : "Combat state request failed.");
+      }
       return null;
     }
   }, [isIncomingCombatStateNewer]);
@@ -233,7 +275,29 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         if (processingRestRequestIdsRef.current.has(request.id)) continue;
         processingRestRequestIdsRef.current.add(request.id);
         try {
-          applyRestRequest(request.restType);
+          // Read the receipt before checking inventory: previously consumed
+          // provisions may now have quantity zero after app restart.
+          const receiptKey = `@party_rest_applied:${code}:${mid}:${request.id}`;
+          const phase = readRestApplicationPhase(await AsyncStorage.getItem(receiptKey));
+          const step = restApplicationNextStep(phase);
+          if (step === "review") {
+            // A prior session crashed mid-application. Applying again could
+            // duplicate rest recovery or provision debit. Do not acknowledge.
+            console.warn("[PartyContext] Rest application interrupted; manual reconciliation required", { requestId: request.id });
+            continue;
+          }
+          if (step === "apply") {
+            const provisionCheck = validateSelectedRestProvisions(request.requestedByMemberId === mid ? request.provisions : undefined, inventory);
+            if (!provisionCheck.ok) {
+              console.warn("[PartyContext] Approved rest awaits valid provisions:", provisionCheck.reason);
+              continue;
+            }
+            await AsyncStorage.setItem(receiptKey, "applying");
+            for (const provision of provisionCheck.debit)
+              updateItem(provision.id, { quantity: provision.nextQuantity });
+            applyRestRequest(request.restType);
+            await AsyncStorage.setItem(receiptKey, "applied");
+          }
           await acknowledgePartyRestRequest(code, request.id, { memberId: mid });
         } catch (err) {
           if (err instanceof PartyConflictError) {
@@ -255,7 +319,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     } catch {
       // Keep polling resilient if combat-state sync is temporarily unavailable.
     }
-  }, [applyRestRequest, refreshCombatState]);
+  }, [applyRestRequest, refreshCombatState, inventory, updateItem]);
 
   const refreshMembers = useCallback(async () => {
     const code = currentCodeRef.current;
@@ -264,6 +328,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     try {
       const result = await fetchPartyMembers(code);
       setMembers(result.members);
+      reconcileCommittedMemberHp(result.members, mid);
       setError(null);
       if (mid) {
         await syncApprovedRestRequests(code, mid);
@@ -276,7 +341,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       const e = err as Error;
       setError(e.message ?? "Failed to refresh party");
     }
-  }, [handleSessionEnded, isSessionGoneError, sessionEndedMessage, syncApprovedRestRequests]);
+  }, [handleSessionEnded, isSessionGoneError, sessionEndedMessage, syncApprovedRestRequests, reconcileCommittedMemberHp]);
 
   const startPolling = useCallback(
     (code: string) => {
@@ -287,6 +352,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         try {
           const result = await fetchPartyMembers(currentCodeRef.current);
           setMembers(result.members);
+          reconcileCommittedMemberHp(result.members, currentMemberIdRef.current);
           if (currentMemberIdRef.current) {
             await syncApprovedRestRequests(currentCodeRef.current, currentMemberIdRef.current);
           }
@@ -297,7 +363,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         }
       }, POLL_INTERVAL);
     },
-    [handleSessionEnded, isSessionGoneError, sessionEndedMessage, stopPolling, syncApprovedRestRequests]
+    [handleSessionEnded, isSessionGoneError, sessionEndedMessage, stopPolling, syncApprovedRestRequests, reconcileCommittedMemberHp]
   );
 
   useEffect(() => {
@@ -318,6 +384,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
           currentCodeRef.current = session.partyCode;
           currentMemberIdRef.current = session.memberId;
           setMembers(result.members);
+          reconcileCommittedMemberHp(result.members, session.memberId);
           await refreshCombatState(session.partyCode);
           startPolling(session.partyCode);
         } catch {
@@ -329,7 +396,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
     });
 
     return () => stopPolling();
-  }, [refreshCombatState, startPolling, stopPolling]);
+  }, [refreshCombatState, startPolling, stopPolling, reconcileCommittedMemberHp]);
 
   useEffect(() => {
     const code = currentCodeRef.current;
@@ -345,6 +412,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       const syncMemberId = currentMemberIdRef.current;
       try {
         await syncPartyMember(buildSnapshot(syncMemberId, syncCode));
+        await refreshMembers();
       } catch (err) {
         if (err instanceof PartyMemberAccessError) {
           if (currentCodeRef.current === syncCode && currentMemberIdRef.current === syncMemberId) await handleSessionEnded(err.message);
@@ -435,15 +503,17 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
       currentCodeRef.current = code;
       currentMemberIdRef.current = mid;
       setMembers(result.members);
+      reconcileCommittedMemberHp(result.members, mid);
       await refreshCombatState(code);
       await persistSession(code, mid);
       startPolling(code);
     } catch (err: any) {
-      setError(err.message ?? "Failed to create party");
+      setError(err instanceof Error ? err.message : "Failed to create party");
+      throw err; // Session bootstrap must distinguish failure from success and offer retry.
     } finally {
       setIsLoading(false);
     }
-  }, [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id]);
+  }, [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id, reconcileCommittedMemberHp]);
 
   const joinExistingParty = useCallback(
     async (code: string, initial?: { characterId: string; snapshot: SyncPayload }) => {
@@ -461,6 +531,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         currentCodeRef.current = code;
         currentMemberIdRef.current = mid;
         setMembers(result.members);
+        reconcileCommittedMemberHp(result.members, mid);
         await refreshCombatState(code);
         await persistSession(code, mid);
         startPolling(code);
@@ -470,7 +541,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     },
-    [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id]
+    [buildSnapshot, persistSession, refreshCombatState, startPolling, character.id, reconcileCommittedMemberHp]
   );
 
   const leaveCurrentParty = useCallback(async () => {
@@ -504,6 +575,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         memberId,
         members,
         combatState,
+        combatStateLoadError,
         isInParty: !!partyCode,
         isLoading,
         error,

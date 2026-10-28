@@ -1,4 +1,6 @@
 import { SessionTurnControls } from "@/components/adventure/workspace/SessionTurnControls";
+import { narrateCommittedNpcWeaponTurn } from "@/utils/combat/npcCommittedNarration";
+import { DefeatedNpcLootModal } from "@/components/adventure/session/DefeatedNpcLootModal";
 import { buildConfirmedPlayerAttackNarration } from "@/utils/combat/playerAttackNarration";
 import { claimRollContinuation, rollContinuationReceiptKey } from "@/utils/adventure/aiDmRollContinuationReceipt";
 import { shouldBlockStoryInputForPendingRolls } from "@/utils/adventure/oneOffPendingRollGate";
@@ -29,7 +31,12 @@ import { AiDmCombatTargetPicker } from "@/components/adventure/session/AiDmComba
 import { AttackCard } from "@/components/attacks/AttackCard";
 import { buildComposerAttackOptions, buildSessionCombatAttacks, getAvailableAttackGroups, type AttackComposerGroup } from "@/utils/combat/composerAttackAvailability";
 import { getNpcTurnWaitingStatus } from "@/utils/combat/npcTurnWaitingStatus";
+import { planNpcAttackChoices } from "@/utils/combat/npcTurnReadiness";
+import { inferNpcBehaviorProfile, planNpcBehavior } from "@/utils/combat/npcBehaviorBrain";
+import { planNpcTacticalMovement } from "@/utils/combat/npcTacticalMovement";
 import { ActionCard } from "@/components/attacks/ActionCard";
+import { getConsumableHealingRoll, rollConsumableHealing } from "@/utils/combat/healingConsumable";
+import { triggerEffect } from "@/utils/triggerEffect";
 import { ResourceRow } from "@/components/resources/ResourceRow";
 import { useColors } from "@/hooks/useColors";
 import { useCharacter } from "@/context/CharacterContext";
@@ -81,6 +88,15 @@ import {
 import { buildCampaignChoiceOptions } from "@/utils/adventure/aiDmCampaignChoicePresentation";
 import {
   addCombatNpc,
+  createPartyRestRequest,
+  resolvePartyRestRequest,
+  collectDefeatedNpcLoot,
+  claimPartyLootAssignment,
+  endPartyTurnForBattle,
+  adjudicateNpcTurn,
+  executeNpcWeaponTurn,
+  executeNpcMoveTurn,
+  type PartyRestType,
   createPartyRollRequest,
   fetchPartyMembers,
   rollNpcInitiative,
@@ -89,6 +105,7 @@ import {
   type CombatNpcCoreStats,
   type CombatNpcDummyState,
   type CombatNpcStatKey,
+  type CombatNpcGearItem,
   type PartyCombatState,
   type PartyRollRequest,
 } from "@/utils/partyApi";
@@ -140,7 +157,8 @@ function buildActiveHostileActorsSummary(
       const source = npc.sourceType === "monster" && npc.sourceId?.trim()
         ? `${npc.sourceType}:${npc.sourceId.trim()}`
         : npc.sourceType;
-      return `${npc.id}=${npc.name} [${source}] @${battleId}`;
+      const defeated = (npc.dummyState?.currentHp ?? 1) <= 0;
+      return `${npc.id}=${npc.name} [${source}] @${battleId} [${defeated ? "DEFEATED - cannot act" : "alive"}]`;
     });
 
   if (hostiles.length === 0) return null;
@@ -239,10 +257,38 @@ const DEFAULT_VISIBLE_MONSTER_STATS: CombatNpcStatKey[] = [
   "charisma",
 ];
 
+function buildMonsterNpcAttacks(monster: CompendiumMonster): CombatNpcGearItem[] {
+  const actions = monster.actions ?? [];
+  return actions.flatMap((action, index) => {
+    const description = action.desc ?? "";
+    const bonus = /(?:Melee|Ranged)\s+(?:(?:Weapon|Spell)\s+)?Attack(?:\s+Roll)?\s*:\s*([+-]\d+)(?:\s+to\s+hit)?/i.exec(description);
+    const roll = /(?:Hit:\s*\d+\s*\()?\b(\d+d(?:4|6|8|10|12|20)(?:\s*[+-]\s*\d+)?)\)?\s*(\w+) damage/i.exec(description);
+    const distance = /reach\s*(\d+)\s*ft/i.exec(description);
+    const ranged = /range\s*(\d+)(?:\s*\/\s*\d+)?\s*ft/i.exec(description);
+    if (!bonus || !roll || (!distance && !ranged)) return [];
+    return [{
+      id: `monster-action-${index}`, name: action.name, category: "weapon" as const,
+      equipped: true, attackBonus: Number(bonus[1]),
+      damageDice: roll[1]!.replace(/\s+/g, ""),
+      damageModifier: 0, damageType: roll[2]!.toLowerCase(),
+      range: distance ? `reach ${distance[1]} ft` : `${ranged![1]} ft`,
+    }];
+  }).slice(0, 8);
+}
+
+function basicNpcUnarmedAttack(strength: number): CombatNpcGearItem {
+  return { id: "intrinsic-unarmed-strike", name: "Unarmed Strike", category: "weapon",
+    equipped: true, attackBonus: Math.floor((strength - 10) / 2) + 2,
+    damageDice: "1d4", damageModifier: Math.floor((strength - 10) / 2),
+    damageType: "bludgeoning", range: "reach 5 ft",
+    notes: "Fallback attack profile; replace with the creature's canonical attacks when available." };
+}
+
 async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnResponse["turn"]["encounterIntent"]): Promise<{
   coreStats: CombatNpcCoreStats;
   dummyState: CombatNpcDummyState;
   visibleStatKeys: CombatNpcStatKey[];
+  gear: CombatNpcGearItem[];
 }> {
   if (
     encounterIntent?.hostileCreatureSourceType === "monster"
@@ -265,6 +311,7 @@ async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnRespons
           coreStats: buildMonsterCoreStats(monster),
           dummyState: buildMonsterDummyState(monster),
           visibleStatKeys: DEFAULT_VISIBLE_MONSTER_STATS,
+          gear: buildMonsterNpcAttacks(monster).length ? buildMonsterNpcAttacks(monster) : [basicNpcUnarmedAttack(parseNumberish(monster.strength, 10))],
         };
       }
     } catch {
@@ -293,6 +340,17 @@ async function buildEncounterNpcSeed(encounterIntent: CampaignRuntimeTurnRespons
       movementUsed: 0,
     },
     visibleStatKeys: ["speed", "initiativeBonus", "strength", "dexterity", "constitution"],
+    // Ordinary generated bandits carry physical equipment. Their weapons are
+    // both usable attacks and legitimate post-combat loot. Do not fabricate
+    // inventory for other generic creatures or convert innate attacks to loot.
+    gear: /^bandit(?:\\b|$)/i.test(encounterIntent?.hostileCreatureName ?? "")
+      ? [
+          { id: "bandit-club", name: "Club", category: "weapon", equipped: true,
+            attackBonus: 3, damageDice: "1d4", damageModifier: 1,
+            damageType: "bludgeoning", range: "reach 5 ft" },
+          { id: "bandit-satchel", name: "Leather Satchel", category: "gear", equipped: false },
+        ]
+      : [basicNpcUnarmedAttack(12)],
   };
 }
 
@@ -300,6 +358,7 @@ const DM_WATCH_KEY = "@dm_party_watch";
 const ONE_OFF_SESSION_STATE_PREFIX = "@ai_dm_oneoff_active_session_v1:";
 
 interface PersistedOneOffSessionState {
+  sceneSafety?: CampaignRuntimeTurnResponse["turn"]["sceneSafety"];
   entries: ReturnType<typeof buildAiDmOneOffFeedSeed>["entries"];
   outcomeState: ReturnType<typeof createInitialOneOffOutcomeState>;
   isHandoffApproved: boolean;
@@ -357,6 +416,7 @@ export default function AdventureSessionPlaceholderScreen() {
     addItem,
     removeItem,
     updateItem,
+    updateHp,
     incrementResource,
     decrementResource,
     resetResource,
@@ -370,6 +430,7 @@ export default function AdventureSessionPlaceholderScreen() {
     memberId,
     members,
     combatState,
+    combatStateLoadError,
     refreshCombatState,
     createAndJoinParty,
   } = useParty();
@@ -444,9 +505,15 @@ export default function AdventureSessionPlaceholderScreen() {
   const [streamingResponseText, setStreamingResponseText] = useState("");
   const [rollingRequestId, setRollingRequestId] = useState<string | null>(null);
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
-  const [combatPanelOpen, setCombatPanelOpen] = useState(false);
+  const [restRequestPending, setRestRequestPending] = useState<PartyRestType | null>(null);
+  const [restRequestMessage, setRestRequestMessage] = useState("");
+  const latestSceneSafetyRef = useRef<CampaignRuntimeTurnResponse["turn"]["sceneSafety"]>(undefined);
+  const [latestSceneSafety, setLatestSceneSafety] = useState<CampaignRuntimeTurnResponse["turn"]["sceneSafety"]>(undefined);
+  const [restProvisionsEnabled, setRestProvisionsEnabled] = useState(false);
+  const [restProvisionItemIds, setRestProvisionItemIds] = useState<string[]>([]);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
-  const [showSessionTools, setShowSessionTools] = useState(false);
+  const [showSystemComments, setShowSystemComments] = useState(false);
+  const [partyBootstrapError, setPartyBootstrapError] = useState<string | null>(null);
   const [showEncounterDetails, setShowEncounterDetails] = useState(false);
   const workspaceRef = useRef<AdventureWorkspaceHandle>(null);
   const pendingRollYRef = useRef(0);
@@ -576,13 +643,183 @@ export default function AdventureSessionPlaceholderScreen() {
     () => getNpcTurnWaitingStatus(combatState, activeOneOffBattleId, members.map(m => m.id)),
     [combatState, activeOneOffBattleId, members],
   );
+  const environmentTurnProcessedRef = useRef<Set<string>>(new Set());
+  const [environmentTurnError, setEnvironmentTurnError] = useState("");
+  React.useEffect(() => {
+    if (isCampaignScaffold || !isOneOffSessionHydrated || !partyCode || !activeOneOffBattleId ||
+        !combatState || currentOneOffTurnId !== combatState.environmentTurnId) return;
+    const key = `${partyCode}:${activeOneOffBattleId}:${combatState.stateRevision ?? 0}:environment`;
+    if (environmentTurnProcessedRef.current.has(key)) return;
+    environmentTurnProcessedRef.current.add(key);
+    void (async () => {
+      try {
+        setEnvironmentTurnError("");
+        await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true, combatState.environmentTurnId);
+        await refreshCombatState(partyCode);
+        setEntries(previous => previous.some(entry => entry.id === `environment-turn:${key}`) ? previous :
+          [...previous, { id: `environment-turn:${key}`, role: "dm" as const,
+            text: "The battlefield settles for a moment as the next combatant prepares to act." }]);
+      } catch (error) {
+        setEnvironmentTurnError(error instanceof Error ? error.message : "Environment turn failed to advance.");
+      }
+    })();
+  }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
+    combatState, currentOneOffTurnId, refreshCombatState]);
+  const npcTurnProcessedRef = useRef<Set<string>>(new Set());
+  const [npcTurnAutomationError, setNpcTurnAutomationError] = useState("");
+  const [lootNpcId, setLootNpcId] = useState<string | null>(null);
+  const [npcTurnRetryNonce, setNpcTurnRetryNonce] = useState(0);
+  React.useEffect(() => {
+    if (isCampaignScaffold || !isOneOffSessionHydrated || !partyCode || !activeOneOffBattleId ||
+        npcTurnStatus.kind !== "npc_turn" || !combatState || !hasPlayerConversationEntry) return;
+    const revision = combatState.stateRevision ?? 0;
+    const turnKey = `${partyCode}:${activeOneOffBattleId}:${npcTurnStatus.npcId}:${revision}:${npcTurnRetryNonce}`;
+    if (npcTurnProcessedRef.current.has(turnKey)) return;
+    npcTurnProcessedRef.current.add(turnKey);
+
+    const plan = planNpcAttackChoices(combatState, activeOneOffBattleId, members.map(member => member.id));
+    const npc = combatState.combatNpcs.find(candidate => candidate.id === npcTurnStatus.npcId);
+    const hpFraction = npc?.dummyState?.maxHp
+      ? npc.dummyState.currentHp / npc.dummyState.maxHp : 1;
+    const npcProfile = inferNpcBehaviorProfile({ name: npc?.name ?? npcTurnStatus.npcName, disposition: npc?.disposition ?? "passive" });
+    const behavior = planNpcBehavior({
+      profile: npcProfile,
+      readiness: plan, hpFraction, commandSeed: turnKey,
+    });
+
+    // The AI DM supplies a bounded *spatial ruling*, not damage or dice.
+    // The host-only executor revalidates the current turn, weapon, and target.
+    const fallback = behavior.kind === "retreat"
+      ? `${npcTurnStatus.npcName} looks for an escape route and holds their action.`
+      : behavior.kind === "seek_cover"
+        ? `${npcTurnStatus.npcName} guards their position, looking for cover.`
+        : behavior.kind === "reposition"
+          ? `${npcTurnStatus.npcName} shifts their footing, seeking a better opening.`
+          : `${npcTurnStatus.npcName} holds position this turn.`;
+    void (async () => {
+      try {
+        setNpcTurnAutomationError("");
+        if ((behavior.kind === "retreat" || behavior.kind === "reposition" || behavior.kind === "seek_cover") && npc && revision >= 1) {
+          const destination = planNpcTacticalMovement({
+            battleId: activeOneOffBattleId, npcId: npc.id,
+            targetIds: members.map(member => member.id),
+            positions: combatState.encounterPositions ?? [],
+            speedFeet: npc.coreStats.speed, stance: behavior.kind,
+          });
+          if (destination) {
+            const committed = await executeNpcMoveTurn(partyCode, {
+              commandId: `ai-npc-move:${npc.id.slice(0, 35)}:${revision}`,
+              battleId: activeOneOffBattleId, npcId: npc.id, expectedRevision: revision,
+              stance: behavior.kind, destination,
+            });
+            await refreshCombatState(partyCode);
+            if (!committed.replayed) setEntries(previous => [...previous, {
+              id: `npc-move:${committed.receipt.commandId}`, role: "dm" as const,
+              text: `${npc.name} ${behavior.kind === "retreat" ? "falls back" : "moves into a better position"}, covering ${Math.round(committed.receipt.movedFeet)} feet.`,
+            }]);
+            return;
+          }
+        }
+        // If retreat, cover, or reposition has no legal movement, the NPC
+        // can still defend itself with an executable attack. A successful
+        // retreat above has already returned and cannot be replaced here.
+        if ((behavior.kind === "attack" || behavior.kind === "seek_cover" ||
+             behavior.kind === "reposition" || behavior.kind === "retreat") &&
+            plan.status === "ready" && npc && revision >= 1) {
+          const recentScene = [...entries].reverse().find(entry =>
+            entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
+          const choices = plan.choices.map(choice => ({
+            weaponId: choice.weaponId,
+            weaponName: choice.weaponName,
+            targetMemberId: choice.targetId,
+            targetName: members.find(member => member.id === choice.targetId)?.characterName ?? "Adventurer",
+            range: npc.gear?.find(gear => gear.id === choice.weaponId)?.range ?? "",
+          })).filter(choice => !!choice.range).slice(0, 24);
+          if (choices.length) {
+            const adjudication = await adjudicateNpcTurn(partyCode, {
+              battleId: activeOneOffBattleId, npcId: npc.id, npcName: npc.name,
+              profile: npcProfile, sceneText: recentScene.slice(0, 3500), choices,
+            });
+            const legalChoice = choices.find(choice =>
+              choice.weaponId === adjudication.weaponId && choice.targetMemberId === adjudication.targetMemberId);
+            // If the DM declines an attack, aggressive and sneaky creatures can
+            // try a legal approach using confirmed coordinates before holding.
+            // The server remains responsible for validating the movement.
+            if (adjudication.kind !== "attack" && (npcProfile === "aggressive" || npcProfile === "sneaky")) {
+              const destination = planNpcTacticalMovement({
+                battleId: activeOneOffBattleId, npcId: npc.id,
+                targetIds: members.map(member => member.id),
+                positions: combatState.encounterPositions ?? [],
+                speedFeet: npc.coreStats.speed, stance: "reposition",
+              });
+              if (destination) {
+                const moved = await executeNpcMoveTurn(partyCode, {
+                  commandId: `ai-npc-approach:${npc.id.slice(0, 35)}:${revision}`,
+                  battleId: activeOneOffBattleId, npcId: npc.id, expectedRevision: revision,
+                  stance: "reposition", destination,
+                });
+                await refreshCombatState(partyCode);
+                if (!moved.replayed) setEntries(previous => previous.some(entry => entry.id === `npc-move:${moved.receipt.commandId}`)
+                  ? previous : [...previous, {
+                    id: `npc-move:${moved.receipt.commandId}`, role: "dm" as const,
+                    text: `${npc.name} advances toward the adventurers, moving ${Math.round(moved.receipt.movedFeet)} feet.`,
+                  }]);
+                return;
+              }
+            }
+
+            if (adjudication.kind === "attack" && legalChoice &&
+                typeof adjudication.distanceFeet === "number") {
+              const committed = await executeNpcWeaponTurn(partyCode, {
+                commandId: `ai-npc:${npc.id.slice(0, 35)}:${revision}`,
+                battleId: activeOneOffBattleId, npcId: npc.id,
+                weaponId: legalChoice.weaponId, targetMemberId: legalChoice.targetMemberId,
+                expectedRevision: revision,
+                spatialAdjudication: { source: "host_dm", distanceFeet: adjudication.distanceFeet, clearLineOfSight: true },
+              });
+              await refreshCombatState(partyCode);
+              if (!committed.replayed) {
+                const receipt = committed.receipt;
+                const description = narrateCommittedNpcWeaponTurn({
+                  response: committed, npcName: npc.name, weaponName: legalChoice.weaponName,
+                  targetName: legalChoice.targetName,
+                });
+                if (!description) return;
+                setEntries(previous => previous.some(entry => entry.id === `npc-action:${receipt.commandId}`) ? previous :
+                  [...previous, { id: `npc-action:${receipt.commandId}`, role: "dm" as const, text: description }]);
+              }
+              return;
+            }
+          }
+        }
+        await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true, npcTurnStatus.npcId);
+        await refreshCombatState(partyCode);
+        const holdExplanation = plan.status === "needs_adjudication"
+          ? plan.reason === "no_valid_attack"
+            ? `${npcTurnStatus.npcName} cannot attack: no executable attack was supplied with this NPC. The DM must assign a valid attack.`
+            : plan.reason === "no_eligible_targets"
+              ? `${npcTurnStatus.npcName} cannot find a valid opponent in this encounter.`
+              : fallback
+          : behavior.kind === "attack"
+            ? `${npcTurnStatus.npcName} did not receive a valid, confirmed attack ruling and holds their action.`
+            : fallback;
+        setEntries(previous => previous.some(entry => entry.id === `npc-hold:${turnKey}`) ? previous : [...previous, {
+          id: `npc-hold:${turnKey}`, role: "dm" as const, text: holdExplanation,
+        }]);
+      } catch (error) {
+        setNpcTurnAutomationError(error instanceof Error ? error.message : "NPC turn could not advance.");
+      }
+    })();
+  }, [isCampaignScaffold, isOneOffSessionHydrated, partyCode, activeOneOffBattleId,
+    npcTurnStatus, combatState, members, hasPlayerConversationEntry, refreshCombatState, npcTurnRetryNonce, entries]);
+
+  const isEnvironmentTurn = !!activeOneOffBattleId && currentOneOffTurnId === combatState?.environmentTurnId;
   const canUseOneOffCombatActions = !activeOneOffBattleId || (
     Boolean(memberId) && currentOneOffTurnId === memberId
   );
 
 
   const goToCombatControls = () => {
-    setCombatPanelOpen(true);
     setTimeout(() => {
       if (combatSectionYRef.current !== null) workspaceRef.current?.focusActions(combatSectionYRef.current);
     }, 100);
@@ -737,6 +974,8 @@ export default function AdventureSessionPlaceholderScreen() {
         if (raw) {
           const parsed = JSON.parse(raw) as PersistedOneOffSessionState;
           setEntries(Array.isArray(parsed.entries) ? parsed.entries : feedSeed.entries);
+          latestSceneSafetyRef.current = parsed.sceneSafety;
+          setLatestSceneSafety(parsed.sceneSafety);
           setOutcomeState(parsed.outcomeState ?? createInitialOneOffOutcomeState());
           setIsHandoffApproved(Boolean(parsed.isHandoffApproved));
           setPendingChoices(Array.isArray(parsed.pendingChoices) ? parsed.pendingChoices : []);
@@ -764,6 +1003,7 @@ export default function AdventureSessionPlaceholderScreen() {
   React.useEffect(() => {
     if (isCampaignScaffold || !isOneOffSessionHydrated) return;
     const payload: PersistedOneOffSessionState = {
+      sceneSafety: latestSceneSafety,
       entries,
       outcomeState,
       isHandoffApproved,
@@ -782,6 +1022,7 @@ export default function AdventureSessionPlaceholderScreen() {
     isCampaignScaffold,
     isOneOffSessionHydrated,
     sessionId,
+    latestSceneSafety,
     entries,
     outcomeState,
     isHandoffApproved,
@@ -807,6 +1048,7 @@ export default function AdventureSessionPlaceholderScreen() {
     if (autoPartyBootstrapStartedRef.current) return;
 
     autoPartyBootstrapStartedRef.current = true;
+    setPartyBootstrapError(null);
     if (shouldForceFreshPartyForNewOneOff) {
       setIsRebindingOneOffParty(true);
     }
@@ -814,13 +1056,13 @@ export default function AdventureSessionPlaceholderScreen() {
       try {
         await createAndJoinParty();
         setEntries((prev) => {
-          if (prev.some((entry) => entry.role === "system" && /auto-connected party/i.test(entry.text))) {
+          if (prev.some((entry) => entry.id === "oneoff-party-bootstrap-success")) {
             return prev;
           }
           return [
             ...prev,
             {
-              id: createFeedEntryId("oneoff-party-bootstrap"),
+              id: "oneoff-party-bootstrap-success",
               role: "system",
               text: shouldForceFreshPartyForNewOneOff
                 ? "Started a fresh party session for this new one-off so previous encounters do not carry over."
@@ -829,16 +1071,9 @@ export default function AdventureSessionPlaceholderScreen() {
           ];
         });
       } catch (error) {
-        autoPartyBootstrapStartedRef.current = false;
         const message = error instanceof Error ? error.message : "Failed to auto-connect party session.";
-        setEntries((prev) => [
-          ...prev,
-          {
-            id: createFeedEntryId("oneoff-party-bootstrap-error"),
-            role: "system",
-            text: `Party auto-connect failed: ${message}`,
-          },
-        ]);
+        setPartyBootstrapError(message);
+
       } finally {
         if (shouldForceFreshPartyForNewOneOff) {
           setIsRebindingOneOffParty(false);
@@ -873,6 +1108,8 @@ export default function AdventureSessionPlaceholderScreen() {
 
   React.useEffect(() => {
     setEntries(feedSeed.entries);
+    latestSceneSafetyRef.current = undefined;
+    setLatestSceneSafety(undefined);
     setOutcomeState(createInitialOneOffOutcomeState());
     setIsHandoffApproved(false);
     setPendingChoices([]);
@@ -887,6 +1124,7 @@ export default function AdventureSessionPlaceholderScreen() {
     canonicalEncounterActorRegistryRef.current.clear();
     autoKickoffAttemptedRef.current = false;
     autoPartyBootstrapStartedRef.current = false;
+    setPartyBootstrapError(null);
     setIsOneOffSessionHydrated(isCampaignScaffold);
     setIsRebindingOneOffParty(false);
   }, [feedSeed, isCampaignScaffold]);
@@ -1159,6 +1397,14 @@ export default function AdventureSessionPlaceholderScreen() {
   );
 
   function handleInputSubmit(playerText: string) {
+    if (!isCampaignScaffold && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId)) {
+      setPartyBootstrapError("The party connection is not ready. Check that the API server is running, then reconnect before narrating an action.");
+      return;
+    }
+    if (!isCampaignScaffold && combatState?.code !== partyCode) {
+      setPartyBootstrapError("The encounter has not connected to authoritative combat state. Retry encounter connection before taking another action.");
+      return;
+    }
     if (activeOneOffBattleId) {
       setEntries((prev) => [...prev, {
         id: createFeedEntryId("combat-action-block"),
@@ -1481,6 +1727,7 @@ export default function AdventureSessionPlaceholderScreen() {
         ...(inventorySummary ? [{ role: "system" as const, text: `CURRENT INVENTORY: ${inventorySummary}` }] : []),
         ...(hostileActorsSummary ? [{ role: "system" as const, text: hostileActorsSummary }] : []),
         ...(knownActorRegistrySummary ? [{ role: "system" as const, text: knownActorRegistrySummary }] : []),
+        { role: "system" as const, text: "COMBAT AUTHORITY: Narration is not a combat command. Never describe an uncommitted player attack as a confirmed hit, miss, damage, or kill. A player typing 'attack' expresses intent only; use the combat action controls for the mechanical result. Treat defeated NPCs as defeated, do not revive them in prose or introduce a new hostile without an encounter intent creating that combatant. Existing combat-event results take precedence over older story descriptions." },
         ...baseEntries
           .slice(-12)
           .map((entry): { role: "system" | "dm" | "player" | "tool"; text: string } => ({
@@ -1586,6 +1833,13 @@ export default function AdventureSessionPlaceholderScreen() {
       const resolvedTurnOutcome = completedTurnRef.outcome;
       if (resolvedTurnOutcome !== null) {
         const outcome = resolvedTurnOutcome;
+
+        // Only an explicitly requested AI one-off rest is eligible for this
+        // automatic host decision. An ordinary story turn cannot approve rests.
+        // Each committed AI DM narration updates the authoritative scene assessment.
+        // Rest consumes this snapshot; it never asks the AI to score on demand.
+        latestSceneSafetyRef.current = outcome.sceneSafety;
+        setLatestSceneSafety(outcome.sceneSafety);
 
         // Inventory mutations with snapshot — avoids stale closure across iterations (Slice E)
         const inventorySnapshot = new Map<string, { id: string; quantity: number }>(
@@ -1712,6 +1966,7 @@ export default function AdventureSessionPlaceholderScreen() {
                       coreStats: seed.coreStats,
                       dummyState: seed.dummyState,
                       visibleStatKeys: seed.visibleStatKeys,
+                      gear: seed.gear,
                     });
                   },
                   createPartyRollRequest,
@@ -1719,30 +1974,25 @@ export default function AdventureSessionPlaceholderScreen() {
                 },
               });
 
-              if (effectivePartyCode && encounterOutcome.hostileNpcId) {
-                try {
-                  const initiativeRoll = Math.floor(Math.random() * 20) + 1;
-                  await rollNpcInitiative(effectivePartyCode, encounterOutcome.hostileNpcId, initiativeRoll);
-                  await refreshCombatState(effectivePartyCode);
-                  setEntries((prev) => [
-                    ...prev,
-                    {
-                      id: createFeedEntryId("npc-initiative-roll"),
-                      role: "tool",
-                      text: `${encounterOutcome.hostileNpcName ?? encounterIntent.hostileCreatureName} rolled initiative.`,
-                    },
-                  ]);
-                } catch (err: unknown) {
-                  // Preserve the active encounter, but expose capability/transport failure.
-                  setEntries((prev) => [
-                    ...prev,
-                    {
-                      id: createFeedEntryId("npc-initiative-error"),
-                      role: "tool",
+              if (effectivePartyCode && encounterOutcome.hostileNpcIds?.length) {
+                for (const npcId of encounterOutcome.hostileNpcIds) {
+                  try {
+                    const latest = await refreshCombatState(effectivePartyCode);
+                    if (latest?.initiative?.some(entry => entry.memberId === npcId)) continue;
+                    const initiativeRoll = Math.floor(Math.random() * 20) + 1;
+                    await rollNpcInitiative(effectivePartyCode, npcId, initiativeRoll);
+                    setEntries(prev => [...prev, {
+                      id: createFeedEntryId("npc-initiative-roll"), role: "tool" as const,
+                      text: `${encounterIntent.hostileCreatureName} rolled initiative.`,
+                    }]);
+                  } catch (err: unknown) {
+                    setEntries(prev => [...prev, {
+                      id: createFeedEntryId("npc-initiative-error"), role: "tool" as const,
                       text: err instanceof Error ? err.message : "NPC initiative could not be recorded.",
-                    },
-                  ]);
+                    }]);
+                  }
                 }
+                await refreshCombatState(effectivePartyCode);
               }
 
               if (encounterIntent.narrationBlockedUntilResolved) {
@@ -1871,6 +2121,59 @@ export default function AdventureSessionPlaceholderScreen() {
       setIsCampaignRuntimeTurnPending(false);
       setIsStreamingResponse(false);
       setStreamingResponseText("");
+    }
+  }
+
+  async function handleRequestRest(restType: PartyRestType) {
+    if (restRequestPending || !partyCode || !memberId) return;
+    if (!isCampaignScaffold && !isOneOffSessionHydrated) {
+      setRestRequestMessage("Rest unavailable until this adventure finishes loading its scene assessment.");
+      return;
+    }
+    if (activeOneOffBattleId) {
+      setRestRequestMessage("You cannot rest during an active battle.");
+      return;
+    }
+    setRestRequestPending(restType);
+    setRestRequestMessage("");
+    try {
+      const eligibleIds = new Set(inventory.filter(item => item.quantity > 0).map(item => item.id));
+      const selected = restProvisionItemIds.filter(id => eligibleIds.has(id));
+      if (restProvisionsEnabled && selected.length !== restProvisionItemIds.length) {
+        throw new Error("Some provisions are no longer in your inventory. Review your selections.");
+      }
+      if (!isCampaignScaffold) {
+        const safety = latestSceneSafetyRef.current;
+        if (!safety || !Number.isInteger(safety.dangerScore) || safety.dangerScore < 1 || safety.dangerScore > 100) {
+          throw new Error("No valid scene-safety assessment is available yet. Continue the story before resting.");
+        }
+        const eligible = restType === "short_rest"
+          ? safety.shortRestFeasible && safety.dangerScore <= 30
+          : safety.longRestFeasible && safety.dangerScore <= 10;
+        if (!eligible) {
+          setRestRequestMessage(`Rest denied (danger ${safety.dangerScore}/100): ${safety.reason}`);
+          return;
+        }
+        const created = await createPartyRestRequest(partyCode, {
+          memberId, restType,
+          provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] },
+        });
+        const approved = await resolvePartyRestRequest(partyCode, created.request.id, {
+          status: "approved", resolvedBy: "ai_dm", automatic: true, sceneSafety: safety,
+        });
+        await refreshCombatState(partyCode);
+        setRestRequestMessage(approved.request.status === "approved"
+          ? `Rest approved (danger ${safety.dangerScore}/100). Recovery is being applied.`
+          : "Rest could not be approved.");
+      } else {
+        await createPartyRestRequest(partyCode, { memberId, restType, provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] } });
+        await refreshCombatState(partyCode);
+        setRestRequestMessage("Rest requested. Awaiting DM approval.");
+      }
+    } catch (error) {
+      setRestRequestMessage(error instanceof Error ? error.message : "Rest request failed.");
+    } finally {
+      setRestRequestPending(null);
     }
   }
 
@@ -2080,59 +2383,142 @@ export default function AdventureSessionPlaceholderScreen() {
     }
   }
 
+  const lootNpc = (combatState?.combatNpcs ?? []).find(npc => npc.id === lootNpcId) ?? null;
+  const pendingLootAssignments = (combatState?.lootAssignments ?? []).filter(assignment =>
+    assignment.assignedBy === `defeated_npc:${lootNpcId}` && assignment.targetMemberId === memberId &&
+    !inventory.some(item => item.lootClaimId === assignment.id));
+  async function deliverLootAssignments(assignments: readonly import("@/utils/partyApi").LootAssignment[]) {
+    if (!partyCode || !memberId) throw new Error("Reconnect before collecting loot.");
+    for (const assignment of assignments) {
+      if (inventory.some(item => item.lootClaimId === assignment.id)) continue;
+      const claim = await claimPartyLootAssignment(partyCode, assignment.id, { memberId });
+      const item = claim.assignment.item;
+      addItem({ ...item.inventoryItem, name: item.name, quantity: item.quantity,
+        category: item.category, equipped: false, lootClaimId: assignment.id } as Parameters<typeof addItem>[0]);
+    }
+    await refreshCombatState(partyCode);
+  }
+  async function transferDefeatedLoot(itemIds: string[]) {
+    if (!partyCode || !memberId || !lootNpcId) throw new Error("Reconnect to the encounter before looting.");
+    const reservation = await collectDefeatedNpcLoot(partyCode, lootNpcId, { memberId, itemIds });
+    await deliverLootAssignments(reservation.assignments);
+  }
+
   const workspaceSession = projectSessionView({
     mode: isCampaignScaffold ? "ai_campaign" : "ai_one_off", partyCode, memberId, members, combatState,
   });
   const sharedState = combatState?.code === partyCode ? combatState : null;
+  const [encounterReconnectError, setEncounterReconnectError] = useState("");
+  const [encounterReconnectPending, setEncounterReconnectPending] = useState(false);
+  async function retryEncounterState() {
+    if (!partyCode || encounterReconnectPending) return;
+    setEncounterReconnectPending(true);
+    setEncounterReconnectError("");
+    try {
+      const state = await refreshCombatState(partyCode);
+      if (!state && !combatState) {
+        setEncounterReconnectError(combatStateLoadError ?? "Combat state is not yet available. Check the API server and retry.");
+      }
+    } catch (error) {
+      setEncounterReconnectError(error instanceof Error ? error.message : "Unable to retrieve encounter state.");
+    } finally {
+      setEncounterReconnectPending(false);
+    }
+  }
+
   const workspacePanels: WorkspacePanels = {
     narrative: { title: "Adventure", content: (
         <AiDmSessionFeedShell
           entries={entries}
           guidanceSource={feedSeed.guidanceSource}
           campaignMode={isCampaignScaffold}
+          showSystemComments={showSystemComments}
+          onToggleSystemComments={() => setShowSystemComments(value => !value)}
+          onLootNpc={id => setLootNpcId(id)}
           isStreaming={isStreamingResponse}
           streamingText={streamingResponseText}
         />
     ) },
     actions: { title: "Your next action",
+      toolbar: !isCampaignScaffold ? <View style={{ gap: 6 }}>
+        {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
+          <View accessibilityLabel="Pending DM rolls" style={{ borderWidth: 1, borderColor: "#f59e0b55", borderRadius: 8, backgroundColor: c.card, paddingHorizontal: 8, paddingVertical: 5, gap: 4 }}>
+            {pendingRollRequests.map(request => {
+              const modifier = getModifierForStatKey(request.statKey);
+              const isRolling = rollingRequestId === request.id;
+              return (
+                <View key={request.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 38 }}>
+                  <Feather name="target" size={14} color="#f59e0b" />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ color: c.foreground, fontWeight: "700", fontSize: 12 }}>{request.label}</Text>
+                    <Text numberOfLines={1} style={{ color: c.mutedForeground, fontSize: 11 }}>{formatRollCheckName(request.statKey)} · {modifier >= 0 ? `+${modifier}` : modifier}</Text>
+                  </View>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Roll ${request.label}`}
+                    disabled={isRolling} onPress={() => void handlePendingRollResponse(request)}
+                    style={{ backgroundColor: "#f59e0b", paddingHorizontal: 12, height: 34, borderRadius: 7, justifyContent: "center", opacity: isRolling ? 0.6 : 1 }}>
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{isRolling ? "Rolling..." : "Roll d20"}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {shouldShowEncounterSnapshot ? <>
+          <Text style={{ color: c.mutedForeground, fontWeight: "700", fontSize: 11 }}>COMBAT ACTIONS</Text>
+            <View style={styles.composerAttackTabs}>
+              {([
+                ["attack", "Attack", "crosshair", availableAttackGroups.length > 0],
+                ["items", "Items", "package", encounterConsumables.length > 0],
+                ["actions", "Actions", "zap", encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0],
+                ["bonus", "Bonus", "plus-circle", encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0],
+                ["resources", "Resources", "activity", resources.length > 0],
+              ] as const).filter(([key]) => availableCombatCategories.includes(key)).map(([key, label, iconName]) => (
+                <TouchableOpacity key={key} accessibilityRole="button"
+                  accessibilityLabel={`Show ${label.toLowerCase()} options`}
+                  accessibilityState={{ selected: activeCombatCategory === key }}
+                  onPress={() => setCombatCategory(key)}
+                  style={[styles.composerAttackTab, {
+                    borderColor: combatCategory === key ? c.primary : c.border,
+                    backgroundColor: combatCategory === key ? c.primary + "1A" : c.background,
+                  }]}>
+                  <Feather name={iconName} size={15} color={combatCategory === key ? c.primary : c.foreground} />
+                  <Text style={{ color: combatCategory === key ? c.primary : c.foreground, fontWeight: "700" }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+        </> : null}
+      </View> : undefined,
       footer: !isCampaignScaffold && activeOneOffBattleId ? <SessionTurnControls isPlayerTurn={canUseOneOffCombatActions} /> : undefined,
       content: (
       <>
       <View style={[styles.actionDock, { backgroundColor: c.card, borderTopColor: c.border }]}>
-        {!isCampaignScaffold && activeOneOffBattleId ? (
-          <>
-            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Combat in progress</Text>
-            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
-              Describe your intent through combat actions; only resolved rolls determine hits and damage.
-            </Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open combat actions"
-              onPress={goToCombatControls}
-              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}>
-              <Feather name="crosshair" color={c.primaryForeground} size={16} />
-              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Combat / Targets</Text>
-            </TouchableOpacity>
-          </>
-        ) : !isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <>
-            <Text style={[styles.actionDockTitle, { color: c.foreground }]}>Roll requested</Text>
-            <Text style={[styles.actionDockHint, { color: c.mutedForeground }]}>
-              Resolve the pending check in the scene before continuing.
-            </Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go to pending roll"
-              onPress={() => workspaceRef.current?.focusActions(pendingRollYRef.current)}
-              style={[styles.actionDockCombatButton, { backgroundColor: c.primary }]}
-              activeOpacity={0.85}>
-              <Feather name="target" color={c.primaryForeground} size={16} />
-              <Text style={[styles.actionDockTitle, { color: c.primaryForeground }]}>Find Roll Request</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <AiDmSessionInputComposer
-            onSubmit={handleInputSubmit}
-            isPending={isCampaignRuntimeTurnPending}
-          />
-        )}
+            <AiDmSessionInputComposer
+              onSubmit={handleInputSubmit}
+              isPending={isCampaignRuntimeTurnPending}
+              isReady={isCampaignScaffold || (isPartyHydrated && isOneOffSessionHydrated && !isRebindingOneOffParty && Boolean(partyCode && memberId))}
+            />
+            {!isCampaignScaffold && !isCampaignRuntimeTurnPending && (!isPartyHydrated || !isOneOffSessionHydrated || isRebindingOneOffParty || !partyCode || !memberId) && !partyBootstrapError ? (
+              <Text style={{ color: c.mutedForeground, fontSize: 12, paddingHorizontal: 8 }}>
+                Connecting to the session. You can write your action now; it will be ready to send once connected.
+              </Text>
+            ) : null}
+            {!isCampaignScaffold && !isCampaignRuntimeTurnPending && campaignRuntimeStatus ? (
+              <View accessibilityRole="alert" style={{ borderWidth: 1, borderColor: c.destructive, borderRadius: 8, padding: 10, gap: 5 }}>
+                <Text style={{ color: c.destructive, fontWeight: "700" }}>The DM did not respond</Text>
+                <Text style={{ color: c.foreground, fontSize: 12 }}>{campaignRuntimeStatus}</Text>
+                <Text style={{ color: c.mutedForeground, fontSize: 12 }}>Check that the local API server is running, then submit your action again.</Text>
+              </View>
+            ) : null}
+            {!isCampaignScaffold && partyBootstrapError ? <View style={{ padding: 8, gap: 8 }}>
+              <Text accessibilityRole="alert" style={{ color: c.destructive }}>{partyBootstrapError}</Text>
+              {source === "new-oneoff" && !partyCode && !memberId ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry party connection"
+                onPress={() => { setPartyBootstrapError(null); setIsRebindingOneOffParty(true); void createAndJoinParty().catch(error => setPartyBootstrapError(error instanceof Error ? error.message : "Connection failed.")).finally(() => setIsRebindingOneOffParty(false)); }}
+                style={{ borderWidth: 1, borderColor: c.border, padding: 10, borderRadius: 8 }}>
+                <Text style={{ color: c.foreground }}>Retry connection</Text>
+              </TouchableOpacity> : null}
+            </View> : null}
       </View>
 
         {isCampaignScaffold && isCampaignArchiveHydrated && !hasCampaignConversationEntry && !isStreamingResponse && !isCampaignRuntimeTurnPending ? (
@@ -2163,7 +2549,7 @@ export default function AdventureSessionPlaceholderScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {campaignChoiceOptions.length > 0 ? (
+        {campaignChoiceOptions.length > 0 && !activeOneOffBattleId && pendingRollRequests.length === 0 ? (
           <View style={[styles.choicesCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.choicesLabel, { color: c.mutedForeground }]}>WHAT DO YOU DO?</Text>
             {campaignChoiceOptions.map((choice, index) => (
@@ -2198,116 +2584,6 @@ export default function AdventureSessionPlaceholderScreen() {
           <Text style={[styles.dmThinking, { color: c.mutedForeground }]}>The DM is deciding your fate...</Text>
         ) : null}
 
-        {encounterGateVisibility ? (
-          <View style={[styles.encounterGateCard, { borderColor: c.border, backgroundColor: c.card }]}> 
-            <Text style={[styles.encounterGateLabel, { color: c.foreground }]}>
-              {encounterGateVisibility.isActive ? "Encounter Gate Progress" : "Encounter Gate Cleared"}
-            </Text>
-            {encounterGateVisibility.isActive && encounterGateVisibility.status !== "cleared" ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
-            ) : null}
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={showEncounterDetails ? "Hide encounter details" : "Show encounter details"}
-              onPress={() => setShowEncounterDetails((open) => !open)}
-              style={[styles.composerDisclosureRow, { borderColor: c.border }]}>
-              <Text style={{ color: c.mutedForeground }}>Encounter details</Text>
-              <Feather name={showEncounterDetails ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
-            </TouchableOpacity>
-            {showEncounterDetails ? (
-              <>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Required rolls: {encounterGateVisibility.requiredRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Created rolls: {encounterGateVisibility.createdRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Failed rolls: {encounterGateVisibility.failedRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Resolved rolls: {encounterGateVisibility.resolvedRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Unresolved rolls: {encounterGateVisibility.unresolvedRolls.join(", ") || "none"}</Text>
-            <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>{encounterGateVisibility.completionSummary}</Text>
-            {typeof encounterGateVisibility.gateAgeMs === "number" && encounterGateVisibility.isActive ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate age: {Math.floor(encounterGateVisibility.gateAgeMs / 1000)}s</Text>
-            ) : null}
-            {encounterGateVisibility.healthReason ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
-                Gate health{encounterGateVisibility.healthReasonCode ? ` (${encounterGateVisibility.healthReasonCode})` : ""}: {encounterGateVisibility.healthReason}
-              </Text>
-            ) : null}
-            {encounterGateContext?.targetPolicyMode && encounterGateContext?.targetMemberIds ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]} numberOfLines={1}>
-                Policy: {encounterGateContext.targetPolicyMode === "live_targets" ? "live" : "locked"} ({encounterGateContext.targetMemberIds.length} tgt{encounterGateContext.targetMemberIds.length === 1 ? "" : "s"})
-              </Text>
-            ) : null}
-            {encounterGateVisibility.timeoutSummary ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate timing: {encounterGateVisibility.timeoutSummary}</Text>
-            ) : null}
-            {encounterGateVisibility.clearConfirmed && typeof encounterGateVisibility.confirmedAtMs === "number" ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
-                Confirmed by DM ({encounterGateVisibility.confirmationSource ?? "ui_confirm_action"}) {Math.max(0, Math.floor((Date.now() - encounterGateVisibility.confirmedAtMs) / 1000))}s ago
-              </Text>
-            ) : null}
-            {encounterGateVisibility.overrideMode === "acknowledge_missing_targets" ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>
-                {encounterGateVisibility.overrideStatus === "active"
-                  ? `Override active, expires in ${Math.max(0, Math.ceil(((encounterGateVisibility.overrideExpiresAtMs ?? encounterGateNowMs) - encounterGateNowMs) / 1000))}s`
-                  : encounterGateVisibility.overrideStatus === "revoked"
-                    ? "Override revoked"
-                    : "Override expired, gate re-evaluated"}
-              </Text>
-            ) : null}
-            {encounterGateConfirmation.reopenedAfterConfirmation && encounterGateVisibility.isActive ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Gate reopened after combat update. Re-resolve required prompts.</Text>
-            ) : null}
-              </>
-            ) : null}
-            {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
-              <Text style={[styles.encounterGateBody, { color: c.mutedForeground }]}>Ready to continue. Confirm and continue to unblock narration.</Text>
-            ) : null}
-            {encounterGateVisibility.status === "cleared" && !encounterGateVisibility.clearConfirmed ? (
-              <View style={styles.encounterGateActionsRow}>
-                <TouchableOpacity
-                  onPress={handleRefreshEncounterGate}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.card }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.mutedForeground }]}>Refresh</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleConfirmEncounterGateClear}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Confirm & Continue</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            {canAcknowledgeMissingTargetOverride({
-              targetPolicyMode: encounterGateContext?.targetPolicyMode,
-              healthReasonCode: encounterGateVisibility.healthReasonCode,
-              isActive: encounterGateVisibility.isActive,
-            }) && encounterGateVisibility.overrideMode === "none" ? (
-              <View style={styles.encounterGateActionsRow}>
-                <TouchableOpacity
-                  onPress={handleAcknowledgeMissingTargetOverride}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.primary, backgroundColor: c.primary + "1A" }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.primary }]}>Acknowledge Missing Target</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            {encounterGateVisibility.overrideMode === "acknowledge_missing_targets" && encounterGateVisibility.overrideStatus === "active" ? (
-              <View style={styles.encounterGateActionsRow}>
-                <TouchableOpacity
-                  onPress={handleRevokeEncounterGateOverride}
-                  style={[styles.encounterGateActionBtn, { borderColor: c.destructive, backgroundColor: c.destructive + "1A" }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.encounterGateActionBtnText, { color: c.destructive }]}>Revoke Override</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-            <Text style={[styles.encounterGateSummary, { color: encounterGateVisibility.isActive ? c.mutedForeground : c.primary }]}>
-              {encounterGateVisibility.summary}
-            </Text>
-          </View>
-        ) : null}
-
         {!isCampaignScaffold && isPartyHydrated && isOneOffSessionHydrated &&
           hasPlayerConversationEntry && (!partyCode?.trim() || !memberId?.trim()) ? (
           <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.destructive }]}>
@@ -2319,52 +2595,27 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <View onLayout={event => { pendingRollYRef.current = event.nativeEvent.layout.y; }} style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: "#f59e0b55" }]}>
-            <View style={styles.rollPromptHeaderRow}>
-              <Feather name="target" size={16} color="#f59e0b" />
-              <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>DM Roll Request</Text>
-            </View>
-            {encounterGateVisibility?.isActive ? (
-              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>{encounterGateVisibility.reason}</Text>
-            ) : (
-              <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>Roll now to keep the scene moving.</Text>
-            )}
-            {pendingRollRequests.map((request) => {
-              const modifier = getModifierForStatKey(request.statKey);
-              const isRolling = rollingRequestId === request.id;
-              return (
-                <View key={request.id} style={[styles.rollPromptRequestCard, { backgroundColor: c.background, borderColor: "#f59e0b44" }]}>
-                  <Text style={[styles.rollPromptRequestTitle, { color: c.foreground }]}>{request.label}</Text>
-                  <Text style={[styles.rollPromptBody, { color: c.foreground }]}>{formatRollCheckName(request.statKey)}</Text>
-                  <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
-                    Your modifier: {modifier >= 0 ? `+${modifier}` : `${modifier}`}
-                  </Text>
-                  <TouchableOpacity
-                    disabled={isRolling}
-                    onPress={() => void handlePendingRollResponse(request)}
-                    style={[styles.rollPromptButton, { backgroundColor: "#f59e0b", opacity: isRolling ? 0.6 : 1 }]}
-                    activeOpacity={0.85}
-                  >
-                    <Feather name="zap" size={14} color="#fff" />
-                    <Text style={styles.rollPromptButtonText}>
-                      {isRolling ? "Rolling..." : `Roll d20 + ${modifier >= 0 ? modifier : `(${modifier})`}`}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        ) : null}
-
+        {isEnvironmentTurn ? <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={{ color: c.foreground, fontWeight: "700" }}>Environment turn</Text>
+          <Text style={{ color: environmentTurnError ? c.destructive : c.mutedForeground }}>
+            {environmentTurnError ? `Automatic environment advance failed: ${environmentTurnError}` : "Advancing the encounter's environment phase…"}
+          </Text>
+          {environmentTurnError ? <TouchableOpacity accessibilityRole="button" onPress={() => {
+            environmentTurnProcessedRef.current.clear();
+            void endPartyTurnForBattle(partyCode!, activeOneOffBattleId!, true, combatState!.environmentTurnId)
+              .then(() => refreshCombatState(partyCode!)).then(() => setEnvironmentTurnError(""))
+              .catch(error => setEnvironmentTurnError(error instanceof Error ? error.message : "Retry failed."));
+          }}><Text style={{ color: c.primary }}>Retry environment turn</Text></TouchableOpacity> : null}
+        </View> : null}
         {!isCampaignScaffold && npcTurnStatus.kind === "npc_turn" ? (
           <View style={[styles.rollPromptCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.rollPromptTitle, { color: c.foreground }]}>
               {npcTurnStatus.npcName}'s turn
             </Text>
             <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
-              {npcTurnStatus.detail} The DM must resolve this turn before initiative can continue.
+              {npcTurnAutomationError ? `Automatic turn advance failed: ${npcTurnAutomationError}` : "The AI DM is resolving the NPC turn. Unverified attacks are held rather than applied."}
             </Text>
+            {npcTurnAutomationError ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry NPC turn" onPress={() => setNpcTurnRetryNonce(value => value + 1)} style={{ alignSelf: "flex-start", padding: 8, borderWidth: 1, borderColor: c.primary, borderRadius: 8 }}><Text style={{ color: c.primary }}>Retry NPC turn</Text></TouchableOpacity> : null}
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh NPC turn status"
               onPress={() => { if (partyCode) void refreshCombatState(partyCode); }}
               style={[styles.encounterGateActionBtn, { borderColor: c.border, backgroundColor: c.background }]}>
@@ -2374,50 +2625,12 @@ export default function AdventureSessionPlaceholderScreen() {
         ) : null}
 
         {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
-          <TouchableOpacity accessibilityRole="button"
-            accessibilityLabel={combatPanelOpen ? "Hide combat actions" : "Show combat actions"}
-            onPress={() => setCombatPanelOpen((open) => !open)}
-            onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }}
-            style={[styles.composerDisclosureRow, { borderColor: c.border, backgroundColor: c.card }]}>
-            <Text style={{ color: c.foreground, fontWeight: "700" }}>Combat actions and targets</Text>
-            <Feather name={combatPanelOpen ? "chevron-up" : "chevron-down"} color={c.primary} size={18} />
-          </TouchableOpacity>
-        ) : null}
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
-          <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
-            style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
-            <AiDmCombatTargetPicker attackRanges={composerAttackOptions.map(({ attack }) => ({ id: attack.id, name: attack.name, range: attack.range }))} />
-          </View>
-        ) : null}
-
-        {!isCampaignScaffold && shouldShowEncounterSnapshot && combatPanelOpen ? (
-          <View style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
+          <View onLayout={(event) => { combatSectionYRef.current = event.nativeEvent.layout.y; }} style={[styles.encounterToolsCard, { backgroundColor: c.card, borderColor: c.border }]}>
             <View style={styles.encounterToolsHeaderRow}>
               <Feather name="crosshair" size={16} color={c.primary} />
               <Text style={[styles.encounterToolsTitle, { color: c.foreground }]}>Choose an action</Text>
             </View>
 
-            <View style={styles.composerAttackTabs}>
-              {([
-                ["attack", "Attack", "crosshair", availableAttackGroups.length > 0],
-                ["items", "Items", "package", encounterConsumables.length > 0],
-                ["actions", "Actions", "zap", encounterFeatureActions.actions.length + encounterCombatActions.actions.length > 0],
-                ["bonus", "Bonus", "plus-circle", encounterFeatureActions.bonus.length + encounterCombatActions.bonus.length > 0],
-                ["resources", "Resources", "activity", resources.length > 0],
-              ] as const).filter(([key]) => availableCombatCategories.includes(key)).map(([key, label, iconName]) => (
-                <TouchableOpacity key={key} accessibilityRole="button"
-                  accessibilityLabel={`Show ${label.toLowerCase()} options`}
-                  accessibilityState={{ selected: activeCombatCategory === key }}
-                  onPress={() => setCombatCategory(key)}
-                  style={[styles.composerAttackTab, {
-                    borderColor: combatCategory === key ? c.primary : c.border,
-                    backgroundColor: combatCategory === key ? c.primary + "1A" : c.background,
-                  }]}>
-                  <Feather name={iconName} size={15} color={combatCategory === key ? c.primary : c.foreground} />
-                  <Text style={{ color: combatCategory === key ? c.primary : c.foreground, fontWeight: "700" }}>{label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
             {!canUseOneOffCombatActions ? (
               <Text accessibilityRole="text" style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
                 {currentOneOffTurnId ? "Another combatant is taking their turn. Your actions are available when your turn begins." : "Waiting for the current turn to be established."}
@@ -2446,17 +2659,22 @@ export default function AdventureSessionPlaceholderScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-                {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
-                  <AttackCard key={attack.id} attack={attack} pinned={attack.pinned === true}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "flex-start" }}>
+                  {composerAttackOptions.filter((option) => option.group === effectiveAttackGroup).map(({ attack }) => (
+                  <View key={attack.id} style={{ width: "48%", minWidth: 245, flexGrow: 1 }}><AttackCard attack={attack} compact pinned={attack.pinned === true}
                     onResolved={result => {
-                      const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name,
+                      const lastDmScene = [...entries].reverse().find(entry => entry.role === "dm" && !entry.id.startsWith("confirmed-attack:") && !entry.id.startsWith("npc-hold:"))?.text ?? "";
+                      const text = buildConfirmedPlayerAttackNarration({ actorName: character.name, attackName: attack.name, sceneContext: lastDmScene,
                         result, targets: (sharedState?.combatNpcs ?? []).map(npc => ({ id: npc.id, name: npcNameOverridesById[npc.id] ?? npc.name })) });
                       if (!text) return;
                       const id = `confirmed-attack:${result.commandId}`;
                       setEntries(previous => previous.some(entry => entry.id === id) ? previous : [...previous,
-                        { id, role: "dm", text }]);
-                    }} />
+                        { id, role: "dm", text, defeatedNpcIds: (result.remoteApplication?.targetResults ?? [])
+                          .filter(row => row.status === "applied" && row.defeated === true && typeof row.targetId === "string")
+                          .map(row => row.targetId!) }]);
+                    }} /></View>
                 ))}
+                </View>
               </>
             ) : activeCombatCategory === "attack" ? (
               <Text style={[styles.rollPromptBody, { color: c.mutedForeground }]}>
@@ -2477,6 +2695,19 @@ export default function AdventureSessionPlaceholderScreen() {
                     effectType="note"
                     remainingUses={item.quantity}
                     onConsumeUse={() => {
+                      const healing = getConsumableHealingRoll(item);
+                      if (healing) {
+                        const rolled = rollConsumableHealing(healing);
+                        const restored = Math.min(Math.max(0, character.maxHp - character.currentHp), rolled);
+                        if (restored > 0) {
+                          updateHp(restored, "manual");
+                          triggerEffect("heal_flash");
+                        }
+                        setEntries(previous => [...previous, {
+                          id: createFeedEntryId("consumable-healing"), role: "dm" as const,
+                          text: `${character.name} drinks ${item.name}, restoring ${restored} hit points${restored < rolled ? ` (${rolled} rolled)` : ""}.`,
+                        }]);
+                      }
                       const qty = item.quantity ?? 1;
                       updateItem(item.id, { quantity: Math.max(0, qty - 1) });
                     }}
@@ -2549,9 +2780,40 @@ export default function AdventureSessionPlaceholderScreen() {
               </>
             ) : null}
 
-            {activeCombatCategory === "resources" && resources.length > 0 ? (
+            {activeCombatCategory === "resources" ? (
               <>
                 <Text style={[styles.encounterToolsSectionLabel, { color: c.mutedForeground }]}>RESOURCES</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                  {(["short_rest", "long_rest"] as const).map(restType => (
+                    <TouchableOpacity key={restType} accessibilityRole="button" disabled={!!restRequestPending || !partyCode || !memberId || !!activeOneOffBattleId}
+                      onPress={() => void handleRequestRest(restType)}
+                      style={{ borderWidth: 1, borderColor: c.primary, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 12, opacity: restRequestPending || activeOneOffBattleId ? 0.5 : 1 }}>
+                      <Text style={{ color: c.primary, fontWeight: "700" }}>{restType === "short_rest" ? "Request Short Rest" : "Request Long Rest"}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: restProvisionsEnabled }}
+                  accessibilityLabel="Use selected provisions for rest"
+                  onPress={() => setRestProvisionsEnabled(value => !value)}
+                  style={{ paddingVertical: 7 }}>
+                  <Text style={{ color: c.foreground }}>{restProvisionsEnabled ? "☑" : "☐"} Use selected provisions (optional)</Text>
+                </TouchableOpacity>
+                {restProvisionsEnabled ? <>
+                  <Text style={{ color: c.mutedForeground, fontSize: 11, marginBottom: 5 }}>
+                    Select provisions to bring. Nothing is consumed when you request rest.
+                  </Text>
+                  {inventory.filter(item => item.quantity > 0 && /ration|food|water|drink|provision|meal|waterskin/i.test(`${item.name} ${item.notes ?? ""}`)).map(item => (
+                    <TouchableOpacity key={item.id} accessibilityRole="checkbox"
+                      accessibilityLabel={`Provision ${item.name}`}
+                      accessibilityState={{ checked: restProvisionItemIds.includes(item.id) }}
+                      onPress={() => setRestProvisionItemIds(previous => previous.includes(item.id) ? previous.filter(id => id !== item.id) : [...previous, item.id])}
+                      style={{ paddingVertical: 5 }}>
+                      <Text style={{ color: c.foreground }}>{restProvisionItemIds.includes(item.id) ? "☑" : "☐"} {item.name} (×{item.quantity})</Text>
+                    </TouchableOpacity>
+                  ))}
+                </> : null}
+                {restRequestMessage ? <Text accessibilityRole="alert" style={{ color: c.mutedForeground, fontSize: 12 }}>{restRequestMessage}</Text> : null}
+                <Text style={{ color: c.mutedForeground, fontSize: 11, marginBottom: 8 }}>Restoration requires DM approval. Short rests restore short-rest resources; long rests restore short- and long-rest resources.</Text>
                 {resources.map((resource) => {
                   const extraMax = getResourceExtraMax(resource, resourceMaxBonuses);
                   return (
@@ -2561,7 +2823,7 @@ export default function AdventureSessionPlaceholderScreen() {
                       extraMax={extraMax}
                       onIncrement={() => incrementResource(resource.id, resource.max + extraMax)}
                       onDecrement={() => decrementResource(resource.id)}
-                      onReset={() => resetResource(resource.id, resource.max + extraMax)}
+                      allowRestore={false}
                     />
                   );
                 })}
@@ -2571,30 +2833,6 @@ export default function AdventureSessionPlaceholderScreen() {
           </View>
         ) : null}
 
-        {!isCampaignScaffold ? (
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={showSessionTools ? "Hide more tools" : "Show more tools"}
-            onPress={() => setShowSessionTools((open) => !open)}
-            style={[styles.composerDisclosureRow, { borderColor: c.border, backgroundColor: c.card }]}>
-            <Text style={{ color: c.foreground }}>More tools</Text>
-            <Feather name={showSessionTools ? "chevron-up" : "chevron-down"} color={c.mutedForeground} size={16} />
-          </TouchableOpacity>
-        ) : null}
-        {!isCampaignScaffold && showSessionTools ? <AiDmSessionQuickActionsRow onAction={handleQuickAction} /> : null}
-        {!isCampaignScaffold && showSessionTools ? <AiDmCombatSubmodePanel mode={isCampaignScaffold ? "ai_campaign" : "ai_one_off"} onToolEvent={handleCombatPanelToolEvent} /> : null}
-        {isCampaignScaffold ? null : (
-        <AiDmSessionOutcomeShell
-          outcomeState={outcomeState}
-          recap={recap}
-          isHandoffApproved={isHandoffApproved}
-          canApplyHandoff={canApplyHandoff}
-          onApproveHandoff={handleApproveHandoff}
-          onApplyHandoff={() => void handleApplyHandoff()}
-          onReset={() => {
-            setOutcomeState(createInitialOneOffOutcomeState());
-            setIsHandoffApproved(false);
-          }}
-        />
-        )}
       </>
     ) },
     party: { title: "Party", content: <SessionPartyPanel
@@ -2603,25 +2841,40 @@ export default function AdventureSessionPlaceholderScreen() {
     inventory: { title: "Inventory", content: <SessionInventoryPanel items={inventory} /> },
     encounter: { title: "Encounter", content: <>
       <SessionEncounterStatus session={workspaceSession} />
-      {(sharedState?.combatNpcs ?? []).filter(npc => workspaceSession.encounter.battleId &&
-        sharedState?.participantBattleById[npc.id] === workspaceSession.encounter.battleId).map(npc => (
-          <View key={npc.id} style={{ gap: 4, paddingVertical: 8 }}>
-            <Text style={{ color: c.foreground, fontSize: 14, fontWeight: "700" }}>{npcNameOverridesById[npc.id] ?? npc.name}{sharedState?.currentTurnIdByBattle[workspaceSession.encounter.battleId!] === npc.id ? " · Active turn" : ""}</Text>
-            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>{npc.dummyState ? `HP ${npc.dummyState.currentHp}/${npc.dummyState.maxHp} · AC ${npc.dummyState.armorClass}` : "HP and armor class unknown"}</Text>
-            <Text style={{ color: c.mutedForeground, fontSize: 12 }}>{(npc.conditions ?? []).map(condition => condition.name).join(", ") || "No conditions"}</Text>
+      {!isCampaignScaffold && partyCode && !sharedState ? (
+        <View style={{ gap: 8, padding: 10 }}>
+          <Text accessibilityRole="alert" style={{ color: c.mutedForeground, fontSize: 12 }}>
+            Encounter state is unavailable. Story narration alone cannot create or resolve combat.
+          </Text>
+          {(combatStateLoadError || encounterReconnectError) ? <Text accessibilityRole="alert" style={{ color: c.destructive, fontSize: 12 }}>{combatStateLoadError || encounterReconnectError}</Text> : null}
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading encounter"
+            disabled={encounterReconnectPending}
+            onPress={() => void retryEncounterState()}
+            style={{ padding: 10, borderWidth: 1, borderColor: c.border, borderRadius: 8 }}>
+            <Text style={{ color: c.foreground }}>{encounterReconnectPending ? "Retrying…" : "Retry encounter connection"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+        {!isCampaignScaffold && shouldShowEncounterSnapshot ? (
+          <View pointerEvents={canUseOneOffCombatActions ? "auto" : "none"}
+            style={{ opacity: canUseOneOffCombatActions ? 1 : 0.45 }}>
+            <AiDmCombatTargetPicker />
           </View>
-        ))}
-      {encounterGateVisibility ? <Text style={{ color: c.mutedForeground, fontSize: 12, lineHeight: 18 }}>{encounterGateVisibility.summary}</Text> : null}
+        ) : null}
+
+
       {chapterLabel ? <Text style={{ color: c.foreground }}>{chapterLabel}</Text> : null}
       {!encounterGateVisibility && !workspaceSession.encounter.battleId ? <Text style={{ color: c.mutedForeground }}>No active encounter objective.</Text> : null}
     </> },
-    events: { title: "Event log", content: <SessionEventLogPanel events={sharedState?.eventLog ?? []} /> },
+    events: { title: "Event log", content: <SessionEventLogPanel events={sharedState?.eventLog ?? []} members={members} npcNames={sharedState?.combatNpcs ?? []} /> },
   };
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
       <View style={styles.workspaceHeader}>
         <View style={styles.sessionHeader}>
           <AdventureHeaderBackButton destination={AI_DM_ROUTES.adventure.home} />
+          <Text numberOfLines={1} style={[styles.title, { color: c.foreground, flex: 1, marginLeft: 10 }]}>{title || "Adventure"}</Text>
           <TouchableOpacity
             onPress={() =>
               router.push({
@@ -2647,18 +2900,18 @@ export default function AdventureSessionPlaceholderScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.title, { color: c.foreground }]}>{title || "Adventure"}</Text>
 
       </View>
-      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} preferenceKey={`character:${character.id}`}
+      <View style={styles.workspaceBody}><AdventureWorkspace ref={workspaceRef} panels={workspacePanels} alternatives={{ inventory: { "character-summary": { title: "Character Summary", content: <View style={{ gap: 8 }}><Text style={{ color: c.foreground, fontSize: 16, fontWeight: "700" }}>{character.name}</Text><Text style={{ color: c.foreground }}>{`${character.currentHp}/${character.maxHp} HP`}</Text><Text style={{ color: c.foreground }}>{`Initiative ${character.initiative ?? 0}`}</Text><Text style={{ color: c.mutedForeground }}>{conditions.length ? conditions.map(condition => condition.name).join(", ") : "No active conditions"}</Text></View> } } }} preferenceKey={`character:${character.id}`}
         statusSummary={`${character.currentHp}/${character.maxHp} HP${conditions.length ? ` · ${conditions.map(condition => condition.name).join(", ")}` : ""}${pendingRollRequests.length ? ` · ${pendingRollRequests.length} roll request(s)` : ""}${workspaceSession.encounter.status === "combat" ? workspaceSession.encounter.isPlayerTurn ? " · Your turn" : ` · ${workspaceSession.encounter.currentActorName ?? "Waiting for initiative"}` : ""}`} /></View>
+      <DefeatedNpcLootModal npc={lootNpc} pendingAssignments={pendingLootAssignments} onRecover={() => deliverLootAssignments(pendingLootAssignments)} onClose={() => setLootNpcId(null)} onTransfer={transferDefeatedLoot} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  workspaceHeader: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, gap: 8 },
+  workspaceHeader: { paddingHorizontal: 12, paddingTop: 3, paddingBottom: 3 },
   workspaceBody: { flex: 1, minHeight: 0, paddingHorizontal: 12, paddingBottom: 12 },
   actionDock: { borderTopWidth: 1, paddingHorizontal: 12, paddingVertical: 10, gap: 7 },
   composerDisclosureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderRadius: 10, marginVertical: 6 },
@@ -2667,7 +2920,7 @@ const styles = StyleSheet.create({
   actionDockTitle: { fontSize: 14, fontWeight: "800" },
   actionDockHint: { fontSize: 12, lineHeight: 18 },
   actionDockCombatButton: { borderRadius: 10, paddingVertical: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  title: { fontSize: 26, fontWeight: "800" },
+  title: { fontSize: 19, fontWeight: "800" },
   subtitle: { fontSize: 14 },
   card: {
     borderWidth: 1,

@@ -10,7 +10,7 @@ let write = async (key: string, value: string) => { stored.set(key, value); };
 const originalLoad = Module._load; let Shell: any, usePreferences: any;
 try {
   Module._load = function(name: string, ...args: unknown[]) {
-    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TouchableOpacity: "Button", TextInput: "Input", StyleSheet: { create: (x: any) => x } };
+    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TouchableOpacity: "Button", PanResponder: { create: () => ({ panHandlers: {} }) }, Platform: { OS: "test" }, TextInput: "Input", StyleSheet: { create: (x: any) => x } };
     if (name === "@/hooks/useColors") return { useColors: () => ({}) };
     if (name === "@react-native-async-storage/async-storage") return { getItem: (key: string) => read(key), setItem: (key: string, value: string) => write(key, value) };
     return originalLoad.call(this, name, ...args);
@@ -42,7 +42,7 @@ test("preset switches retain custom placements/collapse settings and Simplify do
   assert.deepEqual(p.layout, custom); assert.equal(p.simplify, true);
   assert.deepEqual(toggleWorkspacePanel(p.layout, "actions"), p.layout);
 });
-test("swap, collapse, Simplify, Cancel and Save preserve a live composer and survive remount", async () => {
+test("swap, collapse and preset selection preserve a live composer and survive remount", async () => {
   reset(); let tree: any, mounts = 0;
   function Composer() { const [value, set] = React.useState(""); React.useEffect(() => { mounts++; }, []); return React.createElement("Input", { value, onChangeText: set }); }
   const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: id === "actions" ? React.createElement(Composer) : React.createElement("Text", null, id) }]));
@@ -50,13 +50,11 @@ test("swap, collapse, Simplify, Cancel and Save preserve a live composer and sur
   await mount();
   try {
     act(() => tree.root.findByType("Input").props.onChangeText("I hold my action"));
-    await click(tree, "Customize layout"); await click(tree, "Swap party"); await click(tree, "Swap party with events");
-    await click(tree, "Cancel layout changes"); assert.equal(stored.size, 0);
-    await click(tree, "Customize layout"); await click(tree, "Swap party"); await click(tree, "Swap party with events"); await click(tree, "Save layout");
-    await click(tree, "Collapse inventory"); await click(tree, "Simplify View");
+    await click(tree, "Move party"); await click(tree, "Swap with events");
+    await click(tree, "Collapse inventory"); await click(tree, "Simplify");
     assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Collapse actions" }).length, 0);
     assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Collapse narrative" }).length, 0);
-    await click(tree, "Exit Simplify View");
+    await click(tree, "My layout");
     assert.equal(tree.root.findByType("Input").props.value, "I hold my action"); assert.equal(mounts, 1);
     const saved = parseWorkspacePreferences(stored.get("adventure-workspace.v1:hero"));
     assert.equal(saved.layout.positions.party, "bottom_right"); assert.ok(saved.layout.collapsed.includes("inventory"));
@@ -108,22 +106,83 @@ test("read failures never overwrite saved layouts and retry loads the original p
   } finally { act(() => tree.unmount()); }
 });
 
-test("customizing Immersive keeps the saved swap instead of forcing its default positions", async () => {
+test("swapping panels in Immersive keeps saved placements when leaving Simplify", async () => {
   reset(); let tree: any;
   const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
   await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "immersive" })); });
   try {
     act(() => tree.root.findByProps({ testID: "adventure-workspace" }).props.onLayout({ nativeEvent: { layout: { width: 1366, height: 740 } } }));
-    await click(tree, "Immersive"); await click(tree, "Customize layout");
-    await click(tree, "Swap narrative"); await click(tree, "Swap narrative with party"); await click(tree, "Save layout");
+    await click(tree, "Immersive");
+    await click(tree, "Move narrative"); await click(tree, "Swap with party");
     const panel = tree.root.findByProps({ testID: "workspace-narrative" });
     const frame = panel.props.style.find((style: any) => style?.position === "absolute");
     assert.equal(frame.left, 0);
-    await click(tree, "Simplify View");
+    await click(tree, "Simplify");
     const focusFrame = tree.root.findByProps({ testID: "workspace-narrative" }).props.style.find((style: any) => style?.position === "absolute");
     assert.ok(focusFrame.left > 0);
-    await click(tree, "Exit Simplify View");
+    await click(tree, "My layout");
     const restored = tree.root.findByProps({ testID: "workspace-narrative" }).props.style.find((style: any) => style?.position === "absolute");
     assert.equal(restored.left, 0);
+  } finally { act(() => tree.unmount()); }
+});
+
+test("panel replacement is a validated saved view preference, preserved through presets", () => {
+  const { replaceWorkspacePanel } = require("../../utils/adventure/workspaceLayoutPreferences");
+  let p = defaultWorkspacePreferences();
+  const changed = replaceWorkspacePanel(p.layout, "inventory", "character-summary");
+  assert.equal(changed.replacements.inventory, "character-summary");
+  assert.equal(p.layout.replacements.inventory, undefined);
+  assert.deepEqual(replaceWorkspacePanel(changed, "actions", "character-summary"), changed);
+  assert.deepEqual(replaceWorkspacePanel(changed, "inventory", "bogus"), changed);
+  p = saveCustomWorkspace(p, changed);
+  p = selectWorkspacePreset(p, "tactical");
+  p = selectWorkspacePreset(p, "custom");
+  assert.equal(parseWorkspacePreferences(JSON.stringify(p)).layout.replacements.inventory, "character-summary");
+  const invalid = JSON.parse(JSON.stringify(p)); invalid.layout.replacements.actions = "character-summary";
+  assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
+  assert.equal(replaceWorkspacePanel(changed, "inventory", null).replacements.inventory, undefined);
+});
+
+test("workspace sizing clamps invalid gestures and persists with custom layouts", () => {
+  const { resizeWorkspaceLayout, DEFAULT_WORKSPACE_SIZING } = require("../../utils/adventure/workspaceLayoutPreferences");
+  const initial = presetWorkspaceLayout();
+  assert.deepEqual(initial.sizing, DEFAULT_WORKSPACE_SIZING);
+  const wide = resizeWorkspaceLayout(initial, "left", 100);
+  assert.equal(wide.sizing.left, 0.32);
+  const narrow = resizeWorkspaceLayout(wide, "middleRow", -100);
+  assert.equal(narrow.sizing.middleRow, 0.2);
+  assert.deepEqual(resizeWorkspaceLayout(narrow, "right", NaN), narrow);
+  const saved = saveCustomWorkspace(defaultWorkspacePreferences(), narrow);
+  const parsed = parseWorkspacePreferences(JSON.stringify(saved));
+  assert.deepEqual(parsed.layout.sizing, narrow.sizing);
+  const invalid = JSON.parse(JSON.stringify(saved)); invalid.layout.sizing.left = "bad";
+  assert.deepEqual(parseWorkspacePreferences(JSON.stringify(invalid)), defaultWorkspacePreferences());
+});
+
+test("direct layout resize persists without a Save button", async () => {
+  reset(); let tree: any;
+  const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
+  await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "resize" })); });
+  try {
+    act(() => tree.root.findByProps({ testID: "adventure-workspace" }).props.onLayout({ nativeEvent: { layout: { width: 1366, height: 740 } } }));
+    await act(async () => button(tree, "Resize left column").props.onAccessibilityAction({ nativeEvent: { actionName: "increment" } }));
+    assert.ok(parseWorkspacePreferences(stored.get("adventure-workspace.v1:resize")).layout.sizing.left > 0.22);
+  } finally { act(() => tree.unmount()); }
+});
+
+test("Simplify acts as a single-selection view; preset buttons exit directly without Undo", async () => {
+  reset(); let tree: any;
+  const panels = Object.fromEntries(["narrative", "actions", "encounter", "party", "inventory", "events"].map(id => [id, { title: id, content: React.createElement("Text", null, id) }]));
+  await act(async () => { tree = Renderer.create(React.createElement(Shell, { panels, preferenceKey: "simplify-selector" })); });
+  try {
+    assert.equal(tree.root.findAllByProps({ accessibilityLabel: "Undo layout change" }).length, 0);
+    await click(tree, "Simplify");
+    assert.equal(parseWorkspacePreferences(stored.get("adventure-workspace.v1:simplify-selector")).simplify, true);
+    await click(tree, "Tactical");
+    let saved = parseWorkspacePreferences(stored.get("adventure-workspace.v1:simplify-selector"));
+    assert.equal(saved.simplify, false); assert.equal(saved.selected, "tactical");
+    await click(tree, "Simplify"); await click(tree, "Balanced");
+    saved = parseWorkspacePreferences(stored.get("adventure-workspace.v1:simplify-selector"));
+    assert.equal(saved.simplify, false); assert.equal(saved.selected, "balanced");
   } finally { act(() => tree.unmount()); }
 });

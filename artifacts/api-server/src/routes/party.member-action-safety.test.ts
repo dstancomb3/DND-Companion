@@ -54,7 +54,7 @@ for(const op of operations){
    const code=`member-success-${++serial}`,now=new Date(),target=scenario==="foreign target"?"other":"member";
    let durable:Record<string,unknown>={partyCode:code,schemaVersion:1,stateRevision:1,updatedAt:now,snapshot:{
     rollRequests:[{id:"request",statKey:"dexterity",label:"Dexterity",targetMemberIds:[target],requestedAt:now.toISOString(),responses:[]}],
-    restRequests:[{id:"request",restType:"short_rest",requestedByMemberId:"member",targetMemberIds:[target],requestedAt:now.toISOString(),status:"approved",acknowledgements:[]}],
+    restRequests:op.name==="rest request"?[]:[{id:"request",restType:"short_rest",requestedByMemberId:"member",targetMemberIds:[target],requestedAt:now.toISOString(),status:"approved",acknowledgements:[]}],
     lootAssignments:[{id:"loot",targetMemberId:target,item:{name:"Torch",quantity:2,category:"gear"},assignedAt:now.toISOString()}],
    }};
    let writes=0;
@@ -71,7 +71,14 @@ for(const op of operations){
    if(op.name==="initiative")assert.equal(saved.initiativeByMember.member.initiativeTotal,14);
    if(op.name==="roll response")assert.equal(saved.rollRequests[0].responses[0].total,14);
    if(op.name==="rest request")assert.ok(saved.restRequests.some((r:any)=>r.requestedByMemberId==="member"&&r.status==="pending"));
-   if(op.name==="rest acknowledgement")assert.deepEqual(saved.restRequests[0].acknowledgements,["member"]);
+   if(op.name==="rest acknowledgement"){
+    assert.deepEqual(saved.restRequests[0].acknowledgements,["member"]);
+    const replay=response();
+    await handler(op.path)({params:{code,requestId:"request",assignmentId:"loot"},body:op.body,get:()=>`Bearer ${owner.hostToken}`},replay);
+    assert.equal(replay.statusCode,200);
+    assert.equal(replay.body.replayed,true);
+    assert.equal(writes,1,"repeated acknowledgment must not commit another snapshot");
+   }
    if(op.name==="loot claim")assert.equal(saved.lootAssignments[0].claimedBy,"member");
    for(const secret of [owner.hostToken,owner.hostTokenHash])assert.equal(JSON.stringify(res.body).includes(secret),false);
   });

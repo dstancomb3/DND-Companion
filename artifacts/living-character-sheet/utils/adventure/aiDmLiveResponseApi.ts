@@ -51,9 +51,17 @@ export async function requestLiveResponse(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
       try {
+        await Promise.race([new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            controller.abort();
+            const error = new Error("AI DM response deadline exceeded");
+            error.name = "AbortError";
+            reject(error);
+          }, timeoutMs);
+        }), (async () => {
         const response = await fetch(`${API_BASE_URL}/api/adventure/campaign-runtime/turn`, {
           method: "POST",
           headers: {
@@ -63,7 +71,8 @@ export async function requestLiveResponse(
           signal: controller.signal,
         });
 
-        clearTimeout(timeoutHandle);
+        // Keep the abort deadline active through body streaming and parsing.
+        // Headers can arrive promptly while the AI response body stalls indefinitely.
 
         // Check for network/parsing errors first
         if (!response.ok) {
@@ -103,8 +112,10 @@ export async function requestLiveResponse(
             throw new Error("Invalid response format");
           }
         }
+        })()]);
+        return; // The request completed successfully; do not submit another turn.
       } finally {
-        clearTimeout(timeoutHandle);
+        if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
       }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));

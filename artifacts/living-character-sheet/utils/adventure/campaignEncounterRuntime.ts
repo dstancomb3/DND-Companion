@@ -272,6 +272,7 @@ export interface CampaignEncounterOrchestrationResult {
   startedNewEncounter: boolean;
   npcAlreadyPresent: boolean;
   hostileNpcId?: string;
+  hostileNpcIds?: string[];
   hostileNpcName?: string;
   hostileNpcSourceType?: "manual" | "monster";
   hostileNpcSourceId?: string;
@@ -717,7 +718,14 @@ export async function orchestrateCampaignEncounterIntent(input: {
     battleId,
     input.encounterIntent,
   );
-  if (!npcAlreadyPresent) {
+  const requestedCount = Math.max(1, Math.min(8, input.encounterIntent.hostileCreatureCount ?? 1));
+  const hostileNpcIds = (input.combatState?.combatNpcs ?? []).filter(npc =>
+    npc.disposition === "hostile" && input.combatState?.participantBattleById?.[npc.id] === battleId &&
+    (npc.name === input.encounterIntent.hostileCreatureName ||
+     npc.name.startsWith(input.encounterIntent.hostileCreatureName + " ") ||
+     (Boolean(input.encounterIntent.hostileCreatureSourceId) && npc.sourceId === input.encounterIntent.hostileCreatureSourceId))
+  ).map(npc => npc.id);
+  for (let index = hostileNpcIds.length; index < requestedCount; index++) {
     const rawHostileCreatureSourceId = input.encounterIntent.hostileCreatureSourceId;
     const useMonsterSource =
       input.encounterIntent.hostileCreatureSourceType === "monster"
@@ -728,7 +736,7 @@ export async function orchestrateCampaignEncounterIntent(input: {
       : "";
 
     const addNpcResponse = await input.deps.addCombatNpc(input.partyCode, {
-      name: input.encounterIntent.hostileCreatureName,
+      name: requestedCount > 1 ? `${input.encounterIntent.hostileCreatureName} ${index + 1}` : input.encounterIntent.hostileCreatureName,
       sourceType: useMonsterSource ? "monster" : "manual",
       ...(useMonsterSource
         ? { sourceId: hostileCreatureSourceId }
@@ -774,6 +782,7 @@ export async function orchestrateCampaignEncounterIntent(input: {
               ? npcRecord.sourceId.trim()
               : undefined,
         };
+        hostileNpcIds.push(npcId);
       }
     }
   }
@@ -827,6 +836,7 @@ export async function orchestrateCampaignEncounterIntent(input: {
     startedNewEncounter,
     npcAlreadyPresent,
     hostileNpcId: hostileNpcIdentity?.id,
+    hostileNpcIds,
     hostileNpcName: hostileNpcIdentity?.name,
     hostileNpcSourceType: hostileNpcIdentity?.sourceType,
     hostileNpcSourceId: hostileNpcIdentity?.sourceId,

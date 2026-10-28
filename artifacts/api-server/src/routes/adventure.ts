@@ -1,6 +1,10 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import OpenAI from "openai";
+import { db } from "@workspace/db";
+import { partySessions } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+import { hasPartyHostToken } from "../lib/partyHostToken";
 import { AI_UPSTREAM_REQUEST_OPTIONS } from "../lib/aiUpstreamRequestOptions";
 import { randomUUID } from "node:crypto";
 
@@ -149,6 +153,7 @@ type CampaignRuntimeTurnRollPrompt = {
 type CampaignRuntimeTurnEncounterIntent = {
   requiresEncounterStart: boolean;
   hostileCreatureName: string;
+  hostileCreatureCount?: number;
   hostileCreatureSourceType?: "monster";
   hostileCreatureSourceId?: string;
   promptRolls: CampaignRuntimeTurnRollPrompt[];
@@ -216,6 +221,7 @@ type CampaignRuntimeTurnResponse = {
     dmText: string;
     choices: string[];
     stateTags: string[];
+    sceneSafety: { dangerScore: number; shortRestFeasible: boolean; longRestFeasible: boolean; reason: string };
     itemChanges: CampaignRuntimeTurnItemChange[];
     encounterIntent: CampaignRuntimeTurnEncounterIntent | null;
     adjudicationRequests: CampaignRuntimeTurnAdjudicationRequest[];
@@ -352,6 +358,8 @@ export function normalizeCampaignRuntimeEncounterIntent(input: {
   return {
     requiresEncounterStart: true,
     hostileCreatureName,
+    hostileCreatureCount: typeof input.rawEncounterIntent.hostileCreatureCount === "number" && Number.isInteger(input.rawEncounterIntent.hostileCreatureCount)
+      ? Math.max(1, Math.min(8, input.rawEncounterIntent.hostileCreatureCount)) : 1,
     ...(hostileCreatureSourceType && hostileCreatureSourceId
       ? {
         hostileCreatureSourceType,
@@ -601,6 +609,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       "- dmText: 2 paragraphs separated by \\n\\n. Present tense. 60-110 words.",
       "- choices: 2-3 options, each 4-10 words.",
       "- stateTags: 1-4 tags from: tension, exploration, social, combat_risk, chase, puzzle, trap, negotiation, discovery.",
+      "- sceneSafety: object with dangerScore (integer 1-100), shortRestFeasible (boolean), longRestFeasible (boolean), reason (one short sentence). Assess the actual situation AFTER narrating this turn; active combat, falling/flying unprotected, pursuit, imminent threats or unstable ground are unsafe. Long rest requires a secure location and sufficient uninterrupted time. Do not claim a rest happened.",
       "- encounterIntent: set null unless immediate hostile encounter setup is explicitly required.",
     ].join("\n");
 
@@ -639,6 +648,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       "- Include promptRolls needed now. Use initiative for turn order, perception for awareness checks, and dexterity or dexterity_save for evade moments.",
       "- When the hostile creature is known from the monster compendium, include hostileCreatureSourceType=\"monster\" and hostileCreatureSourceId with the exact compendium id.",
       "- If the compendium id is unknown, omit hostileCreatureSourceType/hostileCreatureSourceId and provide only hostileCreatureName.",
+      "- For groups, set hostileCreatureCount to the number of hostiles actually entering combat (1 to 8). A pack must not be represented by only its leader. Use 1 for a solo creature.",
       "- A CURRENT HOSTILE ACTORS or KNOWN ENCOUNTER ACTORS system entry may be present. Treat those actor identities as canonical continuity anchors.",
       "- Do not rename, split, merge, or replace canonical hostile actors unless encounterIntent explicitly starts a new hostile arrival.",
       "- If no new hostile arrival occurs this turn, continue with existing hostile actor identities in context.",
@@ -654,12 +664,13 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       '{"dmText":"...","choices":["...","...","..."],"stateTags":["..."],"itemChanges":[],"encounterIntent":null,"adjudicationRequests":[]}',
       "",
       "- dmText: 3-5 sentences, present tense.",
+      "- Only act upon creatures established in the current story or an explicitly narrated discovery. A player declaring an attack against an unseen or unintroduced creature does NOT create that creature. Explain what is actually visible; do not create an encounterIntent just to satisfy an attack declaration.",
       "- choices: 2-3 options, each 4-10 words.",
       "- stateTags: 1-4 tags from: tension, exploration, social, combat_risk, chase, puzzle, trap, negotiation, discovery.",
       '- itemChanges: array of item mutations this turn. Each entry: {"action":"consume"|"add"|"remove","name":"item name","quantity":1}.',
       "  'consume' = item used/expended from inventory. 'add' = loot found or item given. 'remove' = item lost/stolen/destroyed.",
       "  Match item names exactly as they appear in CURRENT INVENTORY. Empty array [] if no items changed.",
-      '  - encounterIntent: null if no immediate hostile encounter setup is required, else {"requiresEncounterStart":true,"hostileCreatureName":"...","hostileCreatureSourceType":"monster"?,"hostileCreatureSourceId":"compendium-id"?,"promptRolls":[{"statKey":"initiative"|"perception"|"dexterity"|"dexterity_save","label":"..."}],"narrationBlockedUntilResolved":true,"intentKey":"short-stable-key"}.',
+      '  - encounterIntent: null if no immediate hostile encounter setup is required, else {"requiresEncounterStart":true,"hostileCreatureName":"...","hostileCreatureCount":1,"hostileCreatureSourceType":"monster"?,"hostileCreatureSourceId":"compendium-id"?,"promptRolls":[{"statKey":"initiative"|"perception"|"dexterity"|"dexterity_save","label":"..."}],"narrationBlockedUntilResolved":true,"intentKey":"short-stable-key"}.',
       '  - adjudicationRequests: [] when no extra checks are needed. Otherwise: [{"statKey":"nature"|"arcana"|"history"|"insight"|"investigation"|"perception"|"survival"|"...","label":"short check label","reason":"why this roll is required now"}].',
     ].join("\n");
 
@@ -671,24 +682,33 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
     ].filter(Boolean).join("\n\n");
   }
 
-  const completion = await getOpenAI().chat.completions.create({
-    model: ADVENTURE_CAMPAIGN_TURN_MODEL,
-    max_completion_tokens: 1200,
-    temperature: isKickoff || isPrologueTransition ? 0.9 : 0.7,
-    top_p: 0.95,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error("AI returned invalid JSON for campaign turn response.");
+  // JSON mode prevents markdown fences and free-form prose from breaking turns.
+  // A bounded retry covers incomplete responses, including token truncation.
+  let parsed: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const completion = await getOpenAI().chat.completions.create({
+      model: ADVENTURE_CAMPAIGN_TURN_MODEL,
+      response_format: { type: "json_object" },
+      max_completion_tokens: 2200,
+      temperature: attempt === 0 ? (isKickoff || isPrologueTransition ? 0.8 : 0.55) : 0.2,
+      messages: [
+        { role: "system", content: systemPrompt + "\\nAlways return a single syntactically valid JSON object, never markdown." },
+        { role: "user", content: userPrompt },
+        ...(attempt ? [{ role: "user" as const, content: "The previous answer could not be parsed. Return the full, complete JSON object only." }] : []),
+      ],
+    });
+    const raw = completion.choices[0]?.message?.content ?? "";
+    try {
+      const candidate: unknown = JSON.parse(raw);
+      if (candidate && typeof candidate === "object" && !Array.isArray(candidate) &&
+          typeof (candidate as Record<string, unknown>).dmText === "string" &&
+          (candidate as Record<string, unknown>).dmText) {
+        parsed = candidate;
+        break;
+      }
+    } catch { /* Retry once, without returning invalid content to the player. */ }
   }
+  if (!parsed) throw new Error("The DM response was incomplete or malformed after retry. Please try the action again.");
 
   const parsedRecord = typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : null;
   const dmText = (parsedRecord && typeof parsedRecord.dmText === "string" ? parsedRecord.dmText : "").trim();
@@ -698,6 +718,14 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
 
   const choices = coerceStringArray(parsedRecord?.choices, 3);
   const stateTags = coerceStringArray(parsedRecord?.stateTags, 6);
+  const safety = parsedRecord?.sceneSafety && typeof parsedRecord.sceneSafety === "object" ? parsedRecord.sceneSafety as Record<string, unknown> : {};
+  const dangerScore = typeof safety.dangerScore === "number" && Number.isFinite(safety.dangerScore) ? Math.min(100, Math.max(1, Math.round(safety.dangerScore))) : 100;
+  const sceneSafety = {
+    dangerScore,
+    shortRestFeasible: safety.shortRestFeasible === true && dangerScore <= 30,
+    longRestFeasible: safety.longRestFeasible === true && dangerScore <= 10,
+    reason: typeof safety.reason === "string" ? safety.reason.slice(0, 200) : "The situation has not been assessed for a safe rest.",
+  };
 
   // Parse itemChanges from AI output
   const rawItemChanges = Array.isArray(parsedRecord?.itemChanges) ? parsedRecord.itemChanges : [];
@@ -737,6 +765,7 @@ async function runCampaignRuntimeTurn(input: CampaignRuntimeTurnRequest): Promis
       dmText,
       choices: finalChoices,
       stateTags,
+      sceneSafety,
       itemChanges,
       encounterIntent,
       adjudicationRequests,
@@ -1176,6 +1205,73 @@ router.post("/adventure/campaign-runtime/turn", async (req, res) => {
       detail: message,
       code: statusCode === 503 ? "ai_not_configured" : "campaign_runtime_turn_failed",
     });
+  }
+});
+
+/**
+ * Host-authenticated AI DM spatial adjudication. The model proposes a
+ * line-of-sight and distance ruling; the atomic party executor still owns
+ * initiative, weapon stats, dice, HP, and validation.
+ */
+const npcAdjudicationSchema = z.object({
+  partyCode: z.string().trim().min(1).max(128),
+  battleId: z.string().trim().min(1).max(128),
+  npcId: z.string().trim().min(1).max(128),
+  npcName: z.string().trim().min(1).max(120),
+  profile: z.enum(["aggressive", "cautious", "defensive", "sneaky", "passive"]),
+  sceneText: z.string().max(3500),
+  choices: z.array(z.object({
+    weaponId: z.string().min(1).max(128),
+    weaponName: z.string().min(1).max(120),
+    targetMemberId: z.string().min(1).max(128),
+    targetName: z.string().min(1).max(120),
+    range: z.string().max(80),
+  })).min(1).max(24),
+});
+
+router.post("/adventure/npc-turn-adjudication", async (req, res) => {
+  const parsed = npcAdjudicationSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid NPC turn adjudication request." }); return; }
+  const input = parsed.data;
+  try {
+    const sessions = await db.select().from(partySessions).where(eq(partySessions.code, input.partyCode));
+    if (!sessions[0] || !hasPartyHostToken(req.get("authorization"), sessions[0].hostTokenHash)) {
+      res.status(403).json({ error: "Only the authenticated AI DM host may request NPC adjudication." }); return;
+    }
+    const prompt = [
+      "You are the D&D Dungeon Master adjudicating a single NPC weapon turn.",
+      "Use only the established scene and canonical action choices below. Do not invent an intervening movement action or ignore cover.",
+      "A tactical personality influences which valid attack is preferred, but it never overrides range or sight.",
+      "If distance or line of sight cannot be fairly determined from the scene, choose HOLD. Never guess a measured distance.",
+      "Output JSON only: {\"kind\":\"attack\"|\"hold\",\"weaponId\":\"...\",\"targetMemberId\":\"...\",\"distanceFeet\":0,\"clearLineOfSight\":true,\"reason\":\"...\"}.",
+      "For HOLD, omit weaponId, targetMemberId and distanceFeet. Attacks require clearLineOfSight exactly true.",
+      `NPC: ${input.npcName}; profile: ${input.profile}.`,
+      `Recent scene: ${input.sceneText.slice(0, 3500)}`,
+      `Available weapon/target pairings: ${JSON.stringify(input.choices)}`,
+    ].join("\n");
+    const result = await getOpenAI().chat.completions.create({
+      model: ADVENTURE_CAMPAIGN_TURN_MODEL,
+      max_completion_tokens: 200,
+      temperature: 0.15,
+      messages: [{ role: "system", content: prompt }],
+    });
+    const raw = result.choices[0]?.message?.content ?? "";
+    let decision: Record<string, unknown> = {};
+    try { const value = JSON.parse(raw); if (value && typeof value === "object" && !Array.isArray(value)) decision = value; }
+    catch { /* Malformed model output always holds rather than inventing an attack. */ }
+    const chosen = input.choices.find(choice =>
+      choice.weaponId === decision.weaponId && choice.targetMemberId === decision.targetMemberId);
+    const distance = decision.distanceFeet;
+    if (decision.kind !== "attack" || !chosen || decision.clearLineOfSight !== true ||
+        typeof distance !== "number" || !Number.isFinite(distance) || distance < 0 || distance > 10000) {
+      res.json({ ok: true, kind: "hold", reason: typeof decision.reason === "string" ? decision.reason.slice(0, 180) : "No verified attack available." });
+      return;
+    }
+    res.json({ ok: true, kind: "attack", weaponId: chosen.weaponId, targetMemberId: chosen.targetMemberId,
+      distanceFeet: distance, reason: typeof decision.reason === "string" ? decision.reason.slice(0, 180) : "DM-verified range and sightline." });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "NPC adjudication unavailable.";
+    res.status(/not configured/i.test(message) ? 503 : 500).json({ error: "NPC adjudication failed.", detail: message });
   }
 });
 

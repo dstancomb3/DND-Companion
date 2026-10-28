@@ -50,11 +50,16 @@ export function partyMemberApi(request: Request, storage: MemberStorage) {
     async submitPartyRollResponse(code: string, requestId: string, payload: { memberId: string; roll: number; modifier: number; total: number }): Promise<{ ok: true; request: PartyRollRequest }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/roll-requests/${requestId}/respond`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
-    async createPartyRestRequest(code: string, payload: { memberId: string; restType: PartyRestType }): Promise<{ ok: true; request: PartyRestRequest }> {
+    async createPartyRestRequest(code: string, payload: { memberId: string; restType: PartyRestType; provisions?: { enabled: boolean; itemIds: string[] } }): Promise<{ ok: true; request: PartyRestRequest }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/rest-requests`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     },
     async acknowledgePartyRestRequest(code: string, requestId: string, payload: { memberId: string }): Promise<{ ok: true; request: PartyRestRequest }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/rest-requests/${requestId}/ack`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    },
+    async collectDefeatedNpcLoot(code: string, npcId: string, payload: { memberId: string; itemIds: string[] }): Promise<{ ok: true; assignments: LootAssignment[] }> {
+      return authorizedRequest(code, payload.memberId, `/party/${code}/defeated-npc/${npcId}/loot`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
     },
     async claimPartyLootAssignment(code: string, assignmentId: string, payload: { memberId: string }): Promise<{ ok: true; assignment: LootAssignment }> {
       return authorizedRequest(code, payload.memberId, `/party/${code}/loot-assignments/${assignmentId}/claim`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

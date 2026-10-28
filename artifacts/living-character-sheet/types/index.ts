@@ -207,6 +207,7 @@ export interface InventoryItem {
   subtype?: string;                     // e.g. "Knuckle Dusters", "Longsword", "Leather Armor"
   tags?: string[];                      // rarity, weapon properties, attunement, etc.
   sourceTag?: "official" | "custom";
+  lootClaimId?: string;
   mechanics?: ItemMechanicsBlock;
   /**
    * Phase 2 additive quest-link metadata from questGraphResult inventoryLinks.

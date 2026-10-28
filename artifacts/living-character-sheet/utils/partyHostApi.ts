@@ -44,7 +44,7 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
         method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
     },
-    async resolvePartyRestRequest(code: string, requestId: string, payload: { status: "approved" | "denied"; resolvedBy?: string }): Promise<{ ok: true; request: PartyRestRequest }> {
+    async resolvePartyRestRequest(code: string, requestId: string, payload: { status: "approved" | "denied"; resolvedBy?: string; automatic?: boolean; sceneSafety?: { dangerScore: number; shortRestFeasible: boolean; longRestFeasible: boolean; reason: string } }): Promise<{ ok: true; request: PartyRestRequest }> {
       const token = await storage.getItem(tokenKey(code));
       if (!token) throw new Error("Only the device that created this party can approve or deny rest. Older parties must expire or be recreated.");
       return request(`/party/${code}/rest-requests/${requestId}`, {
@@ -88,6 +88,30 @@ export function partyHostApi(request: Request, storage: HostTokenStorage) {
     },
     async rollNpcInitiative(code: string, npcId: string, initiativeRoll: number, initiativeBonus?: number): Promise<{ initiativeTotal: number }> {
       return request(`/party/${code}/combat-npcs/${npcId}/initiative`, { method: "PUT", headers: await encounterHeaders(code, "manage NPC instances"), body: JSON.stringify({ initiativeRoll, initiativeBonus }) });
+    },
+    async adjudicateNpcTurn(code: string, payload: {
+      battleId: string; npcId: string; npcName: string;
+      profile: "aggressive" | "cautious" | "defensive" | "sneaky" | "passive";
+      sceneText: string;
+      choices: Array<{ weaponId: string; weaponName: string; targetMemberId: string; targetName: string; range: string }>;
+    }): Promise<{ ok: true; kind: "attack" | "hold"; weaponId?: string; targetMemberId?: string; distanceFeet?: number; reason: string }> {
+      return request("/adventure/npc-turn-adjudication", {
+        method: "POST", headers: await encounterHeaders(code, "adjudicate NPC turns"),
+        body: JSON.stringify({ partyCode: code, ...payload }),
+      });
+    },
+    async executeNpcMoveTurn(code: string, payload: {
+      commandId: string; battleId: string; npcId: string; expectedRevision: number;
+      stance: "reposition" | "retreat" | "seek_cover";
+      destination: { xFeet: number; yFeet: number };
+    }): Promise<{ ok: true; replayed: boolean; receipt: {
+      commandId: string; battleId: string; npcId: string; stance: string;
+      xFeet: number; yFeet: number; movedFeet: number; nextTurnId: string;
+    } }> {
+      return request(`/party/${code}/npc-move-turn`, {
+        method: "POST", headers: await encounterHeaders(code, "execute NPC movement"),
+        body: JSON.stringify(payload),
+      });
     },
     async executeNpcWeaponTurn(code: string, payload: {
       commandId: string; battleId: string; npcId: string; weaponId: string;

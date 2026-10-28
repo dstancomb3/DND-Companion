@@ -8,6 +8,9 @@ interface AiDmSessionFeedShellProps {
   entries: AiDmSessionFeedEntry[];
   guidanceSource: "user" | "fallback";
   campaignMode?: boolean;
+  showSystemComments?: boolean;
+  onToggleSystemComments?: () => void;
+  onLootNpc?: (npcId: string) => void;
   isStreaming?: boolean;
   streamingText?: string;
 }
@@ -18,9 +21,10 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
   const followingLatest = useRef(true);
   const [hasUnread, setHasUnread] = useState(false);
 
-  const visibleEntries = props.campaignMode
-    ? props.entries.filter((e) => e.role === "dm" || e.role === "player")
-    : props.entries;
+  const visibleEntries = props.entries.filter((e) =>
+    (props.showSystemComments !== false || (e.role !== "system" && e.role !== "tool")) &&
+    (!props.campaignMode || e.role === "dm" || e.role === "player")
+  );
 
   useEffect(() => {
     if (!followingLatest.current) setHasUnread(true);
@@ -34,6 +38,11 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
 
   return (
     <View style={[styles.wrap, { borderColor: c.border, backgroundColor: c.card }]}>
+    {props.onToggleSystemComments ? <View style={{ flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 12, paddingVertical: 5 }}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={props.showSystemComments === false ? "Show system and tool comments" : "Hide system and tool comments"} onPress={props.onToggleSystemComments} style={{ paddingHorizontal: 10, paddingVertical: 5 }}>
+        <Text style={{ color: c.mutedForeground, fontSize: 11 }}>{props.showSystemComments === false ? "Show system comments" : "Hide system comments"}</Text>
+      </TouchableOpacity>
+    </View> : null}
     <ScrollView
       ref={scrollViewRef}
       testID="adventure-narrative-scroll"
@@ -71,6 +80,7 @@ export function AiDmSessionFeedShell(props: AiDmSessionFeedShellProps) {
                 </Text>
               ) : null}
               <Text style={[styles.body, { color: c.foreground }]}>{item.text}</Text>
+              {props.onLootNpc && item.defeatedNpcIds?.map(npcId => <TouchableOpacity key={npcId} accessibilityRole="button" accessibilityLabel="Loot defeated enemy" onPress={() => props.onLootNpc?.(npcId)} style={{ alignSelf: "flex-start", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: c.primary }}><Text style={{ color: c.primary, fontWeight: "700" }}>Loot</Text></TouchableOpacity>)}
             </View>
           ))}
           

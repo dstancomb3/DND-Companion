@@ -158,6 +158,7 @@ export interface PartyRestRequest {
   resolvedAt?: string;
   resolvedBy?: string;
   acknowledgements: string[];
+  provisions?: { enabled: boolean; itemIds: string[] };
 }
 
 export type CombatNpcDisposition = "hostile" | "passive" | "friendly";
@@ -270,6 +271,7 @@ export interface EndPartyTurnPayload {
   memberId?: string;
   battleId?: string;
   isDmOverride?: boolean;
+  expectedCurrentTurnId?: string;
 }
 
 export interface SyncPayload {
@@ -280,6 +282,9 @@ export interface SyncPayload {
   currentHp: number;
   maxHp: number;
   tempHp: number;
+  /** Server HP observed before this character-side HP change. */
+  expectedCurrentHp?: number;
+  expectedTempHp?: number;
   armorClass: number;
   damageResistances?: string[];
   damageImmunities?: string[];
@@ -479,6 +484,8 @@ export const confirmEncounterDistances = hostApi.confirmEncounterDistances;
 export const confirmEncounterPositions = hostApi.confirmEncounterPositions;
 export const hasLocalPartyHostCapability = hostApi.hasLocalHostCapability;
 export const executeNpcWeaponTurn = hostApi.executeNpcWeaponTurn;
+export const executeNpcMoveTurn = hostApi.executeNpcMoveTurn;
+export const adjudicateNpcTurn = hostApi.adjudicateNpcTurn;
 
 export type CreateCombatNpcPayload = {
   name: string;
@@ -519,10 +526,11 @@ export async function endPartyTurn(code: string, memberId?: string): Promise<voi
   await sendPartyEndTurn(code, memberId ? { memberId } : {});
 }
 
-export async function endPartyTurnForBattle(code: string, battleId?: string, isDmOverride?: boolean): Promise<void> {
+export async function endPartyTurnForBattle(code: string, battleId?: string, isDmOverride?: boolean, expectedCurrentTurnId?: string): Promise<void> {
   await sendPartyEndTurn(code, {
     ...(battleId ? { battleId } : {}),
     ...(isDmOverride ? { isDmOverride: true } : {}),
+    ...(expectedCurrentTurnId ? { expectedCurrentTurnId } : {}),
   });
 }
 
@@ -579,6 +587,7 @@ export async function createPartyLootAssignments(
 }
 
 export const claimPartyLootAssignment = memberApi.claimPartyLootAssignment;
+export const collectDefeatedNpcLoot = memberApi.collectDefeatedNpcLoot;
 
 export const createPartyNoteAssignments = hostApi.createPartyNoteAssignments;
 

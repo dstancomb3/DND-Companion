@@ -1,3 +1,5 @@
+import { validateAiRestApproval } from "../lib/restSceneSafety";
+import { canTransferNpcGear } from "../lib/lootEligibility";
 import { normalizeEncounterDistances } from "../lib/encounterDistances";
 import { classifyRepeatedRoll } from "../lib/rollResponseReplay";
 import { randomUUID, randomInt } from "node:crypto";
@@ -198,6 +200,7 @@ interface RestRequest {
   resolvedAt?: string;
   resolvedBy?: string;
   acknowledgements: string[];
+  provisions?: { enabled: boolean; itemIds: string[] };
 }
 
 interface PartyMemberCombatStats {
@@ -372,6 +375,7 @@ type RemoteApplyRejectedTarget = {
 
 type RemoteApplyTargetResultEntry = {
   requestIndex: number;
+  defeated?: boolean;
   targetType?: string;
   targetId?: string;
   status: "applied" | "skipped_invalid" | "skipped_missing_target" | "skipped_noop";
@@ -1337,7 +1341,7 @@ function rebuildTurnOrder(state: PartyCombatState, liveMemberIds: string[]) {
       const rolledIds = rolled.filter((id) => state.participantBattleById[id] === battleId);
       const unrolledIds = participantIds.filter((id) => !rolledIds.includes(id));
       const order = [...rolledIds, ...unrolledIds];
-      if (state.includeEnvironment) order.push(ENVIRONMENT_TURN_ID);
+      // The DM acts through NPC turns. Conditions tick at turn boundaries, not in an extra initiative slot.
       return [battleId, order];
     })
   );
@@ -1600,6 +1604,8 @@ router.put("/party/sync", async (req, res) => {
       currentHp,
       maxHp,
       tempHp,
+      expectedCurrentHp,
+      expectedTempHp,
       armorClass,
       conditions,
       coreStats,
@@ -1676,11 +1682,25 @@ router.put("/party/sync", async (req, res) => {
       }
     }
 
+    const inActiveCombat = Boolean(state.participantBattleById[memberId]);
+    const baseMatches = expectedCurrentHp === existing[0].currentHp &&
+      expectedTempHp === existing[0].tempHp;
+    const hpChanged = currentHp !== existing[0].currentHp || tempHp !== existing[0].tempHp;
+    if (inActiveCombat && hpChanged && !baseMatches) {
+      res.status(409).json({
+        code: "stale_member_snapshot",
+        error: "Combat HP changed since this character last observed the server. Refresh before applying a health effect.",
+      });
+      return;
+    }
+
     const memberData = {
       id: memberId,
       partyCode,
       characterName: characterName ?? "Unknown",
       characterClass: characterClass ?? "Unknown",
+      // During an active encounter, HP and temporary HP are owned by the combat executor.
+      // A stale character-sheet sync must not silently heal away committed NPC damage.
       currentHp: currentHp ?? 0,
       maxHp: maxHp ?? 1,
       tempHp: tempHp ?? 0,
@@ -2232,6 +2252,114 @@ router.put("/party/:code/initiative/roll", async (req, res) => {
  * The AI DM must select from canonical weapon IDs; it cannot supply rolls,
  * damage, attacker modifiers, narration or player HP.
  */
+/** NPC movement: atomic, bounded and based on established encounter coordinates. */
+router.post("/party/:code/npc-move-turn", async (req, res) => {
+  const { code } = req.params;
+  const { commandId, battleId, npcId, expectedRevision, destination, stance } = req.body ?? {};
+  if (typeof commandId !== "string" || commandId.length < 1 || commandId.length > 128 ||
+      typeof battleId !== "string" || !battleId || typeof npcId !== "string" || !npcId ||
+      !Number.isSafeInteger(expectedRevision) || expectedRevision < 1 ||
+      !["reposition", "retreat", "seek_cover"].includes(stance) ||
+      !destination || typeof destination.xFeet !== "number" || typeof destination.yFeet !== "number" ||
+      !Number.isFinite(destination.xFeet) || !Number.isFinite(destination.yFeet) ||
+      Math.abs(destination.xFeet) > 10000 || Math.abs(destination.yFeet) > 10000) {
+    res.status(400).json({ error: "Valid NPC turn, bounded destination, and stance required." }); return;
+  }
+  try {
+    const result = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!hasPartyHostToken(req.get("authorization"), sessions[0]?.hostTokenHash))
+        throw new CompanionLifecycleError(403, "party_host_required", "Only the encounter host controls NPC movement.");
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt))
+        throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable) throw new CompanionLifecycleError(409, "combat_state_missing", "Encounter state unavailable.");
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      const prior = state.eventLog.find(event => event.type === "npc_move_turn_committed" && event.metadata?.commandId === commandId);
+      if (prior) {
+        if (prior.metadata?.npcId !== npcId || prior.metadata?.battleId !== battleId ||
+          prior.metadata?.stance !== stance ||
+          prior.metadata?.xFeet !== destination.xFeet || prior.metadata?.yFeet !== destination.yFeet)
+          throw new CompanionLifecycleError(409, "command_id_conflict", "Movement command reused with different parameters.");
+        return { replayed: true, receipt: prior.metadata };
+      }
+      if (durable.stateRevision !== expectedRevision) throw new RuntimeConflictError(expectedRevision, durable.stateRevision);
+      if (state.currentTurnIdByBattle[battleId] !== npcId || state.participantBattleById[npcId] !== battleId)
+        throw new CompanionLifecycleError(409, "npc_turn_changed", "The NPC no longer owns this turn.");
+      const npc = state.combatNpcs.find(entry => entry.id === npcId);
+      if (!npc || npc.projection?.combatantKind === "companion" || npc.disposition !== "hostile" ||
+        (npc.dummyState?.currentHp ?? 0) <= 0 ||
+        npc.conditions?.some(c => /^(stunned|paralyzed|incapacitated|petrified|unconscious|grappled|restrained)$/i.test(c.name)))
+        throw new CompanionLifecycleError(409, "npc_unavailable", "This NPC cannot move.");
+      // Cover requires an authoritative terrain/obstruction record. Encounter
+      // combatant coordinates alone cannot establish that a destination is safe.
+      if (stance === "seek_cover") {
+        throw new CompanionLifecycleError(409, "cover_geometry_missing",
+          "No confirmed cover terrain exists for this NPC movement decision.");
+      }
+      const current = state.encounterPositions.find(p => p.battleId === battleId && p.combatantId === npcId);
+      if (!current || !["dm_confirmed", "grid_authority"].includes(current.source))
+        throw new CompanionLifecycleError(409, "position_unconfirmed", "Confirm NPC starting position before movement.");
+      const feet = Math.hypot(destination.xFeet - current.xFeet, destination.yFeet - current.yFeet);
+      const speed = npc.coreStats.speed;
+      if (!Number.isFinite(speed) || speed <= 0 || speed > 200 || feet < 0.01 || feet > speed + 0.001)
+        throw new CompanionLifecycleError(422, "movement_out_of_range", "Movement exceeds NPC speed or has no displacement.");
+      // Client plans are untrusted: revalidate occupied destinations inside
+      // the same transaction that moves the NPC and advances initiative.
+      if (state.encounterPositions.some(point => point.battleId === battleId &&
+          point.combatantId !== npcId &&
+          state.participantBattleById[point.combatantId] === battleId &&
+          (point.source === "dm_confirmed" || point.source === "grid_authority") &&
+          Math.hypot(point.xFeet - destination.xFeet, point.yFeet - destination.yFeet) < 5)) {
+        throw new CompanionLifecycleError(409, "npc_destination_occupied",
+          "Another combatant occupies the proposed destination.");
+      }
+      // A straight-line move may not pass through another occupied square.
+      const pathBlocked = state.encounterPositions.some(point => {
+        if (point.battleId !== battleId || point.combatantId === npcId ||
+            state.participantBattleById[point.combatantId] !== battleId ||
+            (point.source !== "dm_confirmed" && point.source !== "grid_authority")) return false;
+        const dx = destination.xFeet - current.xFeet;
+        const dy = destination.yFeet - current.yFeet;
+        const t = Math.max(0, Math.min(1,
+          ((point.xFeet - current.xFeet) * dx + (point.yFeet - current.yFeet) * dy) /
+          (dx * dx + dy * dy)));
+        return Math.hypot(point.xFeet - (current.xFeet + t * dx),
+          point.yFeet - (current.yFeet + t * dy)) < 5;
+      });
+      if (pathBlocked) throw new CompanionLifecycleError(409, "npc_path_blocked",
+        "An occupied combatant space blocks the proposed movement path.");
+      const order = state.battleTurnOrderById[battleId] ?? [];
+      const index = order.indexOf(npcId);
+      if (index < 0 || order.length < 2) throw new CompanionLifecycleError(409, "turn_order_invalid", "Cannot advance initiative.");
+      state.encounterPositions = state.encounterPositions.map(p => p === current
+        ? { ...p, xFeet: destination.xFeet, yFeet: destination.yFeet, source: "dm_confirmed" as const } : p);
+      // Distances touching the moved NPC are stale; only confirmed positions remain authoritative.
+      state.encounterDistances = state.encounterDistances.filter(d => d.viewerId !== npcId && d.targetId !== npcId);
+      const nextTurnId = order[(index + 1) % order.length];
+      state.currentTurnIdByBattle[battleId] = nextTurnId;
+      syncLegacyTurnState(state);
+      const receipt = { commandId, battleId, npcId, stance, xFeet: destination.xFeet,
+        yFeet: destination.yFeet, movedFeet: feet, nextTurnId };
+      appendEvent(state, { type: "npc_move_turn_committed",
+        message: `${npc.name} moves ${Math.round(feet)} feet to ${stance.replace("_", " ")}.`, metadata: receipt });
+      const saved = await savePartyRuntimeSnapshot({
+        partyCode: code, snapshot: toRuntimeSnapshotPayload(state), expectedRevision,
+      }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(expectedRevision, saved.conflictRevision);
+      return { replayed: false, receipt };
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) {
+      res.status(error.status).json({ code: error.code, error: error.message }); return;
+    }
+    res.status(500).json({ error: "NPC movement could not be committed." });
+  }
+});
+
 router.post("/party/:code/npc-weapon-turn", async (req, res) => {
   const { code } = req.params;
   const commandId = typeof req.body?.commandId === "string" ? req.body.commandId.trim() : "";
@@ -2433,6 +2561,10 @@ router.post("/party/:code/end-turn", async (req, res) => {
     }
 
     const previousTurnId = state.currentTurnIdByBattle[requestedBattleId] ?? null;
+    if (req.body?.expectedCurrentTurnId !== undefined && (access.role !== "host" || req.body.expectedCurrentTurnId !== previousTurnId)) {
+      res.status(409).json({ code: "turn_changed", error: "The expected combatant is no longer taking this turn." });
+      return;
+    }
     const idx = previousTurnId ? battleTurnOrder.indexOf(previousTurnId) : -1;
     const nextIdx = idx >= 0 ? (idx + 1) % battleTurnOrder.length : 0;
     state.currentTurnIdByBattle[requestedBattleId] = battleTurnOrder[nextIdx];
@@ -2764,6 +2896,7 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
           targetType: "member",
           targetId: operation.memberId,
           status: "applied",
+          defeated: member.currentHp > 0 && operation.nextHp === 0,
         });
         continue;
       }
@@ -2779,8 +2912,13 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
         });
         continue;
       }
+      const npcWasStanding = typeof npc.dummyState?.currentHp === "number" && npc.dummyState.currentHp > 0;
       if (npc.dummyState && operation.nextHp !== null) {
         npc.dummyState.currentHp = operation.nextHp;
+      }
+      if (npcWasStanding && operation.nextHp === 0) {
+        appendEvent(state, { type: "npc_defeated", message: `${npc.name} was defeated.`,
+          memberId: sourceMemberId, metadata: { npcId: npc.id, commandId } });
       }
       npc.conditions = operation.nextConditions;
       appliedCount += 1;
@@ -2789,8 +2927,37 @@ router.post("/party/:code/combat/apply-outcomes", async (req, res) => {
         targetType: "npc",
         targetId: operation.npcId,
         status: "applied",
+        ...(operation.nextHp !== null ? { defeated: npcWasStanding && operation.nextHp === 0 } : {}),
       });
     }
+
+    // Reconcile battle completion from authoritative HP, not just a newly
+    // emitted defeat event. An earlier failed closure must be recoverable on
+    // the next committed NPC outcome without reviving the combat loop.
+    const affectedBattleIds = new Set(targetResultsSummary
+      .filter(row => row.targetType === "npc" && row.status === "applied")
+      .map(row => state.participantBattleById[row.targetId])
+      .filter((id): id is string => typeof id === "string" && !!id));
+    for (const battleId of affectedBattleIds) {
+      const hostiles = state.combatNpcs.filter(npc =>
+        state.participantBattleById[npc.id] === battleId && npc.disposition === "hostile");
+      if (!hostiles.length || hostiles.some(npc => npc.dummyState?.currentHp === undefined ||
+          npc.dummyState.currentHp > 0)) continue;
+      const participantIds = Object.keys(state.participantBattleById)
+        .filter(id => state.participantBattleById[id] === battleId);
+      for (const id of participantIds) {
+        delete state.participantBattleById[id];
+        delete state.initiativeByMember[id];
+      }
+      state.activeMemberIds = state.activeMemberIds.filter(id => !participantIds.includes(id));
+      delete state.battleTurnOrderById[battleId];
+      delete state.currentTurnIdByBattle[battleId];
+      appendEvent(state, { type: "encounter_ended",
+        message: "The last hostile falls. Combat ends; defeated enemies can still be looted.",
+        metadata: { battleId, cause: "all_hostiles_defeated" } });
+    }
+    // Completion clears the authoritative battle, not the corpse instances.
+    syncLegacyTurnState(state);
 
     targetResultsSummary.sort((a, b) => a.requestIndex - b.requestIndex);
 
@@ -3024,17 +3191,35 @@ router.post("/party/:code/rest-requests", async (req, res) => {
 
     const state = await getOrHydrateCombatState(code);
     const existing = state.restRequests.find(
-      (request) =>
-        request.status === "pending" &&
-        request.requestedByMemberId === memberId &&
-        request.restType === restType
+      request => request.requestedByMemberId === memberId &&
+        request.restType === restType &&
+        (request.status === "pending" ||
+          (request.status === "approved" &&
+            request.targetMemberIds.some(id => !request.acknowledgements.includes(id))))
     );
     if (existing) {
       res.json({ ok: true, request: existing });
       return;
     }
 
+    // Provisions are strictly opt-in; requesting a rest never consumes items.
+    const provisionsInput = req.body?.provisions;
+    if (provisionsInput !== undefined && (
+      !provisionsInput || typeof provisionsInput !== "object" ||
+      typeof provisionsInput.enabled !== "boolean" ||
+      !Array.isArray(provisionsInput.itemIds) ||
+      provisionsInput.itemIds.length > 30 ||
+      provisionsInput.itemIds.some((id: unknown) => typeof id !== "string" || !id.trim() || id.length > 128) ||
+      new Set(provisionsInput.itemIds).size !== provisionsInput.itemIds.length ||
+      (!provisionsInput.enabled && provisionsInput.itemIds.length > 0)
+    )) {
+      res.status(400).json({ code: "invalid_rest_provisions",
+        error: "Provisions must be explicitly enabled and contain unique, bounded inventory IDs." });
+      return;
+    }
     const request: RestRequest = {
+      ...(provisionsInput ? { provisions: { enabled: provisionsInput.enabled,
+        itemIds: provisionsInput.itemIds } } : {}),
       id: generateId(),
       restType,
       requestedByMemberId: memberId,
@@ -3095,6 +3280,31 @@ router.put("/party/:code/rest-requests/:requestId", async (req, res) => {
       return;
     }
 
+    // A resolution is a state transition, not a repeatable command. Replay
+    // of the same decision is harmless; contradictory decisions are rejected.
+    if (request.status !== "pending") {
+      if (request.status === status) { res.json({ ok: true, request, replayed: true }); return; }
+      res.status(409).json({ code: "rest_already_resolved",
+        error: "This rest request has already been resolved." });
+      return;
+    }
+    if (status === "approved" && request.targetMemberIds.some(id => {
+      const battleId = state.participantBattleById[id];
+      if (!battleId) return false;
+      return state.combatNpcs.some(npc => state.participantBattleById[npc.id] === battleId &&
+        npc.disposition === "hostile" && (npc.dummyState?.currentHp ?? 1) > 0);
+    })) {
+      res.status(409).json({ code: "rest_unsafe_active_combat",
+        error: "Cannot approve rest while a hostile encounter is still active." });
+      return;
+    }
+    if (status === "approved" && req.body?.automatic === true) {
+      const safety = validateAiRestApproval(request.restType, req.body?.sceneSafety);
+      if (!safety.ok) {
+        res.status(409).json({ code: "rest_scene_unsafe", error: safety.reason });
+        return;
+      }
+    }
     request.status = status;
     request.resolvedAt = new Date().toISOString();
     request.resolvedBy = "dm"; // Derived from host proof, not caller labels.
@@ -3153,9 +3363,11 @@ router.put("/party/:code/rest-requests/:requestId/ack", async (req, res) => {
       return;
     }
 
-    if (!request.acknowledgements.includes(memberId)) {
-      request.acknowledgements.push(memberId);
+    if (request.acknowledgements.includes(memberId)) {
+      res.json({ ok: true, request, replayed: true });
+      return;
     }
+    request.acknowledgements.push(memberId);
     await persistRuntimeState(code, state);
 
     res.json({ ok: true, request });
@@ -3207,6 +3419,62 @@ router.post("/party/:code/events", async (req, res) => {
   } catch (err) {
     if (err instanceof RuntimeConflictError) throw err;
     res.status(500).json({ error: "Failed to append party event" });
+  }
+});
+
+/** Loot only server-confirmed defeated NPC gear, and reserve each item exactly once. */
+router.post("/party/:code/defeated-npc/:npcId/loot", async (req, res) => {
+  const { code, npcId } = req.params;
+  const memberId = typeof req.body?.memberId === "string" ? req.body.memberId : "";
+  const itemIds: string[] = Array.isArray(req.body?.itemIds) ? req.body.itemIds : [];
+  if (!memberId || !itemIds.length || itemIds.length > 40 ||
+      !itemIds.every(id => typeof id === "string" && id.length > 0 && id.length <= 128) ||
+      new Set(itemIds).size !== itemIds.length) {
+    res.status(400).json({ error: "Select valid, distinct loot items and a recipient." }); return;
+  }
+  try {
+    const access = await authorizePartyMember(code, memberId, req.get("authorization"));
+    if (!access.ok) { res.status(access.status).json({ error: access.error, code: access.code }); return; }
+    const outcome = await db.transaction(async tx => {
+      const sessions = await tx.select().from(partySessions).where(eq(partySessions.code, code)).for("update");
+      if (!sessions[0] || isExpired(sessions[0].lastActivityAt)) throw new CompanionLifecycleError(404, "party_not_found", "Party unavailable.");
+      const durable = await loadPartyRuntimeSnapshot(code, tx);
+      if (!durable) throw new CompanionLifecycleError(409, "combat_state_missing", "Encounter state unavailable.");
+      const state = hydrateRuntimeSnapshotToCombatState(code, durable.snapshot);
+      state.stateRevision = durable.stateRevision;
+      const npc = state.combatNpcs.find(entry => entry.id === npcId);
+      const confirmedDefeat = state.eventLog.some(event =>
+        event.type === "npc_defeated" && event.metadata?.npcId === npcId);
+      if (!npc || !npc.dummyState || npc.dummyState.currentHp !== 0 ||
+          npc.projection?.combatantKind === "companion" || !confirmedDefeat) {
+        throw new CompanionLifecycleError(409, "npc_not_defeated", "This combatant has not been confirmed defeated.");
+      }
+      const selected = (npc.gear ?? []).filter(gear => itemIds.includes(gear.id) && canTransferNpcGear(gear));
+      if (selected.length !== itemIds.length) throw new CompanionLifecycleError(409, "loot_unavailable", "One or more items were already taken.");
+      const now = new Date().toISOString();
+      const assignments: LootAssignment[] = selected.map(gear => ({
+        id: generateId(), targetMemberId: memberId,
+        item: { name: gear.name, quantity: 1, category: gear.category, notes: gear.notes,
+          inventoryItem: { name: gear.name, quantity: 1, equipped: false, category: gear.category,
+            notes: gear.notes, damageDice: gear.damageDice, damageModifier: gear.damageModifier,
+            damageType: gear.damageType, weaponRange: gear.range } },
+        assignedBy: `defeated_npc:${npcId}`, assignedAt: now,
+      }));
+      npc.gear = (npc.gear ?? []).filter(gear => !itemIds.includes(gear.id));
+      state.lootAssignments.unshift(...assignments);
+      appendEvent(state, { type: "loot_assigned", memberId, message: `Loot collected from ${npc.name}.`,
+        metadata: { npcId, itemIds, assignmentIds: assignments.map(a => a.id) } });
+      const saved = await savePartyRuntimeSnapshot({ partyCode: code,
+        snapshot: toRuntimeSnapshotPayload(state), expectedRevision: durable.stateRevision }, tx);
+      if (!saved.ok) throw new RuntimeConflictError(durable.stateRevision, saved.conflictRevision);
+      return assignments;
+    }, { isolationLevel: "serializable" });
+    combatStates.delete(code);
+    res.json({ ok: true, assignments: outcome });
+  } catch (error) {
+    if (error instanceof RuntimeConflictError) throw error;
+    if (error instanceof CompanionLifecycleError) { res.status(error.status).json({ code: error.code, error: error.message }); return; }
+    res.status(500).json({ error: "Could not collect NPC loot." });
   }
 });
 
@@ -4150,8 +4418,18 @@ router.delete("/party/:code/encounters/:battleId", async (req, res) => {
       return;
     }
 
-    // Remove NPCs from combat entirely
-    state.combatNpcs = state.combatNpcs.filter((npc) => !npcIdsInBattle.includes(npc.id));
+    // Preserve confirmed defeated NPCs outside initiative, including their
+    // unclaimed physical gear. Manual DM closure must not erase corpse loot.
+    const defeatedNpcIds = new Set(state.eventLog.filter(event =>
+      event.type === "npc_defeated" &&
+      typeof event.metadata?.npcId === "string").map(event => String(event.metadata!.npcId)));
+    const retainedCorpseIds = npcIdsInBattle.filter(id => {
+      const npc = state.combatNpcs.find(entry => entry.id === id);
+      return npc?.projection?.combatantKind !== "companion" &&
+        defeatedNpcIds.has(id) && npc?.dummyState?.currentHp === 0;
+    });
+    state.combatNpcs = state.combatNpcs.filter(npc =>
+      !npcIdsInBattle.includes(npc.id) || retainedCorpseIds.includes(npc.id));
 
     // Un-assign all participants from this battle
     for (const id of allIdsInBattle) {
@@ -4172,8 +4450,8 @@ router.delete("/party/:code/encounters/:battleId", async (req, res) => {
 
     appendEvent(state, {
       type: "encounter_ended",
-      message: `DM ended encounter (${memberIdsInBattle.length} player(s), ${npcIdsInBattle.length} NPC(s) removed).`,
-      metadata: { battleId, memberCount: memberIdsInBattle.length, npcCount: npcIdsInBattle.length },
+      message: `DM ended encounter (${memberIdsInBattle.length} player(s) exited, ${npcIdsInBattle.length - retainedCorpseIds.length} NPC(s) removed, ${retainedCorpseIds.length} defeated NPC(s) retained for loot).`,
+      metadata: { battleId, memberCount: memberIdsInBattle.length, npcCount: npcIdsInBattle.length, retainedCorpseIds },
     });
     await persistRuntimeState(code, state);
 

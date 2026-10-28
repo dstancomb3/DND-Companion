@@ -9,8 +9,9 @@ let Shell: any, frames: any, Feed: any, EventPanel: any;
 const originalLoad = Module._load;
 try {
   Module._load = function(name: string, ...args: unknown[]) {
+    if (name === "@expo/vector-icons") return { Feather: "Feather", MaterialCommunityIcons: "MaterialCommunityIcons" };
     if (name === "@react-native-async-storage/async-storage") return { getItem: async () => null, setItem: async () => {} };
-    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TextInput: "Input", ActivityIndicator: "Spinner", TouchableOpacity: "Button", StyleSheet: { create: (x: any) => x } };
+    if (name === "react-native") return { View: "View", Text: "Text", ScrollView: "Scroll", TextInput: "Input", ActivityIndicator: "Spinner", TouchableOpacity: "Button", StyleSheet: { create: (x: any) => x }, Platform: { OS: "test" }, PanResponder: { create: () => ({ panHandlers: {} }) } };
     if (name === "@/hooks/useColors") return { useColors: () => ({}) };
     return originalLoad.call(this, name, ...args);
   };
@@ -80,13 +81,20 @@ test("reading older story stops streaming auto-scroll until Jump to latest", () 
   } finally { act(() => tree.unmount()); }
 });
 
-test("event widget keeps server newest-first order and limits its snapshot", () => {
+test("event widget preserves newest-first order with named initiative transitions", () => {
   let tree: any;
-  const events = Array.from({ length: 25 }, (_, i) => ({ id: String(i), type: "turn_advanced", message: `Event ${i}` }));
-  act(() => { tree = Renderer.create(React.createElement(EventPanel, { events })); });
+  const events = Array.from({ length: 35 }, (_, i) => ({
+    id: String(i), type: "turn_advanced", message: `Event ${i}`,
+    metadata: { from: "lyra", to: i % 2 ? "guard" : "lyra" },
+  }));
+  const members = [{ id: "lyra", characterName: "Lyra Shadowstep" }];
+  const npcNames = [{ id: "guard", name: "Cloaked Guard" }];
+  act(() => { tree = Renderer.create(React.createElement(EventPanel, { events, members, npcNames })); });
   try {
-    const messages = tree.root.findAllByType("Text").map((n: any) => n.children.join("")).filter((s: string) => s.startsWith("Event"));
-    assert.equal(messages.length, 20); assert.equal(messages[0], "Event 0"); assert.equal(messages.at(-1), "Event 19");
+    const messages = tree.root.findAllByType("Text").map((n: any) => n.children.join("")).filter((s: string) => s.includes("ends their turn"));
+    assert.equal(messages.length, 30);
+    assert.match(messages[0], /Lyra Shadowstep ends their turn/);
+    assert.match(messages[1], /Cloaked Guard is next/);
   } finally { act(() => tree.unmount()); }
 });
 

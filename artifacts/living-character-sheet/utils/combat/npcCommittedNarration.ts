@@ -114,3 +114,35 @@ export function committedWeaponTurnToNarrationFacts(
     },
   });
 }
+
+/** Describe only the server's committed weapon outcome; never narrate a proposal. */
+export function narrateCommittedNpcWeaponTurn(input: {
+  response: { ok: true; replayed: boolean; receipt: HostNpcWeaponTurnReceipt };
+  npcName: string;
+  weaponName: string;
+  targetName: string;
+}): string | null {
+  const facts = committedWeaponTurnToNarrationFacts(input.response);
+  if (!facts || input.response.replayed) return null;
+  const receipt = input.response.receipt;
+  let hash = 2166136261;
+  for (const char of receipt.commandId) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  const choice = (hash >>> 0) % 3;
+  const weapon = input.weaponName.toLowerCase();
+  const style = /bow|crossbow|sling/.test(weapon) ? "ranged" :
+    /staff|club|mace|hammer/.test(weapon) ? "blunt" :
+    /sword|axe|dagger|spear|blade/.test(weapon) ? "blade" : "other";
+  const attacks = style === "ranged"
+    ? [`takes aim and looses a shot toward ${input.targetName}`, `levels the weapon and fires at ${input.targetName}`, `tracks ${input.targetName} and releases`]
+    : style === "blunt"
+      ? [`steps forward, swinging toward ${input.targetName}`, `brings the weapon around in a tight arc toward ${input.targetName}`, `drives a heavy strike at ${input.targetName}`]
+      : style === "blade"
+        ? [`lunges toward ${input.targetName}, blade leading`, `turns into a slash aimed at ${input.targetName}`, `cuts forward at ${input.targetName}`]
+        : [`commits to an attack against ${input.targetName}`, `presses the attack on ${input.targetName}`, `strikes at ${input.targetName}`];
+  const start = `${input.npcName} ${attacks[choice]} with ${input.weaponName}.`;
+  if (!receipt.hit) return `${start} The attack misses, leaving ${input.targetName} unharmed.`;
+  const critical = receipt.critical ? " A critical hit!" : "";
+  if (receipt.damageToHp > 0) return `${start}${critical} The blow connects, dealing ${receipt.damageToHp} ${receipt.damageType} damage.`;
+  if (receipt.damageApplied > 0) return `${start}${critical} The blow connects, but its damage is absorbed by temporary hit points.`;
+  return `${start}${critical} The strike connects, but no damage gets through.`;
+}

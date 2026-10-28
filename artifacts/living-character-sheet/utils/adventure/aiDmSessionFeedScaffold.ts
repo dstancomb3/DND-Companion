@@ -6,6 +6,7 @@ export interface AiDmSessionFeedEntry {
   id: string;
   role: AiDmSessionFeedRole;
   text: string;
+  defeatedNpcIds?: string[];
 }
 
 export type AiDmQuickActionKey =
@@ -146,6 +147,38 @@ function buildOneOffOpeningBeat(input: {
   startInCombat: boolean;
   guidance: string;
 }): string {
+  const selectedScenario = /Scenario: (.*?)\. Location: (.*?)\. Flavor: (.*?)\. Open in/.exec(input.guidance);
+  if (selectedScenario) {
+    const [, scenario, location, flavor] = selectedScenario;
+    const place = location.split(" — ")[0].toLowerCase();
+    const when = location.split(" — ")[1] ?? "as the day draws on";
+    const premise = scenario.split(" — ")[0];
+    const twist = scenario.split(" — ")[1] ?? "someone knows more than they admit";
+    const tone = flavor.split(" — ")[0].toLowerCase();
+    const scenery = /lighthouse|coast/.test(place)
+      ? "Wind drives salt spray across the stones. Far below, waves break against the rocks hard enough to rattle the glass in the lantern room."
+      : /inn|tavern/.test(place)
+      ? "Wet cloaks hang beside a low fire. Conversations pause whenever the front door opens, and the smell of stew has long since gone cold."
+      : /market|bazaar/.test(place)
+      ? "Cloth awnings snap overhead as traders shout across a crowded lane. Spices, damp canvas, and smoke compete in the warm air."
+      : /forest|watchtower/.test(place)
+      ? "The trees crowd the path, their branches shifting against an overcast sky. Somewhere past the undergrowth, a loose shutter strikes stone."
+      : /crypt|monastery/.test(place)
+      ? "Cold water seeps between the flagstones. Every footstep returns as a distant echo, and the air tastes of dust and old incense."
+      : /village|mining/.test(place)
+      ? "A few windows glow against the gathering dark. The streets are nearly empty, though the sound of hurried footsteps carries from somewhere nearby."
+      : /estate|masquerade/.test(place)
+      ? "Candlelight catches on polished floors and painted masks. Music drifts through open doors while servants quietly hurry between rooms."
+      : /barge|floating/.test(place)
+      ? "The boards shift beneath your feet as boats knock softly together. Lantern reflections break across black water between the narrow walkways."
+      : "The air is thick with the sounds of people going about their business, but something has disturbed the usual rhythm of the place.";
+    const introduction = `You reach ${place} ${when}. ${scenery}`;
+    const situation = `${premise.charAt(0).toUpperCase() + premise.slice(1)}. Already, there are whispers that ${twist.charAt(0).toLowerCase() + twist.slice(1)}.`;
+    const pressure = input.startInCombat
+      ? "Before you can ask a question, a shout cuts through the air. Armed figures surge toward you, blocking the nearest escape. Where do you move first?"
+      : "At the edge of the gathering, someone catches your eye and makes a quick, urgent gesture toward a side passage. A second figure notices, turns, and walks away. You have a moment to choose whom to follow.";
+    return `${introduction} ${situation} The atmosphere is one of ${tone}, but the danger is immediate. ${pressure}`;
+  }
   const combinedContext = `${input.title} ${input.guidance}`;
   const env = detectEnvironment(combinedContext);
   const isSocial = detectSocialIntent(combinedContext);

@@ -122,6 +122,7 @@ export interface RemoteCombatApplyReceipt {
     targetType?: string;
     targetId?: string;
     status: "applied" | "skipped_invalid" | "skipped_missing_target" | "skipped_noop";
+    defeated?: boolean;
     reason?: string;
   }>;
 }

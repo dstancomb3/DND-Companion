@@ -30,6 +30,7 @@ import { ConcentrationSaveModal } from "./ConcentrationSaveModal";
 interface AttackCardProps {
   attack: Attack;
   pinned?: boolean;
+  compact?: boolean;
   onTogglePin?: () => void;
   onResolved?: (result: CombatActionResult) => void;
 }
@@ -38,13 +39,14 @@ function fmtMod(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
-export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: AttackCardProps) {
+export function AttackCard({ attack, pinned = false, compact = false, onTogglePin, onResolved }: AttackCardProps) {
   const c = useColors();
   const { updateAttack, updateItem, resources, decrementResource, incrementResource, character, conditions } = useCharacter();
   const combat = useCombat();
   const { isInParty, memberId, combatState, members } = useParty();
   const extras = attack.additionalDamage ?? [];
   const [attackActionUsed, setAttackActionUsed] = useState(false);
+  const [compactExpanded, setCompactExpanded] = useState(false);
   const submissionInFlight = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attackFeedback, setAttackFeedback] = useState<{ message: string; error: boolean } | null>(null);
@@ -347,6 +349,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: 
         eventMessage: `Attack: ${attack.name}`,
         eventMetadata: {
           attackName: attack.name,
+          targetIds: resolvedTargetIds,
           damageType: attack.damageType,
           attackBonus: attack.attackBonus,
         },
@@ -417,10 +420,10 @@ export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: 
 
   return (
     <>
-      <Card style={[styles.card, { borderLeftWidth: 3, borderLeftColor: attackActionUsed ? c.mutedForeground : ATTACK_COLOR }]}>
+      <Card style={[styles.card, compact && { marginBottom: 5, padding: 8 }, { borderLeftWidth: 3, borderLeftColor: attackActionUsed ? c.mutedForeground : ATTACK_COLOR }]}>
         {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.titleRow}>
+        <View style={[styles.header, compact && { marginBottom: 4 }]}>
+          <View style={[styles.titleRow, compact && { marginBottom: 4 }]}>
             <TouchableOpacity
               activeOpacity={0.7}
               onLongPress={onTogglePin}
@@ -428,7 +431,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: 
               style={styles.titlePressArea}
             >
               <Text
-                style={[styles.name, { color: c.foreground }]}
+                style={[styles.name, compact && { fontSize: 14, lineHeight: 19 }, { color: c.foreground }]}
                 numberOfLines={2}
                 ellipsizeMode="tail"
               >
@@ -456,7 +459,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: 
               </TouchableOpacity>
             </View>
           </View>
-          <View style={styles.statRow}>
+          <View style={[styles.statRow, compact && { gap: 8 }]}>
             <View style={styles.statChip}>
               <Text style={[styles.statLabel, { color: c.mutedForeground }]}>ATK</Text>
               <Text style={[styles.statValue, { color: c.primary }]}>{fmtMod(attack.attackBonus)}</Text>
@@ -500,10 +503,15 @@ export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: 
           </View>
         </View>
 
+        {compact ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${compactExpanded ? "Collapse" : "Expand"} ${attack.name} attack controls`} accessibilityState={{ expanded: compactExpanded }} onPress={() => setCompactExpanded(value => !value)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+          <Text style={{ color: c.primary, fontSize: 11, fontWeight: "700" }}>{compactExpanded ? "Hide dice and attack controls" : "Roll and attack"}</Text>
+          <Feather name={compactExpanded ? "chevron-up" : "chevron-down"} size={15} color={c.primary} />
+        </TouchableOpacity> : null}
+        {(!compact || compactExpanded) ? <>
         {/* Calculator */}
-        <View style={[styles.calcSection, { borderTopColor: c.border }]}>
+        <View style={[styles.calcSection, compact && { paddingTop: 5, marginBottom: 3 }, { borderTopColor: c.border }]}>
           {/* To Hit */}
-          <View style={styles.calcRow}>
+          <View style={[styles.calcRow, compact && { minHeight: 34 }]}>
             <Text style={[styles.calcLabel, { color: c.mutedForeground }]}>To Hit</Text>
             <View style={styles.calcRight}>
               <TouchableOpacity
@@ -798,6 +806,7 @@ export function AttackCard({ attack, pinned = false, onTogglePin, onResolved }: 
             })}
           </View>
         )}
+        </> : null}
       </Card>
 
       {/* Extra Damage Edit Modal */}

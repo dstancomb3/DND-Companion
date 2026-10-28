@@ -15,6 +15,7 @@ export interface CampaignRuntimeTurnRollPrompt {
 export interface CampaignRuntimeTurnEncounterIntent {
   requiresEncounterStart: boolean;
   hostileCreatureName: string;
+  hostileCreatureCount?: number;
   hostileCreatureSourceType?: "monster";
   hostileCreatureSourceId?: string;
   promptRolls: CampaignRuntimeTurnRollPrompt[];
@@ -35,6 +36,7 @@ export interface CampaignRuntimeTurnResponse {
     dmText: string;
     choices: string[];
     stateTags: string[];
+    sceneSafety?: { dangerScore: number; shortRestFeasible: boolean; longRestFeasible: boolean; reason: string };
     itemChanges: CampaignRuntimeTurnItemChange[];
     encounterIntent: CampaignRuntimeTurnEncounterIntent | null;
     adjudicationRequests: CampaignRuntimeTurnAdjudicationRequest[];

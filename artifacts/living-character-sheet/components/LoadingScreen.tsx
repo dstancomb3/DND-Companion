@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, Text, Animated, Easing } from "react-native";
 
 interface LoadingScreenProps {
@@ -6,44 +6,22 @@ interface LoadingScreenProps {
 }
 
 export function LoadingScreen({ visible }: LoadingScreenProps) {
-  const [isShown, setIsShown] = useState(visible);
   const spinAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(visible ? 1 : 0)).current;
 
   useEffect(() => {
-    if (visible) {
-      setIsShown(true);
-      // Start spin animation when visible
-      Animated.loop(
-        Animated.timing(spinAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
+    if (!visible) return;
+    const loop = Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1, duration: 2000, easing: Easing.linear, useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [visible, spinAnim]);
 
-      // Fade in
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      // Fade out
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setIsShown(false);
-      });
-    }
-  }, [visible, spinAnim, fadeAnim]);
-
-  if (!isShown) {
-    return null;
-  }
+  // Never keep a full-screen blocking view mounted waiting for an animation
+  // completion callback. Some browser runtimes do not complete the fade.
+  if (!visible) return null;
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
@@ -61,7 +39,6 @@ export function LoadingScreen({ visible }: LoadingScreenProps) {
         backgroundColor: "#0F1117",
         justifyContent: "center",
         alignItems: "center",
-        opacity: fadeAnim,
         zIndex: 9999,
       }}
       pointerEvents={visible ? "auto" : "none"}
