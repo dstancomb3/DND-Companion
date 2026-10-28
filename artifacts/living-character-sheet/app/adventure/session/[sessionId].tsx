@@ -728,10 +728,10 @@ export default function AdventureSessionPlaceholderScreen() {
             });
             const legalChoice = choices.find(choice =>
               choice.weaponId === adjudication.weaponId && choice.targetMemberId === adjudication.targetMemberId);
-            // If the DM declines an attack, an aggressive creature should still
-            // attempt a legal approach using confirmed coordinates before holding.
+            // If the DM declines an attack, aggressive and sneaky creatures can
+            // try a legal approach using confirmed coordinates before holding.
             // The server remains responsible for validating the movement.
-            if (adjudication.kind !== "attack" && npcProfile === "aggressive") {
+            if (adjudication.kind !== "attack" && (npcProfile === "aggressive" || npcProfile === "sneaky")) {
               const destination = planNpcTacticalMovement({
                 battleId: activeOneOffBattleId, npcId: npc.id,
                 targetIds: members.map(member => member.id),
