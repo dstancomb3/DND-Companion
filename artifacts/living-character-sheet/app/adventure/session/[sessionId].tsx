@@ -347,6 +347,7 @@ const DM_WATCH_KEY = "@dm_party_watch";
 const ONE_OFF_SESSION_STATE_PREFIX = "@ai_dm_oneoff_active_session_v1:";
 
 interface PersistedOneOffSessionState {
+  sceneSafety?: CampaignRuntimeTurnResponse["turn"]["sceneSafety"];
   entries: ReturnType<typeof buildAiDmOneOffFeedSeed>["entries"];
   outcomeState: ReturnType<typeof createInitialOneOffOutcomeState>;
   isHandoffApproved: boolean;
@@ -495,6 +496,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [restRequestPending, setRestRequestPending] = useState<PartyRestType | null>(null);
   const [restRequestMessage, setRestRequestMessage] = useState("");
   const latestSceneSafetyRef = useRef<CampaignRuntimeTurnResponse["turn"]["sceneSafety"]>(undefined);
+  const [latestSceneSafety, setLatestSceneSafety] = useState<CampaignRuntimeTurnResponse["turn"]["sceneSafety"]>(undefined);
   const [restProvisionsEnabled, setRestProvisionsEnabled] = useState(false);
   const [restProvisionItemIds, setRestProvisionItemIds] = useState<string[]>([]);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
@@ -920,6 +922,8 @@ export default function AdventureSessionPlaceholderScreen() {
         if (raw) {
           const parsed = JSON.parse(raw) as PersistedOneOffSessionState;
           setEntries(Array.isArray(parsed.entries) ? parsed.entries : feedSeed.entries);
+          latestSceneSafetyRef.current = parsed.sceneSafety;
+          setLatestSceneSafety(parsed.sceneSafety);
           setOutcomeState(parsed.outcomeState ?? createInitialOneOffOutcomeState());
           setIsHandoffApproved(Boolean(parsed.isHandoffApproved));
           setPendingChoices(Array.isArray(parsed.pendingChoices) ? parsed.pendingChoices : []);
@@ -947,6 +951,7 @@ export default function AdventureSessionPlaceholderScreen() {
   React.useEffect(() => {
     if (isCampaignScaffold || !isOneOffSessionHydrated) return;
     const payload: PersistedOneOffSessionState = {
+      sceneSafety: latestSceneSafety,
       entries,
       outcomeState,
       isHandoffApproved,
@@ -965,6 +970,7 @@ export default function AdventureSessionPlaceholderScreen() {
     isCampaignScaffold,
     isOneOffSessionHydrated,
     sessionId,
+    latestSceneSafety,
     entries,
     outcomeState,
     isHandoffApproved,
@@ -1774,6 +1780,7 @@ export default function AdventureSessionPlaceholderScreen() {
         // Each committed AI DM narration updates the authoritative scene assessment.
         // Rest consumes this snapshot; it never asks the AI to score on demand.
         latestSceneSafetyRef.current = outcome.sceneSafety;
+        setLatestSceneSafety(outcome.sceneSafety);
 
         // Inventory mutations with snapshot — avoids stale closure across iterations (Slice E)
         const inventorySnapshot = new Map<string, { id: string; quantity: number }>(
