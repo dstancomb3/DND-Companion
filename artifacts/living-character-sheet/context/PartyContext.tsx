@@ -575,6 +575,7 @@ function PartyProviderInner({ children }: { children: ReactNode }) {
         memberId,
         members,
         combatState,
+        combatStateLoadError,
         isInParty: !!partyCode,
         isLoading,
         error,
