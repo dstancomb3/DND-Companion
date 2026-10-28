@@ -279,7 +279,7 @@ function basicNpcUnarmedAttack(strength: number): CombatNpcGearItem {
   return { id: "intrinsic-unarmed-strike", name: "Unarmed Strike", category: "weapon",
     equipped: true, attackBonus: Math.floor((strength - 10) / 2) + 2,
     damageDice: "1d4", damageModifier: Math.floor((strength - 10) / 2),
-    damageType: "bludgeoning", range: "melee",
+    damageType: "bludgeoning", range: "reach 5 ft",
     notes: "Fallback attack profile; replace with the creature's canonical attacks when available." };
 }
 
