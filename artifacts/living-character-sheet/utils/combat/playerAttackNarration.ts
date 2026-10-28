@@ -79,7 +79,9 @@ export function buildConfirmedPlayerAttackNarration(input: {
   if (!committed.size) return null;
   const names = new Map(input.targets.map(target => [target.id, target.name]));
   const rows = (result.targetResults ?? []).filter(target => committed.has(target.targetId));
-  const affected = [...committed].filter((id): id is string => typeof id === "string" && names.has(id));
+  // A committed target may disappear from the active NPC projection on defeat.
+  // Missing display metadata must not suppress narration of an accepted attack.
+  const affected = [...committed].filter((id): id is string => typeof id === "string" && id.length > 0);
   if (!affected.length) return null;
   const targets = affected.map(id => names.get(id) ?? "the target");
   const destination = targets.length === 1 ? targets[0] : targets.join(", ");
