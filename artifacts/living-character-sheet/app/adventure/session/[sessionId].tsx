@@ -1056,6 +1056,8 @@ export default function AdventureSessionPlaceholderScreen() {
 
   React.useEffect(() => {
     setEntries(feedSeed.entries);
+    latestSceneSafetyRef.current = undefined;
+    setLatestSceneSafety(undefined);
     setOutcomeState(createInitialOneOffOutcomeState());
     setIsHandoffApproved(false);
     setPendingChoices([]);
@@ -2067,6 +2069,10 @@ export default function AdventureSessionPlaceholderScreen() {
 
   async function handleRequestRest(restType: PartyRestType) {
     if (restRequestPending || !partyCode || !memberId) return;
+    if (!isCampaignScaffold && !isOneOffSessionHydrated) {
+      setRestRequestMessage("Rest unavailable until this adventure finishes loading its scene assessment.");
+      return;
+    }
     if (activeOneOffBattleId) {
       setRestRequestMessage("You cannot rest during an active battle.");
       return;
