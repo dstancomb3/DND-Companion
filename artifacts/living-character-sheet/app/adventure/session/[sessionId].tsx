@@ -1777,7 +1777,7 @@ export default function AdventureSessionPlaceholderScreen() {
           try {
             const safety = outcome.sceneSafety;
             if (!safety || !Number.isInteger(safety.dangerScore) ||
-                safety.dangerScore < 0 || safety.dangerScore > 100) {
+                safety.dangerScore < 1 || safety.dangerScore > 100) {
               setRestRequestMessage("The AI DM did not provide a valid safety score. No rest was applied.");
             } else {
               const safe = pendingRest.restType === "short_rest"
@@ -2105,9 +2105,9 @@ export default function AdventureSessionPlaceholderScreen() {
       if (!isCampaignScaffold) {
         if (pendingAiRestDecisionRef.current) throw new Error("A rest safety assessment is already pending.");
         pendingAiRestDecisionRef.current = { restType, enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] };
-        setRestRequestMessage("The AI DM is scoring scene safety from 0–100. No rest is submitted unless approved.");
+        setRestRequestMessage("The AI DM is scoring scene safety from 1–100. No rest is submitted unless approved.");
         const completed = await handleCampaignRuntimeTurn(
-          `I would like to take a ${restType === "short_rest" ? "short" : "long"} rest. Judge this scene's danger on a 0–100 scale and return sceneSafety with dangerScore, shortRestFeasible, longRestFeasible, and reason. Do not narrate completed recovery unless approved.`,
+          `I would like to take a ${restType === "short_rest" ? "short" : "long"} rest. Judge this scene's danger on a 1–100 scale and return sceneSafety with dangerScore, shortRestFeasible, longRestFeasible, and reason. Do not narrate completed recovery unless approved.`,
           { silent: true },
         );
         if (!completed && pendingAiRestDecisionRef.current?.restType === restType) {
