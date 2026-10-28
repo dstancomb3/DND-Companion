@@ -28,3 +28,17 @@ test("rejects movement through occupied intermediate space", () => {
   const blocked = [...positions, {battleId:"b",combatantId:"ally",xFeet:8,yFeet:0,source:"dm_confirmed"}];
   assert.equal(planNpcTacticalMovement({...input,positions:blocked,stance:"reposition"}),null);
 });
+
+test("retreat must improve separation from every confirmed enemy", () => {
+  const surrounded = [
+    {battleId:"b",combatantId:"guard",xFeet:0,yFeet:0,source:"dm_confirmed"},
+    {battleId:"b",combatantId:"lyra",xFeet:20,yFeet:0,source:"dm_confirmed"},
+    {battleId:"b",combatantId:"other",xFeet:-10,yFeet:0,source:"dm_confirmed"},
+  ];
+  assert.equal(planNpcTacticalMovement({
+    ...input, positions:surrounded, targetIds:["lyra","other"], stance:"retreat",
+  }),null);
+  assert.deepEqual(planNpcTacticalMovement({
+    ...input, positions:surrounded, targetIds:["lyra"], stance:"retreat",
+  }),{xFeet:-30,yFeet:0});
+});
