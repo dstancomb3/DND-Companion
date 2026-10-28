@@ -157,7 +157,8 @@ function buildActiveHostileActorsSummary(
       const source = npc.sourceType === "monster" && npc.sourceId?.trim()
         ? `${npc.sourceType}:${npc.sourceId.trim()}`
         : npc.sourceType;
-      return `${npc.id}=${npc.name} [${source}] @${battleId}`;
+      const defeated = (npc.dummyState?.currentHp ?? 1) <= 0;
+      return `${npc.id}=${npc.name} [${source}] @${battleId} [${defeated ? "DEFEATED - cannot act" : "alive"}]`;
     });
 
   if (hostiles.length === 0) return null;
@@ -1709,6 +1710,7 @@ export default function AdventureSessionPlaceholderScreen() {
         ...(inventorySummary ? [{ role: "system" as const, text: `CURRENT INVENTORY: ${inventorySummary}` }] : []),
         ...(hostileActorsSummary ? [{ role: "system" as const, text: hostileActorsSummary }] : []),
         ...(knownActorRegistrySummary ? [{ role: "system" as const, text: knownActorRegistrySummary }] : []),
+        { role: "system" as const, text: "COMBAT AUTHORITY: Narration is not a combat command. Never describe an uncommitted player attack as a confirmed hit, miss, damage, or kill. A player typing 'attack' expresses intent only; use the combat action controls for the mechanical result. Treat defeated NPCs as defeated, do not revive them in prose or introduce a new hostile without an encounter intent creating that combatant. Existing combat-event results take precedence over older story descriptions." },
         ...baseEntries
           .slice(-12)
           .map((entry): { role: "system" | "dm" | "player" | "tool"; text: string } => ({
