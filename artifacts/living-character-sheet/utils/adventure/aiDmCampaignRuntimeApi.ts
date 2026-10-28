@@ -15,6 +15,7 @@ export interface CampaignRuntimeTurnRollPrompt {
 export interface CampaignRuntimeTurnEncounterIntent {
   requiresEncounterStart: boolean;
   hostileCreatureName: string;
+  hostileCreatureCount?: number;
   hostileCreatureSourceType?: "monster";
   hostileCreatureSourceId?: string;
   promptRolls: CampaignRuntimeTurnRollPrompt[];
