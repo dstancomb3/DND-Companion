@@ -2312,6 +2312,31 @@ export default function AdventureSessionPlaceholderScreen() {
   const sharedState = combatState?.code === partyCode ? combatState : null;
   const workspacePanels: WorkspacePanels = {
     narrative: { title: "Adventure", content: (
+      <View style={{ flex: 1, minHeight: 0 }}>
+        {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
+          <View accessibilityLabel="Pending DM rolls" style={{ borderWidth: 1, borderColor: "#f59e0b55", borderRadius: 8, backgroundColor: c.card, paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}>
+            {pendingRollRequests.map(request => {
+              const modifier = getModifierForStatKey(request.statKey);
+              const isRolling = rollingRequestId === request.id;
+              return (
+                <View key={request.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 54 }}>
+                  <Feather name="target" size={20} color="#f59e0b" />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text numberOfLines={1} style={{ color: c.foreground, fontWeight: "700", fontSize: 16 }}>{request.label}</Text>
+                    <Text numberOfLines={1} style={{ color: c.mutedForeground, fontSize: 13 }}>{formatRollCheckName(request.statKey)} · {modifier >= 0 ? `+${modifier}` : modifier}</Text>
+                  </View>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Roll ${request.label}`}
+                    disabled={isRolling} onPress={() => void handlePendingRollResponse(request)}
+                    style={{ backgroundColor: "#f59e0b", paddingHorizontal: 18, height: 44, borderRadius: 7, justifyContent: "center", opacity: isRolling ? 0.6 : 1 }}>
+                    <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800" }}>{isRolling ? "Rolling..." : "Roll d20"}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
+
         <AiDmSessionFeedShell
           entries={entries}
           guidanceSource={feedSeed.guidanceSource}
@@ -2322,32 +2347,10 @@ export default function AdventureSessionPlaceholderScreen() {
           isStreaming={isStreamingResponse}
           streamingText={streamingResponseText}
         />
+      </View>
     ) },
     actions: { title: "Your next action",
       toolbar: !isCampaignScaffold ? <View style={{ gap: 6 }}>
-        {!isCampaignScaffold && pendingRollRequests.length > 0 ? (
-          <View accessibilityLabel="Pending DM rolls" style={{ borderWidth: 1, borderColor: "#f59e0b55", borderRadius: 8, backgroundColor: c.card, paddingHorizontal: 8, paddingVertical: 5, gap: 4 }}>
-            {pendingRollRequests.map(request => {
-              const modifier = getModifierForStatKey(request.statKey);
-              const isRolling = rollingRequestId === request.id;
-              return (
-                <View key={request.id} style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 38 }}>
-                  <Feather name="target" size={14} color="#f59e0b" />
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text numberOfLines={1} style={{ color: c.foreground, fontWeight: "700", fontSize: 12 }}>{request.label}</Text>
-                    <Text numberOfLines={1} style={{ color: c.mutedForeground, fontSize: 11 }}>{formatRollCheckName(request.statKey)} · {modifier >= 0 ? `+${modifier}` : modifier}</Text>
-                  </View>
-                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Roll ${request.label}`}
-                    disabled={isRolling} onPress={() => void handlePendingRollResponse(request)}
-                    style={{ backgroundColor: "#f59e0b", paddingHorizontal: 12, height: 34, borderRadius: 7, justifyContent: "center", opacity: isRolling ? 0.6 : 1 }}>
-                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>{isRolling ? "Rolling..." : "Roll d20"}</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        ) : null}
-
         {shouldShowEncounterSnapshot ? <>
           <Text style={{ color: c.mutedForeground, fontWeight: "700", fontSize: 11 }}>COMBAT ACTIONS</Text>
             <View style={styles.composerAttackTabs}>
