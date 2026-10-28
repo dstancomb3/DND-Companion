@@ -1904,7 +1904,7 @@ export default function AdventureSessionPlaceholderScreen() {
                 for (const npcId of encounterOutcome.hostileNpcIds) {
                   try {
                     const latest = await refreshCombatState(effectivePartyCode);
-                    if (latest?.initiativeByMember?.[npcId] !== undefined) continue;
+                    if (latest?.initiative?.some(entry => entry.memberId === npcId)) continue;
                     const initiativeRoll = Math.floor(Math.random() * 20) + 1;
                     await rollNpcInitiative(effectivePartyCode, npcId, initiativeRoll);
                     setEntries(prev => [...prev, {
