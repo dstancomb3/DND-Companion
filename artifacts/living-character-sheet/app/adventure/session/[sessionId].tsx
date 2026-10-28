@@ -751,8 +751,17 @@ export default function AdventureSessionPlaceholderScreen() {
         }
         await endPartyTurnForBattle(partyCode, activeOneOffBattleId, true, npcTurnStatus.npcId);
         await refreshCombatState(partyCode);
+        const holdExplanation = plan.status === "needs_adjudication"
+          ? plan.reason === "no_valid_attack"
+            ? `${npcTurnStatus.npcName} cannot attack: no executable attack was supplied with this NPC. The DM must assign a valid attack.`
+            : plan.reason === "no_eligible_targets"
+              ? `${npcTurnStatus.npcName} cannot find a valid opponent in this encounter.`
+              : fallback
+          : behavior.kind === "attack"
+            ? `${npcTurnStatus.npcName} did not receive a valid, confirmed attack ruling and holds their action.`
+            : fallback;
         setEntries(previous => previous.some(entry => entry.id === `npc-hold:${turnKey}`) ? previous : [...previous, {
-          id: `npc-hold:${turnKey}`, role: "dm" as const, text: fallback,
+          id: `npc-hold:${turnKey}`, role: "dm" as const, text: holdExplanation,
         }]);
       } catch (error) {
         setNpcTurnAutomationError(error instanceof Error ? error.message : "NPC turn could not advance.");
