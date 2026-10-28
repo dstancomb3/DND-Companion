@@ -494,7 +494,7 @@ export default function AdventureSessionPlaceholderScreen() {
   const [selectedAttackGroup, setSelectedAttackGroup] = useState<AttackComposerGroup | null>(null);
   const [restRequestPending, setRestRequestPending] = useState<PartyRestType | null>(null);
   const [restRequestMessage, setRestRequestMessage] = useState("");
-  const pendingAiRestDecisionRef = useRef<{ restType: PartyRestType; itemIds: string[]; enabled: boolean } | null>(null);
+  const latestSceneSafetyRef = useRef<CampaignRuntimeTurnResponse["turn"]["sceneSafety"]>(undefined);
   const [restProvisionsEnabled, setRestProvisionsEnabled] = useState(false);
   const [restProvisionItemIds, setRestProvisionItemIds] = useState<string[]>([]);
   const [combatCategory, setCombatCategory] = useState<"attack" | "items" | "actions" | "bonus" | "resources">("attack");
@@ -1771,39 +1771,9 @@ export default function AdventureSessionPlaceholderScreen() {
 
         // Only an explicitly requested AI one-off rest is eligible for this
         // automatic host decision. An ordinary story turn cannot approve rests.
-        const pendingRest = pendingAiRestDecisionRef.current;
-        if (pendingRest && effectivePartyCode && memberId && !isCampaignScaffold) {
-          pendingAiRestDecisionRef.current = null;
-          try {
-            const safety = outcome.sceneSafety;
-            if (!safety || !Number.isInteger(safety.dangerScore) ||
-                safety.dangerScore < 1 || safety.dangerScore > 100) {
-              setRestRequestMessage("The AI DM did not provide a valid safety score. No rest was applied.");
-            } else {
-              const safe = pendingRest.restType === "short_rest"
-                ? safety.shortRestFeasible && safety.dangerScore <= 30
-                : safety.longRestFeasible && safety.dangerScore <= 10;
-              if (!safe) {
-                setRestRequestMessage(`Rest denied (danger ${safety.dangerScore}/100): ${safety.reason}`);
-              } else {
-                // Only an approved rest is committed to the party state.
-                const created = await createPartyRestRequest(effectivePartyCode, {
-                  memberId, restType: pendingRest.restType,
-                  provisions: { enabled: pendingRest.enabled, itemIds: pendingRest.itemIds },
-                });
-                const resolution = await resolvePartyRestRequest(effectivePartyCode, created.request.id, {
-                  status: "approved", resolvedBy: "ai_dm", automatic: true, sceneSafety: safety,
-                });
-                await refreshCombatState(effectivePartyCode);
-                setRestRequestMessage(resolution.request.status === "approved"
-                  ? `Rest approved (danger ${safety.dangerScore}/100). Recovery is being applied.`
-                  : "The rest was not approved.");
-              }
-            }
-          } catch (error) {
-            setRestRequestMessage(error instanceof Error ? error.message : "The approved rest could not be committed.");
-          }
-        }
+        // Each committed AI DM narration updates the authoritative scene assessment.
+        // Rest consumes this snapshot; it never asks the AI to score on demand.
+        latestSceneSafetyRef.current = outcome.sceneSafety;
 
         // Inventory mutations with snapshot — avoids stale closure across iterations (Slice E)
         const inventorySnapshot = new Map<string, { id: string; quantity: number }>(
@@ -2103,17 +2073,28 @@ export default function AdventureSessionPlaceholderScreen() {
         throw new Error("Some provisions are no longer in your inventory. Review your selections.");
       }
       if (!isCampaignScaffold) {
-        if (pendingAiRestDecisionRef.current) throw new Error("A rest safety assessment is already pending.");
-        pendingAiRestDecisionRef.current = { restType, enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] };
-        setRestRequestMessage("The AI DM is scoring scene safety from 1–100. No rest is submitted unless approved.");
-        const completed = await handleCampaignRuntimeTurn(
-          `I would like to take a ${restType === "short_rest" ? "short" : "long"} rest. Judge this scene's danger on a 1–100 scale and return sceneSafety with dangerScore, shortRestFeasible, longRestFeasible, and reason. Do not narrate completed recovery unless approved.`,
-          { silent: true },
-        );
-        if (!completed && pendingAiRestDecisionRef.current?.restType === restType) {
-          pendingAiRestDecisionRef.current = null;
-          setRestRequestMessage("The AI DM could not assess safety. No rest was submitted.");
+        const safety = latestSceneSafetyRef.current;
+        if (!safety || !Number.isInteger(safety.dangerScore) || safety.dangerScore < 1 || safety.dangerScore > 100) {
+          throw new Error("No valid scene-safety assessment is available yet. Continue the story before resting.");
         }
+        const eligible = restType === "short_rest"
+          ? safety.shortRestFeasible && safety.dangerScore <= 30
+          : safety.longRestFeasible && safety.dangerScore <= 10;
+        if (!eligible) {
+          setRestRequestMessage(`Rest denied (danger ${safety.dangerScore}/100): ${safety.reason}`);
+          return;
+        }
+        const created = await createPartyRestRequest(partyCode, {
+          memberId, restType,
+          provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] },
+        });
+        const approved = await resolvePartyRestRequest(partyCode, created.request.id, {
+          status: "approved", resolvedBy: "ai_dm", automatic: true, sceneSafety: safety,
+        });
+        await refreshCombatState(partyCode);
+        setRestRequestMessage(approved.request.status === "approved"
+          ? `Rest approved (danger ${safety.dangerScore}/100). Recovery is being applied.`
+          : "Rest could not be approved.");
       } else {
         await createPartyRestRequest(partyCode, { memberId, restType, provisions: { enabled: restProvisionsEnabled, itemIds: restProvisionsEnabled ? selected : [] } });
         await refreshCombatState(partyCode);
