@@ -16,6 +16,8 @@ export function planNpcTacticalMovement(input: {
     .map(p => ({ p, distance: Math.hypot(p.xFeet - start.xFeet, p.yFeet - start.yFeet) }))
     .sort((a, b) => a.distance - b.distance)[0];
   if (!nearest || nearest.distance < 0.01) return null;
+  // Maintain a separate retreat destination: the NPC must actually increase
+  // separation from its nearest confirmed threat before a move can be proposed.
   const sign = input.stance === "retreat" ? -1 : 1;
   const step = input.stance === "retreat"
     ? Math.min(input.speedFeet, 30)
@@ -24,6 +26,7 @@ export function planNpcTacticalMovement(input: {
   const xFeet = start.xFeet + sign * step * (nearest.p.xFeet - start.xFeet) / nearest.distance;
   const yFeet = start.yFeet + sign * step * (nearest.p.yFeet - start.yFeet) / nearest.distance;
   if (!Number.isFinite(xFeet) || !Number.isFinite(yFeet)) return null;
+  if (input.stance === "retreat" && Math.hypot(xFeet - nearest.p.xFeet, yFeet - nearest.p.yFeet) <= nearest.distance) return null;
   // A straight-line move is only safe to propose when its endpoint is free.
   // In the absence of a map/pathfinder, do not teleport into occupied space.
   const dx = xFeet - start.xFeet;
