@@ -119,7 +119,7 @@ Unauthorized attempts create deterministic stealth/perception/evidence/witness e
 | F8: DM orchestration | F8.1 scene casting intents; F8.2 constrained overrides; F8.3 dialogue prompt assembly; F8.4 story consequences; F8.5 AI cost routing/telemetry | AI/human parity | AI cannot bypass authority; 99% eligible generation |
 | F9: Hardening & release | F9.1 DB migration/rollback; F9.2 multiplayer concurrency; F9.3 recovery/undo; F9.4 accessibility/platform; F9.5 performance/diversity; F9.6 end-to-end adventure | Gated pilot | CI + DB + devices + canonical adventure acceptance |
 
-**Total: 9 phases, 44 slices.** Progress per slice is **planned → implemented → unit-tested → integrated → user-accepted**, never inferred from a merged PR alone. No parallel high-risk changes to existing combat authority without prerequisite gates.
+**Total: 9 phases, 45 slices.** Progress per slice is **planned → implemented → unit-tested → integrated → user-accepted**, never inferred from a merged PR alone. No parallel high-risk changes to existing combat authority without prerequisite gates.
 
 ## 10. Acceptance matrix (minimum automated and manual)
 
