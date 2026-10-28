@@ -1388,6 +1388,10 @@ export default function AdventureSessionPlaceholderScreen() {
       setPartyBootstrapError("The party connection is not ready. Check that the API server is running, then reconnect before narrating an action.");
       return;
     }
+    if (!isCampaignScaffold && combatState?.code !== partyCode) {
+      setPartyBootstrapError("The encounter has not connected to authoritative combat state. Retry encounter connection before taking another action.");
+      return;
+    }
     if (activeOneOffBattleId) {
       setEntries((prev) => [...prev, {
         id: createFeedEntryId("combat-action-block"),
