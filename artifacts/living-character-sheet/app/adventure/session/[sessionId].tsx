@@ -725,6 +725,32 @@ export default function AdventureSessionPlaceholderScreen() {
             });
             const legalChoice = choices.find(choice =>
               choice.weaponId === adjudication.weaponId && choice.targetMemberId === adjudication.targetMemberId);
+            // If the DM declines an attack, an aggressive creature should still
+            // attempt a legal approach using confirmed coordinates before holding.
+            // The server remains responsible for validating the movement.
+            if (adjudication.kind !== "attack" && npcProfile === "aggressive") {
+              const destination = planNpcTacticalMovement({
+                battleId: activeOneOffBattleId, npcId: npc.id,
+                targetIds: members.map(member => member.id),
+                positions: combatState.encounterPositions ?? [],
+                speedFeet: npc.coreStats.speed, stance: "reposition",
+              });
+              if (destination) {
+                const moved = await executeNpcMoveTurn(partyCode, {
+                  commandId: `ai-npc-approach:${npc.id.slice(0, 35)}:${revision}`,
+                  battleId: activeOneOffBattleId, npcId: npc.id, expectedRevision: revision,
+                  stance: "reposition", destination,
+                });
+                await refreshCombatState(partyCode);
+                if (!moved.replayed) setEntries(previous => previous.some(entry => entry.id === `npc-move:${moved.receipt.commandId}`)
+                  ? previous : [...previous, {
+                    id: `npc-move:${moved.receipt.commandId}`, role: "dm" as const,
+                    text: `${npc.name} advances toward the adventurers, moving ${Math.round(moved.receipt.movedFeet)} feet.`,
+                  }]);
+                return;
+              }
+            }
+
             if (adjudication.kind === "attack" && legalChoice &&
                 typeof adjudication.distanceFeet === "number") {
               const committed = await executeNpcWeaponTurn(partyCode, {
